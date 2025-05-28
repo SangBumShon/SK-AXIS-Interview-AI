@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        audio {
+            margin-top: 20px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Text-to-Speech (TTS) Demo</h1>
+        <textarea id="text-input" placeholder="여기에 텍스트를 입력하세요..."></textarea>
+        <br>
+        <button id="generate-tts">TTS 생성</button>
+        <br>
+        <audio id="audio-player" controls style="display: none;"></audio>
+    </div>
+
+    <script>
+        document.getElementById("generate-tts").addEventListener("click", async () => {
+            const text = document.getElementById("text-input").value;
+
+            if (!text.trim()) {
+                alert("텍스트를 입력하세요!");
+                return;
+            }
+
+            try {
+                const response = await fetch("/tts/", {  // URL 수정
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                    body: new URLSearchParams({ text }),
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    alert(`TTS 생성 실패: ${error.detail}`);
+                    return;
+                }
+
+                const data = await response.json();
+                const audioPlayer = document.getElementById("audio-player");
+                audioPlayer.src = data.file_path + "?v=" + new Date().getTime();
+                audioPlayer.style.display = "block";
+                audioPlayer.play();
+            } catch (error) {
+                console.error("에러 발생:", error);
+                alert("TTS 요청 중 문제가 발생했습니다.");
+            }
+        });
+    </script>
+</body>
+</html>

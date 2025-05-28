@@ -28,3 +28,12 @@ urllib3==2.3.0 ; python_version >= "3.11" and python_version < "3.12"
 uvicorn[standard]==0.34.0 ; python_version >= "3.11" and python_version < "3.12"
 opencv-python==4.9.0.80 ; python_version >= "3.11" and python_version < "3.12"
 mediapipe==0.10.5 ; python_version >= "3.11" and python_version < "3.12"
+ffmpeg-python
+pydub
+faster-whisper
+requests
+whisper
+openai
+langchain
+langchain-community
+aiofiles
