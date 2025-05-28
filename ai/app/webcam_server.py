@@ -18,6 +18,12 @@ app = FastAPI()
 static_dir = Path(__file__).parent.parent / "static"
 os.makedirs(static_dir, exist_ok=True)
 
+# 정적 파일 경로 디버그 출력
+print(f"Static directory: {static_dir}")
+print(f"Static directory exists: {os.path.exists(static_dir)}")
+if os.path.exists(static_dir):
+    print(f"Files in static directory: {os.listdir(static_dir)}")
+
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 # 비디오 프로세서 초기화
@@ -86,7 +92,14 @@ async def process_frames():
 
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
-    return FileResponse(static_dir / "index.html")
+    index_path = static_dir / "index.html"
+    print(f"Index path: {index_path}")
+    print(f"Index exists: {os.path.exists(index_path)}")
+    
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    else:
+        return HTMLResponse(f"<html><body><h1>인덱스 파일을 찾을 수 없습니다.</h1><p>경로: {index_path}</p></body></html>")
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):

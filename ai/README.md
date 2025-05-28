@@ -29,7 +29,7 @@ pip install opencv-python==4.9.0.80 mediapipe==0.10.5
 ## 프로젝트 구조
 
 ```
-server/
+ai/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py                # FastAPI 메인 애플리케이션
@@ -55,7 +55,7 @@ server/
 1. 서버 실행:
 
 ```bash
-cd server
+cd ai
 python -m app.main
 ```
 
