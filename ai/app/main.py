@@ -12,9 +12,25 @@ from pathlib import Path
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from app.video_processor import VideoProcessor
+import openai
+from dotenv import load_dotenv
+from app.routers.stt_router import router as stt_router # stt_router와 tts_router 임포트
+from app.routers.tts_router import router as tts_router  # tts_router 임포트
 from app.utils.vision_analyzer import VisionAnalyzer
-
 app = FastAPI(title="면접 평가 시스템 API")
+
+# 명시적으로 .env 파일 경로 지정
+dotenv_path = os.path.join(os.path.dirname(__file__), 'app', '.env')
+load_dotenv(dotenv_path)
+openai.api_key = os.getenv("OPENAI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+if not OPENAI_API_KEY:
+    raise ValueError("API 키가 설정되지 않았습니다. .env 파일을 확인하세요.")
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # /Users/phoenix/.../app
+UPLOAD_DIR = os.path.join(BASE_DIR, "routers", "uploads")
+app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 # CORS 설정
 app.add_middleware(

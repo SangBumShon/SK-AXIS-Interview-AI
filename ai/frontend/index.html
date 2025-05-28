@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>비디오+오디오 녹화 및 업로드</title>
+</head>
+<body>
+  <h1>캠 + 마이크 녹화 및 업로드 테스트</h1>
+  <video id="preview" autoplay muted playsinline style="width: 320px; height: 240px; border: 1px solid black;"></video>
+  <br />
+  <button id="startBtn">Start Recording</button>
+  <button id="stopBtn" disabled>Stop Recording</button>
+  <p id="log"></p>
+
+  <script>
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const log = document.getElementById('log');
+    const preview = document.getElementById('preview');
+
+    let mediaRecorder;
+    let recordedChunks = [];
+    let stream;
+
+    startBtn.onclick = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        preview.srcObject = stream;
+
+        recordedChunks = [];
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp8,opus' });
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            recordedChunks.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = async () => {
+          const blob = new Blob(recordedChunks, { type: 'video/webm' });
+          log.textContent = `녹화 종료, 크기: ${blob.size} 바이트. 서버로 업로드 중...`;
+
+          const formData = new FormData();
+          formData.append('video_chunk', blob, 'recording.webm');
+
+          try {
+            const res = await fetch('/stt/', {
+              method: 'POST',
+              body: formData,
+            });
+            const data = await res.json();
+            if (res.ok) {
+              log.textContent = `서버 응답: ${data.text}`;
+            } else {
+              log.textContent = `서버 오류: ${data.detail || '알 수 없는 오류'}`;
+            }
+          } catch (err) {
+            log.textContent = `업로드 실패: ${err.message}`;
+          }
+        };
+
+        mediaRecorder.start();
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+        log.textContent = '녹화 시작...';
+      } catch (err) {
+        log.textContent = '미디어 장치 접근 실패: ' + err.message;
+      }
+    };
+
+    stopBtn.onclick = () => {
+      mediaRecorder.stop();
+      stream.getTracks().forEach(track => track.stop());
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      log.textContent = '녹화 중지됨.';
+    };
+  </script>
+</body>
+</html>
