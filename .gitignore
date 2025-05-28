@@ -28,6 +28,39 @@ server/.vscode/*
 server/!.vscode/extensions.json
 server/venv
 
+# Output directories
+server/output/*
+ai/output/*
+# Keep .gitkeep files to preserve directory structure
+!server/output/.gitkeep
+!ai/output/.gitkeep
+
+# Media and temporary files
+*.mp4
+*.mp3
+*.wav
+*.pdf
+*.xlsx
+# JSON files except specific configuration files
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+
+# AI model files
+*.model
+*.weights
+*.h5
+*.pt
+*.pth
+*.onnx
+
+# Temporary directories
+server/temp/
+ai/temp/
+!server/temp/.gitkeep
+!ai/temp/.gitkeep
+
 
 ### Java ###
 # Compiled class file
