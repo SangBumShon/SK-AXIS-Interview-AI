@@ -1,3 +1,20 @@
+### Spring Boot (server/spring only) ###
+server/spring/.gradle/
+server/spring/build/
+server/spring/.idea/
+server/spring/.DS_Store
+server/spring/target/
+
+# Local config
+server/spring/application-*.yml
+!server/spring/application.yml
+server/spring/application-*.properties
+!server/spring/application.properties
+
+# Logs
+server/spring/logs/
+server/spring/*.log
+
 # Logs
 client/logs
 client/*.log
