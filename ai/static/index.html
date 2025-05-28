@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>면접 비언어적 요소 분석</title>
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .video-container {
+            flex: 1;
+            min-width: 640px;
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        #videoElement {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .metrics-container {
+            flex: 1;
+            min-width: 300px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .metric-item {
+            margin-bottom: 15px;
+        }
+        .metric-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .metric-value {
+            font-size: 14px;
+        }
+        .progress-bar {
+            height: 10px;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+        .progress-value {
+            height: 100%;
+            background-color: #4CAF50;
+            border-radius: 5px;
+            transition: width 0.3s ease;
+        }
+        .controls {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            gap: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #stopButton {
+            background-color: #f44336;
+        }
+        #stopButton:hover {
+            background-color: #d32f2f;
+        }
+        .status {
+            text-align: center;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .indicator.green {
+            background-color: #4CAF50;
+        }
+        .indicator.red {
+            background-color: #f44336;
+        }
+        .indicator.yellow {
+            background-color: #FFC107;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        .summary-container {
+            width: 100%;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>면접 비언어적 요소 분석</h1>
+    
+    <div class="container">
+        <div class="video-container">
+            <img id="videoElement" src="" alt="카메라 영상">
+            <div class="status">
+                <span class="indicator red" id="statusIndicator"></span>
+                <span id="statusText">연결 중...</span>
+            </div>
+        </div>
+        
+        <div class="metrics-container">
+            <h2>실시간 분석 결과</h2>
+            
+            <div class="metric-item">
+                <div class="metric-title">
+                    <span>얼굴 감지</span>
+                    <span id="faceDetectedValue">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-value" id="faceDetectedBar" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <div class="metric-item">
+                <div class="metric-title">
+                    <span>표정 (웃음)</span>
+                    <span id="smileValue">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-value" id="smileBar" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <div class="metric-item">
+                <div class="metric-title">
+                    <span>자세</span>
+                    <span id="postureValue">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-value" id="postureBar" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <div class="metric-item">
+                <div class="metric-title">
+                    <span>시선 처리</span>
+                    <span id="eyeContactValue">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-value" id="eyeContactBar" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <div class="metric-item">
+                <div class="metric-title">
+                    <span>제스처</span>
+                    <span id="gestureValue">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-value" id="gestureBar" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <div class="metric-item">
+                <div class="metric-title">
+                    <span>눈 깜빡임 횟수</span>
+                    <span id="blinkCount">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <button id="startButton">시작</button>
+        <button id="stopButton" disabled>중지</button>
+        <button id="analysisButton">분석 결과 보기</button>
+    </div>
+    
+    <div class="summary-container hidden" id="summaryContainer">
+        <h2>분석 결과 요약</h2>
+        <div id="summaryContent"></div>
+    </div>
+
+    <script>
+        // 요소 참조
+        const videoElement = document.getElementById('videoElement');
+        const startButton = document.getElementById('startButton');
+        const stopButton = document.getElementById('stopButton');
+        const analysisButton = document.getElementById('analysisButton');
+        const statusIndicator = document.getElementById('statusIndicator');
+        const statusText = document.getElementById('statusText');
+        const summaryContainer = document.getElementById('summaryContainer');
+        const summaryContent = document.getElementById('summaryContent');
+        
+        // 메트릭 요소
+        const faceDetectedValue = document.getElementById('faceDetectedValue');
+        const faceDetectedBar = document.getElementById('faceDetectedBar');
+        const smileValue = document.getElementById('smileValue');
+        const smileBar = document.getElementById('smileBar');
+        const postureValue = document.getElementById('postureValue');
+        const postureBar = document.getElementById('postureBar');
+        const eyeContactValue = document.getElementById('eyeContactValue');
+        const eyeContactBar = document.getElementById('eyeContactBar');
+        const gestureValue = document.getElementById('gestureValue');
+        const gestureBar = document.getElementById('gestureBar');
+        const blinkCount = document.getElementById('blinkCount');
+        
+        // 웹소켓 연결
+        let socket = null;
+        
+        // 연결 상태
+        let isConnected = false;
+        
+        // 웹소켓 연결 함수
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+            
+            socket = new WebSocket(wsUrl);
+            
+            socket.onopen = function(e) {
+                console.log('웹소켓 연결 성공');
+                isConnected = true;
+                statusIndicator.className = 'indicator green';
+                statusText.textContent = '연결됨';
+                startButton.disabled = true;
+                stopButton.disabled = false;
+            };
+            
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                
+                // 이미지 업데이트
+                if (data.frame) {
+                    videoElement.src = `data:image/jpeg;base64,${data.frame}`;
+                }
+                
+                // 메트릭 업데이트
+                if (data.metrics) {
+                    updateMetrics(data.metrics);
+                }
+            };
+            
+            socket.onclose = function(event) {
+                console.log('웹소켓 연결 종료:', event);
+                isConnected = false;
+                statusIndicator.className = 'indicator red';
+                statusText.textContent = '연결 끊김';
+                startButton.disabled = false;
+                stopButton.disabled = true;
+                analysisButton.disabled = false;
+            };
+            
+            socket.onerror = function(error) {
+                console.error('웹소켓 오류:', error);
+                statusIndicator.className = 'indicator red';
+                statusText.textContent = '오류 발생';
+            };
+        }
+        
+        // 메트릭 업데이트 함수
+        function updateMetrics(metrics) {
+            // 퍼센트 값 계산 및 표시
+            const facePercent = Math.round(metrics.face_rate * 100);
+            const smilePercent = Math.round(metrics.smile_rate * 100);
+            const posturePercent = Math.round(metrics.posture_rate * 100);
+            const eyePercent = Math.round(metrics.eye_rate * 100);
+            const gesturePercent = Math.round(metrics.gesture_rate * 100);
+            
+            // 텍스트 업데이트
+            faceDetectedValue.textContent = `${facePercent}%`;
+            smileValue.textContent = `${smilePercent}%`;
+            postureValue.textContent = `${posturePercent}%`;
+            eyeContactValue.textContent = `${eyePercent}%`;
+            gestureValue.textContent = `${gesturePercent}%`;
+            blinkCount.textContent = metrics.blink_count;
+            
+            // 프로그레스 바 업데이트
+            faceDetectedBar.style.width = `${facePercent}%`;
+            smileBar.style.width = `${smilePercent}%`;
+            postureBar.style.width = `${posturePercent}%`;
+            eyeContactBar.style.width = `${eyePercent}%`;
+            gestureBar.style.width = `${gesturePercent}%`;
+            
+            // 색상 업데이트
+            faceDetectedBar.style.backgroundColor = getColorForPercentage(facePercent);
+            smileBar.style.backgroundColor = getColorForPercentage(smilePercent);
+            postureBar.style.backgroundColor = getColorForPercentage(posturePercent);
+            eyeContactBar.style.backgroundColor = getColorForPercentage(eyePercent);
+            gestureBar.style.backgroundColor = getColorForPercentage(gesturePercent);
+        }
+        
+        // 퍼센트에 따른 색상 반환 함수
+        function getColorForPercentage(percent) {
+            if (percent >= 70) return '#4CAF50'; // 녹색
+            if (percent >= 40) return '#FFC107'; // 노란색
+            return '#F44336'; // 빨간색
+        }
+        
+        // 웹소켓 종료 함수
+        function closeWebSocket() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({ action: 'stop' }));
+                socket.close();
+            }
+        }
+        
+        // 분석 결과 가져오기
+        async function getAnalysisSummary() {
+            try {
+                const response = await fetch('/analysis');
+                const data = await response.json();
+                
+                if (data.error) {
+                    summaryContent.innerHTML = `<p class="error">${data.error}</p>`;
+                    return;
+                }
+                
+                // 결과 표시
+                let html = '<div class="analysis-results">';
+                
+                // 얼굴 감지
+                const faceRate = Math.round(data.face_detection.rate * 100);
+                html += `<div class="result-item">
+                    <h3>얼굴 감지: ${faceRate}%</h3>
+                    <p>${data.face_detection.comment}</p>
+                </div>`;
+                
+                // 표정 (웃음)
+                const smileRate = Math.round(data.smile.rate * 100);
+                html += `<div class="result-item">
+                    <h3>표정 (웃음): ${smileRate}%</h3>
+                    <p>${data.smile.comment}</p>
+                </div>`;
+                
+                // 자세
+                const postureRate = Math.round(data.posture.rate * 100);
+                html += `<div class="result-item">
+                    <h3>자세: ${postureRate}%</h3>
+                    <p>${data.posture.comment}</p>
+                </div>`;
+                
+                // 시선 처리
+                const eyeRate = Math.round(data.eye_contact.rate * 100);
+                html += `<div class="result-item">
+                    <h3>시선 처리: ${eyeRate}%</h3>
+                    <p>${data.eye_contact.comment}</p>
+                </div>`;
+                
+                // 제스처
+                const gestureRate = Math.round(data.gesture.rate * 100);
+                html += `<div class="result-item">
+                    <h3>제스처: ${gestureRate}%</h3>
+                    <p>${data.gesture.comment}</p>
+                </div>`;
+                
+                // 눈 깜빡임
+                html += `<div class="result-item">
+                    <h3>눈 깜빡임</h3>
+                    <p>${data.blink.comment}</p>
+                </div>`;
+                
+                // 종합 점수
+                html += `<div class="result-item overall">
+                    <h3>종합 평가: ${data.overall_score.toFixed(1)}/5.0</h3>
+                </div>`;
+                
+                html += '</div>';
+                
+                summaryContent.innerHTML = html;
+                summaryContainer.classList.remove('hidden');
+                
+            } catch (error) {
+                console.error('분석 결과 가져오기 오류:', error);
+                summaryContent.innerHTML = '<p class="error">분석 결과를 가져오는 중 오류가 발생했습니다.</p>';
+            }
+        }
+        
+        // 이벤트 리스너
+        startButton.addEventListener('click', function() {
+            connectWebSocket();
+        });
+        
+        stopButton.addEventListener('click', function() {
+            closeWebSocket();
+        });
+        
+        analysisButton.addEventListener('click', function() {
+            getAnalysisSummary();
+        });
+        
+        // 페이지 언로드 시 연결 종료
+        window.addEventListener('beforeunload', function() {
+            closeWebSocket();
+        });
+    </script>
+</body>
+</html>
