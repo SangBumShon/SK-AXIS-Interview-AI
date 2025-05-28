@@ -23,7 +23,8 @@ class VisionAnalyzer:
             static_image_mode=False,
             max_num_faces=1,
             min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
+            min_tracking_confidence=0.5,
+            refine_landmarks=True
         )
         
         # 포즈 감지
