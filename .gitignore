@@ -4,7 +4,9 @@ server/spring/build/
 server/spring/.idea/
 server/spring/.DS_Store
 server/spring/target/
-
+.idea/
+!.idea/codeStyles/
+!.idea/inspectionProfiles/
 # Local config
 server/spring/application-*.yml
 !server/spring/application.yml
