@@ -1,6 +1,7 @@
 package com.example.skaxis.service;
 
 import com.example.skaxis.dto.FileUploadResponseDto;
+import com.example.skaxis.entity.InterviewInterviewee;
 import com.example.skaxis.repository.InterviewIntervieweeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,7 +15,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import com.example.skaxis.entity.InterviewInterviewee;
 
 @Service
 @RequiredArgsConstructor
@@ -25,14 +25,6 @@ public class MediaService {
     
     @Value("${app.upload.dir:/uploads}")
     private String uploadDir;
-    
-    public FileUploadResponseDto uploadMp3File(MultipartFile file, Long interviewResultId) throws IOException {
-        return uploadMediaFile(file, interviewResultId, "mp3", "audio/mpeg");
-    }
-    
-    public FileUploadResponseDto uploadMp4File(MultipartFile file, Long interviewResultId) throws IOException {
-        return uploadMediaFile(file, interviewResultId, "mp4", "video/mp4");
-    }
     
     public FileUploadResponseDto uploadSttFile(MultipartFile file, Long interviewResultId) throws IOException {
         return uploadMediaFile(file, interviewResultId, "stt", "text/plain");
