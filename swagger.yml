@@ -248,6 +248,28 @@ paths:
         "500":
           description: 서버 오류
   
+  
+  /excel/import:
+    post:
+      summary: Excel 파일 업로드 및 즉시 파싱
+      description: 신규 데이터 또는 기존 데이터 업데이트
+    
+  /excel/export:
+    get:
+      summary: 면접 데이터 Excel 내보내기
+      parameters:
+        - name: export_type
+          enum: ["all", "selected", "template"]
+        - name: interviewee_ids
+          description: 선택된 면접자 ID 목록 (export_type=selected일 때)
+        - name: include_results
+          description: 평가 결과 포함 여부
+        
+  /excel/template:
+    get:
+      summary: 면접자 정보 입력 템플릿 다운로드
+
+
 
 
 

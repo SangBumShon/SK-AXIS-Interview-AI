@@ -1,0 +1,66 @@
+# 단순화된 docker-compose.yml
+version: '3.8'
+services:
+  # 프론트엔드 (Vue.js)
+  frontend:
+    build: ./client
+    ports:
+      - "3000:3000"
+    volumes:
+      - shared-files:/app/uploads
+    environment:
+      - VITE_API_URL=http://backend:8080
+      
+  # 백엔드 (Spring Boot)
+  backend:
+    build: ./server/spring
+    ports:
+      - "8080:8080"
+    volumes:
+      - shared-files:/app/uploads
+      - ./logs:/app/logs
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - DB_HOST=database
+      - UPLOAD_PATH=/app/uploads
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      - database
+      
+  # AI 서비스 (Python FastAPI)
+  ai-service:
+    build: ./ai
+    ports:
+      - "8000:8000"
+    volumes:
+      - shared-files:/app/uploads
+      - ai-models:/app/models
+      - stt-temp:/app/stt-temp  # STT 임시 파일용
+    environment:
+      - MODEL_PATH=/app/models
+      - UPLOAD_PATH=/app/uploads
+      - STT_TEMP_PATH=/app/stt-temp
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+              
+  # 데이터베이스
+  database:
+    image: mysql:8.0
+    volumes:
+      - db-data:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=skaxis
+      - MYSQL_USER=skaxis
+      - MYSQL_PASSWORD=${DB_USER_PASSWORD}
+
+volumes:
+  shared-files:
+  ai-models:
+  db-data:
+  stt-temp:  # STT 텍스트 임시 저장용
