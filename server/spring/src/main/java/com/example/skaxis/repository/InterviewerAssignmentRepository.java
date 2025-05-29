@@ -10,6 +10,4 @@ import java.util.List;
 public interface InterviewerAssignmentRepository extends JpaRepository<InterviewerAssignment, Long> {
     
     List<InterviewerAssignment> findByInterviewId(Long interviewId);
-    
-    List<InterviewerAssignment> findByUserId(Long userId);
 }

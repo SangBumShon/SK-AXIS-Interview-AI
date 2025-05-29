@@ -10,8 +10,4 @@ import java.util.List;
 public interface InterviewIntervieweeRepository extends JpaRepository<InterviewInterviewee, Long> {
     
     List<InterviewInterviewee> findByInterviewId(Long interviewId);
-    
-    List<InterviewInterviewee> findByIntervieweeId(Long intervieweeId);
-    
-    List<InterviewInterviewee> findByInterviewIdAndIntervieweeId(Long interviewId, Long intervieweeId);
 }

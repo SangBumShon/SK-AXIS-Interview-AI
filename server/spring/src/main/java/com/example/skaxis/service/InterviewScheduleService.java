@@ -1,6 +1,9 @@
 package com.example.skaxis.service;
 
-import com.example.skaxis.dto.*;
+import com.example.skaxis.dto.InterviewScheduleResponseDto;
+import com.example.skaxis.dto.PersonDto;
+import com.example.skaxis.dto.RoomDto;
+import com.example.skaxis.dto.TimeSlotDto;
 import com.example.skaxis.entity.*;
 import com.example.skaxis.repository.*;
 import lombok.RequiredArgsConstructor;
@@ -10,9 +13,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.stream.Collectors;
-import com.example.skaxis.entity.InterviewInterviewee;
-import com.example.skaxis.repository.InterviewIntervieweeRepository;
 
 @Service
 @RequiredArgsConstructor

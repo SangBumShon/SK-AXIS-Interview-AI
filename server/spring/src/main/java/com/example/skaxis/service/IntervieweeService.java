@@ -1,6 +1,7 @@
 package com.example.skaxis.service;
 
-import com.example.skaxis.dto.*;
+import com.example.skaxis.dto.ExcelParseResponseDto;
+import com.example.skaxis.dto.FileUploadResponseDto;
 import com.example.skaxis.entity.Interviewee;
 import com.example.skaxis.repository.IntervieweeRepository;
 import lombok.RequiredArgsConstructor;
