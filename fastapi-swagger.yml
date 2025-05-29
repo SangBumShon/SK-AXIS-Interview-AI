@@ -1,0 +1,113 @@
+openapi: 3.0.1
+info:
+  title: SK AXIS AI Interview FastAPI
+  description: AI 면접 실시간 녹음/녹화, 평가, 파일 경로 연동 API
+  version: "1.0.0"
+
+servers:
+  - url: /api/v1
+
+tags:
+  - name: Interview
+    description: 면접 시작/종료, 실시간 녹음/녹화 API
+
+paths:
+  /interview/start:
+    post:
+      tags: [Interview]
+      summary: 면접 시작 (Spring Boot로부터 질문 5개 조회)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartInterviewRequest'
+      responses:
+        '200':
+          description: 면접 질문 5개 반환
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartInterviewResponse'
+
+  /interview/end:
+    post:
+      tags: [Interview]
+      summary: 면접 종료 (평가 및 파일경로 Spring Boot 연동)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EndInterviewRequest'
+      responses:
+        '200':
+          description: 처리 완료
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EndInterviewResponse'
+
+components:
+  schemas:
+    StartInterviewRequest:
+      type: object
+      required:
+        - interviewee_id
+        - interviewer_id
+      properties:
+        interviewee_id:
+          type: integer
+          description: 면접자 ID (`interviewee_table`)
+          example: 101
+        interviewer_id:
+          type: integer
+          description: 면접관 ID (`user_table`)
+          example: 11
+
+    StartInterviewResponse:
+      type: object
+      properties:
+        questions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Question'
+        status:
+          type: string
+          example: started
+
+    Question:
+      type: object
+      properties:
+        question_id:
+          type: integer
+          description: 질문 ID (`question_table`)
+          example: 3001
+        type:
+          type: string
+          description: 공통질문/개별질문
+          example: 공통질문
+        content:
+          type: string
+          description: 질문 내용
+          example: "자신의 장점을 말씀해 주세요."
+
+    EndInterviewRequest:
+      type: object
+      required:
+        - interview_id
+      properties:
+        interview_id:
+          type: integer
+          description: 면접 ID (`interview_table`)
+          example: 1001
+
+    EndInterviewResponse:
+      type: object
+      properties:
+        result:
+          type: string
+          example: done
+        report_ready:
+          type: boolean
+          example: true

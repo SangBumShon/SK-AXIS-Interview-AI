@@ -1,66 +1,80 @@
-# 단순화된 docker-compose.yml
 version: '3.8'
+
 services:
-  # 프론트엔드 (Vue.js)
-  frontend:
-    build: ./client
-    ports:
-      - "3000:3000"
-    volumes:
-      - shared-files:/app/uploads
-    environment:
-      - VITE_API_URL=http://backend:8080
-      
-  # 백엔드 (Spring Boot)
-  backend:
-    build: ./server/spring
-    ports:
-      - "8080:8080"
-    volumes:
-      - shared-files:/app/uploads
-      - ./logs:/app/logs
-    environment:
-      - SPRING_PROFILES_ACTIVE=docker
-      - DB_HOST=database
-      - UPLOAD_PATH=/app/uploads
-      - JWT_SECRET=${JWT_SECRET}
-    depends_on:
-      - database
-      
-  # AI 서비스 (Python FastAPI)
-  ai-service:
-    build: ./ai
-    ports:
-      - "8000:8000"
-    volumes:
-      - shared-files:/app/uploads
-      - ai-models:/app/models
-      - stt-temp:/app/stt-temp  # STT 임시 파일용
-    environment:
-      - MODEL_PATH=/app/models
-      - UPLOAD_PATH=/app/uploads
-      - STT_TEMP_PATH=/app/stt-temp
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-              
-  # 데이터베이스
-  database:
+  # MySQL 데이터베이스
+  mysql:
     image: mysql:8.0
-    volumes:
-      - db-data:/var/lib/mysql
+    container_name: sk-axis-mysql
+    restart: always
     environment:
-      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
-      - MYSQL_DATABASE=skaxis
-      - MYSQL_USER=skaxis
-      - MYSQL_PASSWORD=${DB_USER_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./server/spring/src/main/resources/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$DB_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI 서비스
+  fastapi:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    container_name: sk-axis-fastapi
+    restart: always
+    ports:
+      - "${FASTAPI_PORT:-8000}:8000"
+    volumes:
+      - ./ai:/app
+      - shared-output:/app/output
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SPRING_API_URL=${SPRING_API_URL}
+    depends_on:
+      - springboot
+
+  # SpringBoot 서비스
+  springboot:
+    build:
+      context: ./server/spring
+      dockerfile: Dockerfile
+    container_name: sk-axis-springboot
+    restart: always
+    ports:
+      - "${SPRING_PORT:-8080}:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${DB_NAME}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=${DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - FASTAPI_URL=${FASTAPI_URL}
+      - OUTPUT_DIR=${OUTPUT_DIR}
+    volumes:
+      - shared-output:${OUTPUT_DIR}
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  # Vue 클라이언트
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: sk-axis-client
+    restart: always
+    ports:
+      - "${CLIENT_PORT:-80}:80"
+    depends_on:
+      - fastapi
+      - springboot
 
 volumes:
-  shared-files:
-  ai-models:
-  db-data:
-  stt-temp:  # STT 텍스트 임시 저장용
+  mysql-data:
+  shared-output:
