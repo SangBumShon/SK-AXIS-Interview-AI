@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "interviewee_table")
+@Table(name = "interviewee")
 @Data
 @Builder
 @NoArgsConstructor
@@ -60,7 +60,7 @@ public class Interviewee {
     
     // 면접-면접 대상자 관계
     @OneToMany(mappedBy = "interviewee", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<InterviewResult> interviewResults;
+    private List<InterviewInterviewee> interviewInterviewees;
     
     @PrePersist
     protected void onCreate() {
