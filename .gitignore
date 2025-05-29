@@ -362,4 +362,4 @@ $RECYCLE.BIN/
 *.msp
 
 # Windows shortcuts
-*.lnk
+*.lnkserver/spring/src/main/resources/application.yml
