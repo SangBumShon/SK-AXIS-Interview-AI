@@ -11,6 +11,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import com.example.skaxis.entity.InterviewInterviewee;
+import com.example.skaxis.repository.InterviewIntervieweeRepository;
 
 @Service
 @RequiredArgsConstructor
@@ -19,9 +21,9 @@ public class InterviewScheduleService {
     
     private final InterviewRepository interviewRepository;
     private final IntervieweeRepository intervieweeRepository;
-    private final InterviewResultRepository interviewResultRepository;
     private final InterviewerAssignmentRepository interviewerAssignmentRepository;
     private final UserRepository userRepository;
+    private final InterviewIntervieweeRepository interviewIntervieweeRepository;
     
     public InterviewScheduleResponseDto getInterviewScheduleByDate(LocalDate date) {
         try {
@@ -90,12 +92,14 @@ public class InterviewScheduleService {
             }
             
             // 면접 대상자 정보 추가
-            List<InterviewResult> results = interviewResultRepository.findByInterviewId(interview.getInterviewId());
-            for (InterviewResult result : results) {
-                String candidateId = "c" + result.getIntervieweeId();
-                if (!timeSlot.getCandidateIds().contains(candidateId)) {
-                    timeSlot.getCandidateIds().add(candidateId);
-                }
+            
+            // 수정해야 할 코드
+            List<InterviewInterviewee> results = interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
+            for (InterviewInterviewee result : results) {
+            String candidateId = "c" + result.getIntervieweeId();
+            if (!timeSlot.getCandidateIds().contains(candidateId)) {
+            timeSlot.getCandidateIds().add(candidateId);
+            }
             }
         }
         

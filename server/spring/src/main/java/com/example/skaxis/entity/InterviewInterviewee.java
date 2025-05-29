@@ -9,12 +9,12 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "interview_interviewee_table")
+@Table(name = "interview_interviewee")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class InterviewResult {
+public class InterviewInterviewee {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,13 +38,6 @@ public class InterviewResult {
     
     @Column(name = "excel_path", length = 255)
     private String excelPath;
-    
-    // 새로 추가된 미디어 파일 경로 필드들
-    @Column(name = "mp3_path", length = 255)
-    private String mp3Path;
-    
-    @Column(name = "mp4_path", length = 255)
-    private String mp4Path;
     
     @Column(name = "stt_path", length = 255)
     private String sttPath;

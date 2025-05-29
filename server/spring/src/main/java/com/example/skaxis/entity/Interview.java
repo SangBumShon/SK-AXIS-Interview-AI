@@ -10,11 +10,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "interview_table")
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(name = "interview")
 public class Interview {
     
     @Id
@@ -47,7 +47,7 @@ public class Interview {
     
     // 면접-면접 대상자 관계 (다대다)
     @OneToMany(mappedBy = "interview", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<InterviewResult> interviewResults;
+    private List<InterviewInterviewee> interviewInterviewees;
     
     @PrePersist
     protected void onCreate() {
