@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Pretendard', system-ui, sans-serif;
+  }
+  
+  body {
+    @apply bg-gray-50;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply px-4 py-2 rounded-button font-semibold transition-colors duration-200;
+  }
+  
+  .btn-primary {
+    @apply bg-[#E60012] text-white hover:bg-[#cc0010];
+  }
+  
+  .btn-secondary {
+    @apply bg-[#FF7A00] text-white hover:bg-[#e66e00];
+  }
+} 
