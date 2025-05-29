@@ -12,6 +12,7 @@ server/spring/application-*.yml
 !server/spring/application.yml
 server/spring/application-*.properties
 !server/spring/application.properties
+server/spring/src/main/resources/application.yml
 
 # Logs
 server/spring/logs/
