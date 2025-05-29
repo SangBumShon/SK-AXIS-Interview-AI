@@ -33,21 +33,21 @@ public class IntervieweeService {
     @Value("${app.upload.dir:/uploads/interviewees}")
     private String uploadDir;
     
-    public IntervieweeListResponseDto getInterviewees(LocalDate date, String status, String position) {
-        Interviewee.InterviewStatus interviewStatus = null;
-        if (status != null) {
-            try {
-                interviewStatus = Interviewee.InterviewStatus.valueOf(status);
-            } catch (IllegalArgumentException e) {
-                log.warn("Invalid status: {}", status);
-            }
-        }
-        
-        List<Interviewee> interviewees = intervieweeRepository.findByFilters(date, interviewStatus, position);
-        List<IntervieweeResponseDto> responseList = IntervieweeResponseDto.fromList(interviewees);
-        
-        return new IntervieweeListResponseDto(responseList, responseList.size());
-    }
+//    public IntervieweeListResponseDto getInterviewees(LocalDate date, String status, String position) {
+//        Interviewee.InterviewStatus interviewStatus = null;
+//        if (status != null) {
+//            try {
+//                interviewStatus = Interviewee.InterviewStatus.valueOf(status);
+//            } catch (IllegalArgumentException e) {
+//                log.warn("Invalid status: {}", status);
+//            }
+//        }
+//
+//        List<Interviewee> interviewees = intervieweeRepository.findByFilters(date, interviewStatus, position);
+//        List<IntervieweeResponseDto> responseList = IntervieweeResponseDto.fromList(interviewees);
+//
+//        return new IntervieweeListResponseDto(responseList, responseList.size());
+//    }
     
     public FileUploadResponseDto uploadExcelFile(MultipartFile file) throws IOException {
         // 파일 검증

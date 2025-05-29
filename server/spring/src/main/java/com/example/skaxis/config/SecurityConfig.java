@@ -19,6 +19,8 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 // API 경로들 허용 (필요에 따라 수정)
                 .requestMatchers("/api/**", "/interviewees/**", "/upload/**", "/parse/**").permitAll()
+                // 새로 추가된 면접 일정 API 허용
+                .requestMatchers("/api/interview-schedule/**").permitAll()
                 .anyRequest().authenticated()
             );
         

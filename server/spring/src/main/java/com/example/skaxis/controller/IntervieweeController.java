@@ -27,24 +27,24 @@ public class IntervieweeController {
     
     private final IntervieweeService intervieweeService;
     
-    @GetMapping("/interviewees")
-    @Operation(summary = "면접 대상자 목록 조회", description = "필터 조건에 따라 면접 대상자 목록을 조회합니다.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "조회 성공",
-                content = @Content(schema = @Schema(implementation = IntervieweeListResponseDto.class))),
-        @ApiResponse(responseCode = "400", description = "잘못된 요청")
-    })
-    public ResponseEntity<IntervieweeListResponseDto> getInterviewees(
-            @Parameter(description = "면접 날짜 (YYYY-MM-DD)", example = "2024-01-15")
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @Parameter(description = "면접 상태", example = "SCHEDULED")
-            @RequestParam(required = false) String status,
-            @Parameter(description = "직무", example = "백엔드 개발자")
-            @RequestParam(required = false) String position) {
-        
-        IntervieweeListResponseDto response = intervieweeService.getInterviewees(date, status, position);
-        return ResponseEntity.ok(response);
-    }
+//    @GetMapping("/interviewees")
+//    @Operation(summary = "면접 대상자 목록 조회", description = "필터 조건에 따라 면접 대상자 목록을 조회합니다.")
+//    @ApiResponses(value = {
+//        @ApiResponse(responseCode = "200", description = "조회 성공",
+//                content = @Content(schema = @Schema(implementation = IntervieweeListResponseDto.class))),
+//        @ApiResponse(responseCode = "400", description = "잘못된 요청")
+//    })
+//    public ResponseEntity<IntervieweeListResponseDto> getInterviewees(
+//            @Parameter(description = "면접 날짜 (YYYY-MM-DD)", example = "2024-01-15")
+//            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+//            @Parameter(description = "면접 상태", example = "SCHEDULED")
+//            @RequestParam(required = false) String status,
+//            @Parameter(description = "직무", example = "백엔드 개발자")
+//            @RequestParam(required = false) String position) {
+//
+//        IntervieweeListResponseDto response = intervieweeService.getInterviewees(date, status, position);
+//        return ResponseEntity.ok(response);
+//    }
     
     @PostMapping(value = "/upload/excel", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Excel 파일 업로드", description = "면접 대상자 정보가 포함된 Excel 파일을 업로드합니다.")

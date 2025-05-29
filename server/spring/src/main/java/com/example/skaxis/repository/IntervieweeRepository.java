@@ -31,4 +31,8 @@ public interface IntervieweeRepository extends JpaRepository<Interviewee, Long> 
     
     // 추가 메서드들
     boolean existsByApplicantCode(String applicantCode);
+    
+    // 새로 추가: 날짜별 면접 대상자 조회
+    @Query("SELECT i FROM Interviewee i WHERE i.interviewDate = :date ORDER BY i.interviewDate, i.applicantName")
+    List<Interviewee> findByInterviewDateOrderByTime(@Param("date") LocalDate date);
 }
