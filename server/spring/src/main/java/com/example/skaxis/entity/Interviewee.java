@@ -1,31 +1,42 @@
 package com.example.skaxis.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
-@Table(name = "interviewees")
+@Table(name = "interviewee_table")
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class Interviewee {
     
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "interviewee_id")
+    private Long intervieweeId;
     
-    @Column(name = "applicant_name", nullable = false)
+    @Column(name = "name", nullable = false, length = 50)
+    private String name;
+    
+    @Column(name = "applicant_code", unique = true, length = 20)
+    private String applicantCode;
+    
+    // 새로 추가된 필드들
+    @Column(name = "applicant_name", nullable = false, length = 100)
     private String applicantName;
     
-    @Column(name = "applicant_id", unique = true, nullable = false)
+    @Column(name = "applicant_id", unique = true, nullable = false, length = 50)
     private String applicantId;
     
-    @Column(name = "position", nullable = false)
+    @Column(name = "position", nullable = false, length = 100)
     private String position;
     
     @Column(name = "interview_date")
@@ -38,30 +49,39 @@ public class Interviewee {
     @Column(name = "score")
     private Integer score;
     
-    @Column(name = "interviewer")
+    @Column(name = "interviewer", length = 100)
     private String interviewer;
     
-    @Column(name = "interview_location")
+    @Column(name = "interview_location", length = 200)
     private String interviewLocation;
     
-    @Column(name = "created_at")
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
     
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    // 면접-면접 대상자 관계
+    @OneToMany(mappedBy = "interviewee", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<InterviewResult> interviewResults;
     
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
     }
     
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
-    
+    // InterviewStatus enum
     public enum InterviewStatus {
-        대기중, 진행중, 완료, 취소
+        SCHEDULED("예정"),
+        IN_PROGRESS("진행중"),
+        COMPLETED("완료"),
+        CANCELLED("취소");
+        
+        private final String description;
+        
+        InterviewStatus(String description) {
+            this.description = description;
+        }
+        
+        public String getDescription() {
+            return description;
+        }
     }
 }

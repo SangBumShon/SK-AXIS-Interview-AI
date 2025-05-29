@@ -1,18 +1,22 @@
 package com.example.skaxis.dto;
 
 import com.example.skaxis.entity.Interviewee;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class IntervieweeResponseDto {
+    private Long intervieweeId;
     private String applicantName;
     private String applicantId;
     private String position;
@@ -21,18 +25,22 @@ public class IntervieweeResponseDto {
     private Integer score;
     private String interviewer;
     private String interviewLocation;
+    private LocalDateTime createdAt;
     
     public static IntervieweeResponseDto from(Interviewee interviewee) {
-        return new IntervieweeResponseDto(
-            interviewee.getApplicantName(),
-            interviewee.getApplicantId(),
-            interviewee.getPosition(),
-            interviewee.getInterviewDate(),
-            interviewee.getInterviewStatus() != null ? interviewee.getInterviewStatus().name() : null,
-            interviewee.getScore(),
-            interviewee.getInterviewer(),
-            interviewee.getInterviewLocation()
-        );
+        return IntervieweeResponseDto.builder()
+                .intervieweeId(interviewee.getIntervieweeId())
+                .applicantName(interviewee.getApplicantName())
+                .applicantId(interviewee.getApplicantId())
+                .position(interviewee.getPosition())
+                .interviewDate(interviewee.getInterviewDate())
+                .interviewStatus(interviewee.getInterviewStatus() != null ? 
+                    interviewee.getInterviewStatus().getDescription() : null)
+                .score(interviewee.getScore())
+                .interviewer(interviewee.getInterviewer())
+                .interviewLocation(interviewee.getInterviewLocation())
+                .createdAt(interviewee.getCreatedAt())
+                .build();
     }
     
     public static List<IntervieweeResponseDto> fromList(List<Interviewee> interviewees) {

@@ -26,5 +26,9 @@ public interface IntervieweeRepository extends JpaRepository<Interviewee, Long> 
                                    @Param("status") Interviewee.InterviewStatus status, 
                                    @Param("position") String position);
     
+    // 수정된 메서드명
     boolean existsByApplicantId(String applicantId);
+    
+    // 추가 메서드들
+    boolean existsByApplicantCode(String applicantCode);
 }
