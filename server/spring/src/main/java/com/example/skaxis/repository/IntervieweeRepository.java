@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface IntervieweeRepository extends JpaRepository<Interviewee, Long> {
@@ -21,4 +22,6 @@ public interface IntervieweeRepository extends JpaRepository<Interviewee, Long> 
     // 새로 추가: 날짜별 면접 대상자 조회
     @Query("SELECT i FROM Interviewee i WHERE i.interviewDate = :date ORDER BY i.interviewDate, i.applicantName")
     List<Interviewee> findByInterviewDateOrderByTime(@Param("date") LocalDate date);
+
+    Optional<Interviewee> findByApplicantId(String applicantId);
 }
