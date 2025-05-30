@@ -88,7 +88,7 @@ public class InterviewScheduleService {
             // 면접관 정보 추가
             List<InterviewerAssignment> assignments = interviewerAssignmentRepository.findByInterviewId(interview.getInterviewId());
             for (InterviewerAssignment assignment : assignments) {
-                String interviewerId = "i" + assignment.getUserId();
+                String interviewerId = "i" + assignment.getUserName();
                 if (!timeSlot.getInterviewerIds().contains(interviewerId)) {
                     timeSlot.getInterviewerIds().add(interviewerId);
                 }

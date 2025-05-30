@@ -23,8 +23,8 @@ public class InterviewerAssignment {
     @Column(name = "interview_id", nullable = false)
     private Long interviewId;
     
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @Column(name = "user_name", nullable = false)
+    private String userName;
     
     // 면접과의 관계
     @ManyToOne(fetch = FetchType.LAZY)
@@ -33,6 +33,6 @@ public class InterviewerAssignment {
     
     // 면접관(사용자)과의 관계
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    @JoinColumn(name = "user_name", insertable = false, updatable = false)
     private User user;
 }
