@@ -9,6 +9,9 @@ import com.example.skaxis.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import com.example.skaxis.user.repository.UserRepository;
+import com.example.skaxis.user.Role;
+import com.example.skaxis.user.model.User;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -134,10 +137,10 @@ public class InterviewScheduleService {
         List<PersonDto> people = new ArrayList<>();
         
         // 면접관 정보 추가
-        List<User> interviewers = userRepository.findByRole(User.Role.INTERVIEWER);
+        List<User> interviewers = userRepository.findByUserType(Role.INTERVIEWER);
         for (User interviewer : interviewers) {
             people.add(new PersonDto(
-                "i" + interviewer.getUserId(),
+                "i" + interviewer.getUserName(),
                 interviewer.getName(),
                 "interviewer"
             ));

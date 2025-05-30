@@ -1,11 +1,101 @@
-version: '3.8'
+# version: '3.8'
+
+# services:
+#   # MySQL 데이터베이스
+#   mysql:
+#     image: mysql:8.0
+#     container_name: sk-axis-mysql
+#     restart: always
+#     environment:
+#       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+#       MYSQL_DATABASE: ${DB_NAME}
+#       MYSQL_USER: ${DB_USER}
+#       MYSQL_PASSWORD: ${DB_PASSWORD}
+#     ports:
+#       - "${MYSQL_PORT:-3306}:3306"
+#     volumes:
+#       - mysql-data:/var/lib/mysql
+#       - ./server/spring/src/main/resources/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+#     healthcheck:
+#       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$DB_ROOT_PASSWORD"]
+#       interval: 10s
+#       timeout: 5s
+#       retries: 5
+
+#   # FastAPI 서비스
+#   fastapi:
+#     build:
+#       context: ./ai
+#       dockerfile: Dockerfile
+#     container_name: sk-axis-fastapi
+#     restart: always
+#     ports:
+#       - "${FASTAPI_PORT:-8000}:8000"
+#     volumes:
+#       - ./ai:/app
+#       - shared-output:/app/output
+#     environment:
+#       - OPENAI_API_KEY=${OPENAI_API_KEY}
+#       - SPRING_API_URL=${SPRING_API_URL}
+#     depends_on:
+#       - springboot
+
+#   # SpringBoot 서비스
+#   springboot:
+#     build:
+#       context: ./server/spring
+#       dockerfile: Dockerfile
+#     container_name: sk-axis-springboot
+#     restart: always
+#     ports:
+#       - "${SPRING_PORT:-8080}:8080"
+#     environment:
+#       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${DB_NAME}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+#       - SPRING_DATASOURCE_USERNAME=${DB_USER}
+#       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+#       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+#       - FASTAPI_URL=${FASTAPI_URL}
+#       - OUTPUT_DIR=${OUTPUT_DIR}
+#     volumes:
+#       - shared-output:${OUTPUT_DIR}
+#     depends_on:
+#       mysql:
+#         condition: service_healthy
+
+#   # Vue 클라이언트
+#   client:
+#     build:
+#       context: ./client
+#       dockerfile: Dockerfile
+#     container_name: sk-axis-client
+#     restart: always
+#     ports:
+#       - "${CLIENT_PORT:-80}:80"
+#     depends_on:
+#       - fastapi
+#       - springboot
+
+#   Redis:
+#     image: redis:latest
+#     container_name: sk-axis-redis
+#     restart: always
+#     ports:
+#       - "${REDIS_PORT:-6379}:6379"
+#     volumes:
+#       - redis-data:/data
+
+# volumes:
+#   mysql-data:
+#   shared-output:
+
+networks:
+  shared-network:
+    driver: bridge
 
 services:
-  # MySQL 데이터베이스
   mysql:
-    image: mysql:8.0
-    container_name: sk-axis-mysql
-    restart: always
+    image: mysql:latest
+    container_name: mysql
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
@@ -13,77 +103,30 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD}
     ports:
       - "${MYSQL_PORT:-3306}:3306"
-    volumes:
-      - mysql-data:/var/lib/mysql
-      - ./server/spring/src/main/resources/db/init.sql:/docker-entrypoint-initdb.d/init.sql
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$DB_ROOT_PASSWORD"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+    networks:
+      - shared-network
 
-  # FastAPI 서비스
-  fastapi:
-    build:
-      context: ./ai
-      dockerfile: Dockerfile
-    container_name: sk-axis-fastapi
-    restart: always
-    ports:
-      - "${FASTAPI_PORT:-8000}:8000"
-    volumes:
-      - ./ai:/app
-      - shared-output:/app/output
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - SPRING_API_URL=${SPRING_API_URL}
-    depends_on:
-      - springboot
-
-  # SpringBoot 서비스
-  springboot:
-    build:
-      context: ./server/spring
-      dockerfile: Dockerfile
-    container_name: sk-axis-springboot
-    restart: always
-    ports:
-      - "${SPRING_PORT:-8080}:8080"
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${DB_NAME}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=${DB_USER}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      - FASTAPI_URL=${FASTAPI_URL}
-      - OUTPUT_DIR=${OUTPUT_DIR}
-    volumes:
-      - shared-output:${OUTPUT_DIR}
-    depends_on:
-      mysql:
-        condition: service_healthy
-
-  # Vue 클라이언트
-  client:
-    build:
-      context: ./client
-      dockerfile: Dockerfile
-    container_name: sk-axis-client
-    restart: always
-    ports:
-      - "${CLIENT_PORT:-80}:80"
-    depends_on:
-      - fastapi
-      - springboot
-
-  Redis:
+  redis:
     image: redis:latest
-    container_name: sk-axis-redis
-    restart: always
+    container_name: redis
     ports:
       - "${REDIS_PORT:-6379}:6379"
-    volumes:
-      - redis-data:/data
+    networks:
+      - shared-network
 
-volumes:
-  mysql-data:
-  shared-output:
+  spring-app:
+    image: spring-app
+    container_name: spring-app
+    ports:
+      - "${SPRING_PORT:-8080}:8080"
+    networks:
+      - shared-network
+    depends_on:
+      - mysql
+      - redis
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:${MYSQL_PORT}/${DB_NAME}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}

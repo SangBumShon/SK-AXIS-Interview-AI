@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.example.skaxis.user.model.User;
 
 @Entity
 @Table(name = "interview_interviewer")
