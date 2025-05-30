@@ -21,7 +21,6 @@ public class InterviewScheduleService {
     
     private final InterviewRepository interviewRepository;
     private final IntervieweeRepository intervieweeRepository;
-    private final InterviewerAssignmentRepository interviewerAssignmentRepository;
     private final UserRepository userRepository;
     private final InterviewIntervieweeRepository interviewIntervieweeRepository;
     
@@ -30,8 +29,20 @@ public class InterviewScheduleService {
             // 해당 날짜의 면접 일정 조회
             List<Interview> interviews = interviewRepository.findByScheduledDate(date);
             
-            // 해당 날짜의 면접 대상자 조회
-            List<Interviewee> interviewees = intervieweeRepository.findByInterviewDateOrderByTime(date);
+            // 해당 날짜의 면접에 참여하는 면접 대상자들을 Interview를 통해 조회
+            List<Interviewee> interviewees = new ArrayList<>();
+            for (Interview interview : interviews) {
+                List<InterviewInterviewee> interviewInterviewees = 
+                    interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
+                
+                for (InterviewInterviewee ii : interviewInterviewees) {
+                    Interviewee interviewee = intervieweeRepository.findById(ii.getIntervieweeId())
+                        .orElse(null);
+                    if (interviewee != null && !interviewees.contains(interviewee)) {
+                        interviewees.add(interviewee);
+                    }
+                }
+            }
             
             // 면접실 정보 생성 (하드코딩된 데이터 또는 DB에서 조회)
             List<RoomDto> rooms = Arrays.asList(
@@ -82,50 +93,30 @@ public class InterviewScheduleService {
                 return slot;
             });
             
-            // 면접관 정보 추가
-            List<InterviewerAssignment> assignments = interviewerAssignmentRepository.findByInterviewId(interview.getInterviewId());
-            for (InterviewerAssignment assignment : assignments) {
-                String interviewerId = "i" + assignment.getUserId();
-                if (!timeSlot.getInterviewerIds().contains(interviewerId)) {
-                    timeSlot.getInterviewerIds().add(interviewerId);
+            // 면접관 정보 추가 (Interview 엔티티의 interviewer 필드에서)
+            if (interview.getInterviewers() != null && !interview.getInterviewers().isEmpty()) {
+                // 면접관이 쉼표로 구분된 문자열인 경우 파싱
+                String[] interviewerNames = interview.getInterviewers().split(",");
+                for (int i = 0; i < interviewerNames.length; i++) {
+                    String interviewerId = "i" + (i + 1); // 또는 실제 면접관 ID 로직
+                    if (!timeSlot.getInterviewerIds().contains(interviewerId)) {
+                        timeSlot.getInterviewerIds().add(interviewerId);
+                    }
                 }
             }
             
-            // 면접 대상자 정보 추가
-            
-            // 수정해야 할 코드
-            List<InterviewInterviewee> results = interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
-            for (InterviewInterviewee result : results) {
-            String candidateId = "c" + result.getIntervieweeId();
-            if (!timeSlot.getCandidateIds().contains(candidateId)) {
-            timeSlot.getCandidateIds().add(candidateId);
-            }
-            }
-        }
-        
-        // 면접 대상자만 있는 경우 (면접이 아직 생성되지 않은 경우)
-        for (Interviewee interviewee : interviewees) {
-            if (interviewee.getInterviewDate() != null) {
-                String timeRange = "09:00 - 10:00"; // 기본 시간대
-                String roomId = "room1"; // 기본 면접실
-                String slotKey = roomId + "_" + timeRange;
-                
-                TimeSlotDto timeSlot = timeSlotMap.computeIfAbsent(slotKey, k -> {
-                    TimeSlotDto slot = new TimeSlotDto();
-                    slot.setId("ts_interviewee_" + interviewee.getIntervieweeId());
-                    slot.setRoomId(roomId);
-                    slot.setTimeRange(timeRange);
-                    slot.setInterviewerIds(Arrays.asList("i1", "i2", "i3")); // 기본 면접관들
-                    slot.setCandidateIds(new ArrayList<>());
-                    return slot;
-                });
-                
-                String candidateId = "c" + interviewee.getIntervieweeId();
+            // 해당 면접에 참여하는 면접 대상자 정보 추가
+            List<InterviewInterviewee> interviewInterviewees = interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
+            for (InterviewInterviewee ii : interviewInterviewees) {
+                String candidateId = "c" + ii.getIntervieweeId();
                 if (!timeSlot.getCandidateIds().contains(candidateId)) {
                     timeSlot.getCandidateIds().add(candidateId);
                 }
             }
         }
+        
+        // 기존의 interviewee 기반 로직은 제거
+        // (면접 일정은 Interview 엔티티에서만 관리)
         
         return new ArrayList<>(timeSlotMap.values());
     }
@@ -134,8 +125,8 @@ public class InterviewScheduleService {
         List<PersonDto> people = new ArrayList<>();
         
         // 면접관 정보 추가
-        List<User> interviewers = userRepository.findByRole(User.Role.INTERVIEWER);
-        for (User interviewer : interviewers) {
+        List<Users> interviewers = userRepository.findByRole(Users.Role.INTERVIEWER);
+        for (Users interviewer : interviewers) {
             people.add(new PersonDto(
                 "i" + interviewer.getUserId(),
                 interviewer.getName(),
@@ -147,7 +138,7 @@ public class InterviewScheduleService {
         for (Interviewee interviewee : interviewees) {
             people.add(new PersonDto(
                 "c" + interviewee.getIntervieweeId(),
-                interviewee.getApplicantName(),
+                interviewee.getName(),
                 "candidate"
             ));
         }

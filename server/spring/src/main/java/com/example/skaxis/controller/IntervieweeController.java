@@ -68,33 +68,33 @@ public class IntervieweeController {
         return ResponseEntity.ok(response);
     }
     
-    @PostMapping(value = "/excel/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Excel 파일 업로드", description = "면접 대상자 정보가 포함된 Excel 파일을 업로드합니다.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "업로드 성공",
-                content = @Content(schema = @Schema(implementation = FileUploadResponseDto.class))),
-        @ApiResponse(responseCode = "400", description = "잘못된 파일 형식")
-    })
-    public ResponseEntity<FileUploadResponseDto> uploadExcelFile(
-            @Parameter(description = "업로드할 Excel 파일 (.xlsx, .xls)")
-            @RequestParam("file") MultipartFile file) throws IOException {
-        
-        FileUploadResponseDto response = intervieweeService.uploadExcelFile(file);
-        return ResponseEntity.ok(response);
-    }
+//    @PostMapping(value = "/excel/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+//    @Operation(summary = "Excel 파일 업로드", description = "면접 대상자 정보가 포함된 Excel 파일을 업로드합니다.")
+//    @ApiResponses(value = {
+//        @ApiResponse(responseCode = "200", description = "업로드 성공",
+//                content = @Content(schema = @Schema(implementation = FileUploadResponseDto.class))),
+//        @ApiResponse(responseCode = "400", description = "잘못된 파일 형식")
+//    })
+//    public ResponseEntity<FileUploadResponseDto> uploadExcelFile(
+//            @Parameter(description = "업로드할 Excel 파일 (.xlsx, .xls)")
+//            @RequestParam("file") MultipartFile file) throws IOException {
+//
+//        FileUploadResponseDto response = intervieweeService.uploadExcelFile(file);
+//        return ResponseEntity.ok(response);
+//    }
     
-    @PostMapping("/excel/parse")
-    @Operation(summary = "Excel 파일 파싱 및 저장", description = "업로드된 Excel 파일을 파싱하여 데이터베이스에 저장합니다.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "파싱 및 저장 성공",
-                content = @Content(schema = @Schema(implementation = ExcelParseResponseDto.class))),
-        @ApiResponse(responseCode = "400", description = "파일 경로가 잘못됨"),
-        @ApiResponse(responseCode = "500", description = "파싱 중 오류 발생")
-    })
-    public ResponseEntity<ExcelParseResponseDto> parseExcelFile(
-            @RequestBody ExcelParseRequestDto request) {
-        
-        ExcelParseResponseDto response = intervieweeService.parseExcelFile(request.getFilePath());
-        return ResponseEntity.ok(response);
-    }
+//    @PostMapping("/excel/parse")
+//    @Operation(summary = "Excel 파일 파싱 및 저장", description = "업로드된 Excel 파일을 파싱하여 데이터베이스에 저장합니다.")
+//    @ApiResponses(value = {
+//        @ApiResponse(responseCode = "200", description = "파싱 및 저장 성공",
+//                content = @Content(schema = @Schema(implementation = ExcelParseResponseDto.class))),
+//        @ApiResponse(responseCode = "400", description = "파일 경로가 잘못됨"),
+//        @ApiResponse(responseCode = "500", description = "파싱 중 오류 발생")
+//    })
+//    public ResponseEntity<ExcelParseResponseDto> parseExcelFile(
+//            @RequestBody ExcelParseRequestDto request) {
+//
+//        ExcelParseResponseDto response = intervieweeService.parseExcelFile(request.getFilePath());
+//        return ResponseEntity.ok(response);
+//    }
 }

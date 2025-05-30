@@ -12,16 +12,8 @@ import java.util.Optional;
 
 @Repository
 public interface IntervieweeRepository extends JpaRepository<Interviewee, Long> {
-    @Query("SELECT i FROM Interviewee i WHERE " +
-           "(:date IS NULL OR i.interviewDate = :date) AND " +
-           "(:status IS NULL OR i.interviewStatus = :status) AND " +
-           "(:position IS NULL OR i.position = :position)")
-    // 수정된 메서드명
-    boolean existsByApplicantId(String applicantId);
 
-    // 새로 추가: 날짜별 면접 대상자 조회
-    @Query("SELECT i FROM Interviewee i WHERE i.interviewDate = :date ORDER BY i.interviewDate, i.applicantName")
-    List<Interviewee> findByInterviewDateOrderByTime(@Param("date") LocalDate date);
+    Optional<Interviewee> findByName(String name);
 
-    Optional<Interviewee> findByApplicantId(String applicantId);
+    boolean existsByName(String name);
 }

@@ -21,6 +21,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/**", "/interviewees/**", "/upload/**", "/parse/**").permitAll()
                 // 새로 추가된 면접 일정 API 허용
                 .requestMatchers("/api/interview-schedule/**").permitAll()
+                .requestMatchers("/api/media/**").permitAll()
                 .anyRequest().authenticated()
             );
         

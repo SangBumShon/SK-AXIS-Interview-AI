@@ -1,13 +1,13 @@
 package com.example.skaxis.repository;
 
-import com.example.skaxis.entity.User;
+import com.example.skaxis.entity.Users;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 @Repository
-public interface UserRepository extends JpaRepository<User, Long> {
+public interface UserRepository extends JpaRepository<Users, Long> {
 
-    List<User> findByRole(User.Role role);
+    List<Users> findByRole(Users.Role role);
 }

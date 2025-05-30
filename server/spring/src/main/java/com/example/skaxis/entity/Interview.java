@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.List;
 
+
 @Entity
 @Data
 @Builder
@@ -31,8 +32,15 @@ public class Interview {
     @Column(name = "scheduled_at", nullable = false)
     private LocalDateTime scheduledAt;
     
+    @Column(name = "scheduled_end_at", nullable = false)
+    private LocalDateTime scheduledEndAt;
+    
     @Column(name = "order_no")
     private Integer orderNo;
+    
+    // 면접관 정보를 단순 문자열로 저장 (쉼표로 구분)
+    @Column(name = "interviewers", length = 500)
+    private String interviewers;
     
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
@@ -41,36 +49,9 @@ public class Interview {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
     
-    // 면접-면접관 관계 (다대다)
-    @OneToMany(mappedBy = "interview", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<InterviewerAssignment> interviewerAssignments;
-    
-    // 면접-면접 대상자 관계 (다대다)
+    // 면접-면접 대상자 관계만 유지
     @OneToMany(mappedBy = "interview", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<InterviewInterviewee> interviewInterviewees;
     
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        if (status == null) {
-            status = InterviewStatus.SCHEDULED;
-        }
-    }
-    
-    public enum InterviewStatus {
-        SCHEDULED("예정"),
-        IN_PROGRESS("진행중"),
-        COMPLETED("완료"),
-        CANCELLED("취소");
-        
-        private final String description;
-        
-        InterviewStatus(String description) {
-            this.description = description;
-        }
-        
-        public String getDescription() {
-            return description;
-        }
-    }
+    // ... 기존 메서드들 유지
 }

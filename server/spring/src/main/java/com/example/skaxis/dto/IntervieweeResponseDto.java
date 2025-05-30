@@ -30,15 +30,7 @@ public class IntervieweeResponseDto {
     public static IntervieweeResponseDto from(Interviewee interviewee) {
         return IntervieweeResponseDto.builder()
                 .intervieweeId(interviewee.getIntervieweeId())
-                .applicantName(interviewee.getApplicantName())
-                .applicantId(interviewee.getApplicantId())
-                .position(interviewee.getPosition())
-                .interviewDate(interviewee.getInterviewDate())
-                .interviewStatus(interviewee.getInterviewStatus() != null ? 
-                    interviewee.getInterviewStatus().getDescription() : null)
                 .score(interviewee.getScore())
-                .interviewer(interviewee.getInterviewer())
-                .interviewLocation(interviewee.getInterviewLocation())
                 .createdAt(interviewee.getCreatedAt())
                 .build();
     }
