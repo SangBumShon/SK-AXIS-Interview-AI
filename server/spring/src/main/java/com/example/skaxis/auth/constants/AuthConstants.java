@@ -7,7 +7,7 @@ public final class AuthConstants {
         //인스턴스화 방지 (상수 클래스)
         throw new UnsupportedOperationException("이 클래스는 constants class 이므로 인스턴스화 할 수 없습니다.");
     }
-    //허용된 URI목록
+    //토큰 없이 허용된 URI목록
     public static final String[] PERMITTED_URI = {
             "/signin",
             "/signup/**",

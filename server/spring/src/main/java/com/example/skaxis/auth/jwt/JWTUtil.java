@@ -55,7 +55,7 @@ public class JWTUtil {
 
         return Jwts.builder()
                 .setHeader(createHeader())
-                .setSubject(user.getEmail())
+                .setSubject(user.getUserName())
                 .setClaims(createClaims(user))
                 .setExpiration(new Date(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRATION_TIME))
                 .signWith(ACCESS_SECRET_KEY, SignatureAlgorithm.HS256)
@@ -64,7 +64,7 @@ public class JWTUtil {
     public String generateRefreshToken(User user) {
         return Jwts.builder()
                 .setHeader(createHeader())
-                .setSubject(user.getEmail())
+                .setSubject(user.getUserName())
                 .setClaims(createClaims(user))
                 .setExpiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRATION_TIME))
                 .signWith(REFRESH_SECRET_KEY,SignatureAlgorithm.HS256)
@@ -73,8 +73,8 @@ public class JWTUtil {
 
     private Map<String,Object> createClaims(User user) {
         Map<String,Object> claims = new HashMap<>();
-        claims.put("user", user.getUserName());
-        claims.put("email", user.getEmail());
+        claims.put("user", user.getName());
+        claims.put("userName", user.getUserName());
         claims.put("role", user.getUserType());
         return claims;
     }
@@ -115,33 +115,19 @@ public class JWTUtil {
     /*
      *  ******************* Token 분해 ********************
      * */
-    public String getUserEmailByAccessToken(String token){
-        return Jwts.parserBuilder()
-                .setSigningKey(ACCESS_SECRET_KEY)
-                .build()
-                .parseClaimsJws(token)
-                .getBody().get("email", String.class);
-    }
     public String getUserNameByAccessToken(String token){
         return Jwts.parserBuilder()
                 .setSigningKey(ACCESS_SECRET_KEY)
                 .build()
                 .parseClaimsJws(token)
-                .getBody().get("user", String.class);
-    }
-    public String getUserEmailByRefreshToken(String token){
-        return Jwts.parserBuilder()
-                .setSigningKey(REFRESH_SECRET_KEY)
-                .build()
-                .parseClaimsJws(token)
-                .getBody().get("email", String.class);
+                .getBody().get("userName", String.class);
     }
     public String getUserNameByRefreshToken(String token){
         return Jwts.parserBuilder()
                 .setSigningKey(REFRESH_SECRET_KEY)
                 .build()
                 .parseClaimsJws(token)
-                .getBody().get("user", String.class);
+                .getBody().get("userName", String.class);
     }
     public String getUserRoleByAccessToken(String token){
         return Jwts.parserBuilder()
@@ -172,24 +158,24 @@ public class JWTUtil {
     /*
      *  ******************* refresh repository using redis ********************
      * */
-    public void addRefreshToken(String refreshToken,String email){
+    public void addRefreshToken(String refreshToken,String userName){
         Date date = new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRATION_TIME);
 
         RefreshToken entity = new RefreshToken();
-        entity.setEmail(email);
+        entity.setUserName(userName);
         entity.setToken(refreshToken);
         entity.setExpiration(date.toString());
 
-        redisTemplate.opsForValue().set(email,entity);
+        redisTemplate.opsForValue().set(userName,entity);
         log.info("redis add refresh token {}",getRefreshToken(refreshToken));
     }
     public RefreshToken getRefreshToken(String token){
-        String email = getUserEmailByRefreshToken(token);
-        return redisTemplate.opsForValue().get(email);
+        String userName = getUserNameByRefreshToken(token);
+        return redisTemplate.opsForValue().get(userName);
     }
     public void deleteRefreshToken(String token){
-        String email = getUserEmailByRefreshToken(token);
-        redisTemplate.delete(email);
+        String userName = getUserNameByRefreshToken(token);
+        redisTemplate.delete(userName);
     }
 
     public boolean isExistRefreshToken(String token) {

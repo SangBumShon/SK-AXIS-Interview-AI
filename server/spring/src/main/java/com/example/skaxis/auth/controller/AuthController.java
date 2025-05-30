@@ -1,9 +1,8 @@
 package com.example.skaxis.auth.controller;
 
+import com.example.skaxis.user.Role;
 import com.example.skaxis.auth.constants.AuthConstants;
-import com.example.skaxis.auth.dto.CheckUsernameRequest;
-import com.example.skaxis.auth.dto.ClientSignupRequest;
-import com.example.skaxis.auth.dto.DesignerSignupRequest;
+import com.example.skaxis.auth.dto.UserSignupRequest;
 import com.example.skaxis.auth.jwt.JWTUtil;
 import com.example.skaxis.auth.jwt.TokenStatus;
 import com.example.skaxis.user.model.User;
@@ -24,40 +23,37 @@ public class AuthController {
     private final UserService userService;
     private final JWTUtil jwtUtil;
 
-    // @PostMapping("/signup/admin")
-    // public ResponseEntity<?> signupClient(@RequestBody ClientSignupRequest clientSignupRequest) {
-    //     return signup(clientSignupRequest.getEmail(), clientSignupRequest.getPassword(),
-    //             clientSignupRequest.getUsername(), null,null,Role.CLIENT);
-    // }
-    // @PostMapping("/signup/interviewer")
-    // public ResponseEntity<?> signupDesigner(@RequestBody DesignerSignupRequest designerSignupRequest) {
-    //     return signup(designerSignupRequest.getEmail(), designerSignupRequest.getPassword(),
-    //             designerSignupRequest.getUsername(), designerSignupRequest.getCareer(),
-    //             designerSignupRequest.getSocialLink(), Role.DESIGNER);
-    // }
+    @PostMapping("/signup/admin")
+    public ResponseEntity<?> signupAdmin(@RequestBody UserSignupRequest adminSignupRequest) {
+        return signup(adminSignupRequest.getUsername(), adminSignupRequest.getPassword(), 
+                adminSignupRequest.getName(), Role.ADMIN);
+    }
+    @PostMapping("/signup/interviewer")
+    public ResponseEntity<?> signupInterviewer(@RequestBody UserSignupRequest interviewerSignupRequest) {
+        return signup(interviewerSignupRequest.getUsername(), interviewerSignupRequest.getPassword(),
+                interviewerSignupRequest.getName(), Role.INTERVIEWER);
+    }
 
-    // private ResponseEntity<?> signup(String email,String password,String username,String career,String socialLink,Role userType) {
-    //     try{
-    //         //사용자 중복 확인
-    //         if(userService.findByEmail(email) != null||userService.findByUsername(username) != null) {
-    //             return ResponseEntity.status(HttpStatus.CONFLICT).body("Email or Username already exists");
-    //         }
+    private ResponseEntity<?> signup(String userName,String password,String name,Role userType) {
+        try{
+            //사용자 중복 확인
+            if(userService.findByUserName(userName) != null) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body("Username already exists");
+            }
 
-    //         User user = new User();
-    //         user.setEmail(email);
-    //         user.setPassword(password);
-    //         user.setUserName(username);
-    //         user.setCareer(career);
-    //         user.setSocialLink(socialLink);
-    //         user.setUserType(userType);
+            User user = new User();
+            user.setUserName(userName);
+            user.setPassword(password);
+            user.setName(name);
+            user.setUserType(userType);
 
-    //         userService.save(user);
-    //         return ResponseEntity.status(HttpStatus.CREATED).body("Signup successful");
-    //     } catch (Exception e) {
-    //         log.error("Sign up error: {}",e.getMessage());
-    //         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
-    //     }
-    // }
+            userService.save(user);
+            return ResponseEntity.status(HttpStatus.CREATED).body("Signup successful");
+        } catch (Exception e) {
+            log.error("Sign up error: {}",e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
+        }
+    }
 
     @PostMapping("/reissue")
     public ResponseEntity<?> reissue(HttpServletRequest request,HttpServletResponse response) {
@@ -75,19 +71,19 @@ public class AuthController {
             jwtUtil.deleteRefreshToken(reissueToken);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Expired refresh token");
         }
-        String email = jwtUtil.getUserEmailByRefreshToken(reissueToken);
         String username = jwtUtil.getUserNameByRefreshToken(reissueToken);
         String role = jwtUtil.getUserRoleByRefreshToken(reissueToken);
 
         User user = new User();
         user.setUserName(username);
+        user.setUserType(Role.valueOf(role));
 
         String accessToken = jwtUtil.generateAccessToken(user);
         String refreshToken = jwtUtil.generateRefreshToken(user);
 
         //기존의 refresh token 삭제,새로 저장
         jwtUtil.deleteRefreshToken(reissueToken);
-        jwtUtil.addRefreshToken(refreshToken,user.getEmail());
+        jwtUtil.addRefreshToken(refreshToken,user.getUserName());
 
         //재발급시 refreshToken도 재발급 => Refresh Rotate 방식
         response.addHeader(AuthConstants.JWT_ISSUE_HEADER, AuthConstants.ACCESS_PREFIX + accessToken);

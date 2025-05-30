@@ -5,6 +5,6 @@ import lombok.Data;
 @Data
 public class RefreshToken {
     private String token;
-    private String email;
+    private String userName;
     private String expiration;
 }

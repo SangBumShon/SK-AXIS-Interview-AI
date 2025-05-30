@@ -43,7 +43,7 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
 
             UserLoginRequest loginRequest = objectMapper.readValue(messageBody, UserLoginRequest.class);
             //spring security에서 검증하기 위해서는 username, password를   token에 담아야 한다.
-            UsernamePasswordAuthenticationToken authRequest = new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword());
+            UsernamePasswordAuthenticationToken authRequest = new UsernamePasswordAuthenticationToken(loginRequest.getUserName(), loginRequest.getPassword());
             //token을 authenticationManager로 전달
             return authenticationManager.authenticate(authRequest);
         } catch (IOException e) {
@@ -62,7 +62,7 @@ public class LoginFilter extends UsernamePasswordAuthenticationFilter {
         log.info("accessToken: {}", accessToken);
 
 
-        jwtUtil.addRefreshToken(refreshToken, customUserDetail.getUser().getEmail());
+        jwtUtil.addRefreshToken(refreshToken, customUserDetail.getUser().getUserName());
 
         response.addHeader(AuthConstants.JWT_ISSUE_HEADER, AuthConstants.ACCESS_PREFIX + accessToken);
         response.addCookie(jwtUtil.createCookie(AuthConstants.REFRESH_PREFIX, refreshToken));

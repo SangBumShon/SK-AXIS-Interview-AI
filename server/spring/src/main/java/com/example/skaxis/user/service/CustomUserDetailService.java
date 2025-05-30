@@ -20,22 +20,26 @@ public class CustomUserDetailService implements UserDetailsService,UserService {
     private final PasswordEncoder passwordEncoder;
 
     @Override
-    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+    public UserDetails loadUserByUsername(String userName) throws UsernameNotFoundException {
         //CustomUserDetails 객체를 생성하여 넘겨줘야한다.
-        // User user = findByEmail(email);
-        User user = null;
+        User user = userRepository.findByUserName(userName);
 
         if (user == null)
             return null;
         return new CustomUserDetail(user);//UserDetail instance 에 넘겨주면 AuthenicationManager가 검증한다.
     }
 
-    //UserService method//
+    //UserService method
     @Override
     public User save(User user) {
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        // userRepository.save(user);
+        userRepository.save(user);
         return user;
+    }
+
+    @Override
+    public User findByUserName(String userName) {
+        return userRepository.findByUserName(userName);
     }
 
 }
