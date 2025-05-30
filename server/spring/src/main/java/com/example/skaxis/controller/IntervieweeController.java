@@ -48,7 +48,8 @@ public class IntervieweeController {
             @Parameter(description = "직무", example = "백엔드 개발자")
             @RequestParam(required = false) String position) {
 
-        IntervieweeListResponseDto response = intervieweeService.getInterviewees(date, status, position);
+        IntervieweeListResponseDto response = null;
+//                intervieweeService.getInterviewees(date, status, position);
         return ResponseEntity.ok(response);
     }
     
