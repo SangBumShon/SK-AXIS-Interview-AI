@@ -1,0 +1,72 @@
+openapi: 3.0.1
+info:
+  title: SK AXIS AI Interview Internal API
+  description: Spring Boot ↔ FastAPI 연동 전용 Internal API 명세서
+  version: "1.0.0"
+
+servers:
+  - url: http://springboot:8080/api/v1  # 내부 통신용 base url, docker-compose 서비스명과 일치
+
+tags:
+  - name: Internal
+    description: 시스템 내부 연동(서버-서버) 전용 API
+
+paths:
+  /internal/interviewee/{interviewee_id}/questions:
+    get:
+      tags: [Internal]
+      summary: 지원자별 면접 질문 5개 조회 (FastAPI → Spring Boot)
+      description: |
+        FastAPI에서 Spring Boot로 특정 지원자의 질문 5개(공통 3개+개별 2개)를 요청.
+        FastAPI의 면접 시작시, Spring Boot가 DB에서 지원자별 질문을 조회해 제공.
+      parameters:
+        - in: path
+          name: interviewee_id
+          required: true
+          schema:
+            type: integer
+          description: 지원자 ID
+      responses:
+        '200':
+          description: 질문 5개 반환
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  questions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Question'
+                example:
+                  questions:
+                    - question_id: 101
+                      type: 공통질문
+                      content: "본인의 장점을 말씀해 주세요."
+                    - question_id: 102
+                      type: 공통질문
+                      content: "팀으로 일할 때 중요하게 생각하는 점은?"
+                    - question_id: 103
+                      type: 공통질문
+                      content: "본인의 단점은 무엇인가요?"
+                    - question_id: 104
+                      type: 개별질문
+                      content: "지원 동기가 궁금합니다."
+                    - question_id: 105
+                      type: 개별질문
+                      content: "자기소개서에서 언급한 경험을 더 자세히 설명해 주세요."
+        '404':
+          description: 해당 지원자 또는 질문 없음
+
+components:
+  schemas:
+    Question:
+      type: object
+      properties:
+        question_id:
+          type: integer
+        type:
+          type: string
+          enum: [공통질문, 개별질문]
+        content:
+          type: string
