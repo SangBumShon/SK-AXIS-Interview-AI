@@ -15,4 +15,11 @@ public interface InterviewRepository extends JpaRepository<Interview, Long> {
     @Query("SELECT i FROM Interview i WHERE DATE(i.scheduledAt) = :date ORDER BY i.scheduledAt")
     List<Interview> findByScheduledDate(@Param("date") LocalDate date);
     
+    // 고유한 면접실 ID들을 조회하는 메서드 추가
+    @Query("SELECT DISTINCT i.roomId FROM Interview i WHERE i.roomId IS NOT NULL ORDER BY i.roomId")
+    List<String> findDistinctRoomIds();
+    
+    // 특정 날짜의 고유한 면접실 ID들을 조회하는 메서드 추가
+    @Query("SELECT DISTINCT i.roomId FROM Interview i WHERE DATE(i.scheduledAt) = :date AND i.roomId IS NOT NULL ORDER BY i.roomId")
+    List<String> findDistinctRoomIdsByDate(@Param("date") LocalDate date);
 }

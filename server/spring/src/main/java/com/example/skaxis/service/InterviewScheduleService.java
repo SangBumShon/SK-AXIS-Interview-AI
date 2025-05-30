@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -44,12 +45,19 @@ public class InterviewScheduleService {
                 }
             }
             
-            // 면접실 정보 생성 (하드코딩된 데이터 또는 DB에서 조회)
-            List<RoomDto> rooms = Arrays.asList(
-                new RoomDto("room1", "면접실 1"),
-                new RoomDto("room2", "면접실 2"),
-                new RoomDto("room3", "면접실 3")
-            );
+            // 데이터베이스에서 해당 날짜의 면접실 정보 동적 생성
+            List<String> roomIds = interviewRepository.findDistinctRoomIdsByDate(date);
+            List<RoomDto> rooms = roomIds.stream()
+                .map(roomId -> new RoomDto(roomId, "면접실 " + roomId))
+                .collect(Collectors.toList());
+            
+            // 만약 해당 날짜에 면접실이 없다면 전체 면접실 조회
+            if (rooms.isEmpty()) {
+                List<String> allRoomIds = interviewRepository.findDistinctRoomIds();
+                rooms = allRoomIds.stream()
+                    .map(roomId -> new RoomDto(roomId, "면접실 " + roomId))
+                    .collect(Collectors.toList());
+            }
             
             // 시간대별 면접 일정 생성
             List<TimeSlotDto> timeSlots = createTimeSlots(interviews, interviewees);
