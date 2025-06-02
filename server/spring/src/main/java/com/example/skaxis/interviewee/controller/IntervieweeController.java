@@ -1,7 +1,8 @@
 package com.example.skaxis.interviewee.controller;
 
 import com.example.skaxis.interview.dto.InterviewScheduleResponseDto;
-import com.example.skaxis.interview.service.InterviewScheduleService;
+import com.example.skaxis.interview.dto.SimpleInterviewScheduleResponseDto;
+// import com.example.skaxis.interview.service.InterviewScheduleService; // 주석처리
 import com.example.skaxis.interviewee.dto.IntervieweeListResponseDto;
 import com.example.skaxis.interviewee.service.IntervieweeService;
 import com.example.skaxis.util.dto.ExcelParseRequestDto;
@@ -32,8 +33,7 @@ import java.time.LocalDate;
 public class IntervieweeController {
     
     private final IntervieweeService intervieweeService;
-    private final InterviewScheduleService interviewScheduleService;
-    
+
     @GetMapping
     @Operation(summary = "면접 대상자 목록 조회", description = "필터 조건에 따라 면접 대상자 목록을 조회합니다.")
     @ApiResponses(value = {
@@ -50,52 +50,38 @@ public class IntervieweeController {
             @RequestParam(required = false) String position) {
 
         IntervieweeListResponseDto response = null;
-//                intervieweeService.getInterviewees(date, status, position);
+        // TODO: 필터링 로직 구현
         return ResponseEntity.ok(response);
     }
-    
+
     @GetMapping("/schedule")
     @Operation(summary = "날짜별 면접 일정 조회", description = "특정 날짜의 면접 일정 정보를 조회합니다.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "조회 성공",
+                content = @Content(schema = @Schema(implementation = SimpleInterviewScheduleResponseDto.class))),
+        @ApiResponse(responseCode = "400", description = "잘못된 요청")
+    })
+    public ResponseEntity<SimpleInterviewScheduleResponseDto> getInterviewSchedule(
+            @Parameter(description = "면접 날짜 (YYYY-MM-DD)", example = "2024-01-15", required = true)
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        
+        SimpleInterviewScheduleResponseDto response = intervieweeService.getSimpleInterviewScheduleByDate(date);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/schedule/detailed")
+    @Operation(summary = "상세한 날짜별 면접 일정 조회", description = "특정 날짜의 면접 일정 정보를 상세한 형식으로 조회합니다.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "조회 성공",
                 content = @Content(schema = @Schema(implementation = InterviewScheduleResponseDto.class))),
         @ApiResponse(responseCode = "400", description = "잘못된 요청")
     })
-    public ResponseEntity<InterviewScheduleResponseDto> getInterviewSchedule(
+    public ResponseEntity<InterviewScheduleResponseDto> getDetailedInterviewSchedule(
             @Parameter(description = "면접 날짜 (YYYY-MM-DD)", example = "2024-01-15", required = true)
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         
-        InterviewScheduleResponseDto response = interviewScheduleService.getInterviewScheduleByDate(date);
+        InterviewScheduleResponseDto response = intervieweeService.getInterviewScheduleByDate(date);
         return ResponseEntity.ok(response);
     }
-    
-//    @PostMapping(value = "/excel/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-//    @Operation(summary = "Excel 파일 업로드", description = "면접 대상자 정보가 포함된 Excel 파일을 업로드합니다.")
-//    @ApiResponses(value = {
-//        @ApiResponse(responseCode = "200", description = "업로드 성공",
-//                content = @Content(schema = @Schema(implementation = FileUploadResponseDto.class))),
-//        @ApiResponse(responseCode = "400", description = "잘못된 파일 형식")
-//    })
-//    public ResponseEntity<FileUploadResponseDto> uploadExcelFile(
-//            @Parameter(description = "업로드할 Excel 파일 (.xlsx, .xls)")
-//            @RequestParam("file") MultipartFile file) throws IOException {
-//
-//        FileUploadResponseDto response = intervieweeService.uploadExcelFile(file);
-//        return ResponseEntity.ok(response);
-//    }
-    
-//    @PostMapping("/excel/parse")
-//    @Operation(summary = "Excel 파일 파싱 및 저장", description = "업로드된 Excel 파일을 파싱하여 데이터베이스에 저장합니다.")
-//    @ApiResponses(value = {
-//        @ApiResponse(responseCode = "200", description = "파싱 및 저장 성공",
-//                content = @Content(schema = @Schema(implementation = ExcelParseResponseDto.class))),
-//        @ApiResponse(responseCode = "400", description = "파일 경로가 잘못됨"),
-//        @ApiResponse(responseCode = "500", description = "파싱 중 오류 발생")
-//    })
-//    public ResponseEntity<ExcelParseResponseDto> parseExcelFile(
-//            @RequestBody ExcelParseRequestDto request) {
-//
-//        ExcelParseResponseDto response = intervieweeService.parseExcelFile(request.getFilePath());
-//        return ResponseEntity.ok(response);
-//    }
+
 }

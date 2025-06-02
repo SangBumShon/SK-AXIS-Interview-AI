@@ -1,6 +1,12 @@
+/*
 package com.example.skaxis.interview.service;
 
+// 이 서비스는 IntervieweeService로 통합되었습니다.
+// 모든 기능이 IntervieweeService로 이동되었으므로 이 파일은 더 이상 사용되지 않습니다.
+
 import com.example.skaxis.interview.dto.InterviewScheduleResponseDto;
+import com.example.skaxis.interview.dto.SimpleInterviewScheduleResponseDto;
+import com.example.skaxis.interview.dto.InterviewScheduleItemDto;
 import com.example.skaxis.interview.model.Interview;
 import com.example.skaxis.interview.repository.InterviewRepository;
 import com.example.skaxis.interviewee.model.Interviewee;
@@ -167,3 +173,4 @@ public class InterviewScheduleService {
         return startTime + " - " + endTime;
     }
 }
+*/
