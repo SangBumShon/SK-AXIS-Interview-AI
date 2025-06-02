@@ -25,12 +25,12 @@ public class AuthController {
 
     @PostMapping("/signup/admin")
     public ResponseEntity<?> signupAdmin(@RequestBody UserSignupRequest adminSignupRequest) {
-        return signup(adminSignupRequest.getUsername(), adminSignupRequest.getPassword(), 
+        return signup(adminSignupRequest.getUserName(), adminSignupRequest.getPassword(), 
                 adminSignupRequest.getName(), Role.ADMIN);
     }
     @PostMapping("/signup/interviewer")
     public ResponseEntity<?> signupInterviewer(@RequestBody UserSignupRequest interviewerSignupRequest) {
-        return signup(interviewerSignupRequest.getUsername(), interviewerSignupRequest.getPassword(),
+        return signup(interviewerSignupRequest.getUserName(), interviewerSignupRequest.getPassword(),
                 interviewerSignupRequest.getName(), Role.INTERVIEWER);
     }
 
