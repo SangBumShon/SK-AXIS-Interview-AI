@@ -1,7 +1,7 @@
 openapi: 3.0.1
 info:
   title: SK AXIS AI Interview Spring Boot API
-  description: AI 면접 시스템 – 질문/면접자/면접관/파일경로/관리자/다운로드/코멘트 등 전체 기능 API (MP3/MP4 파일 관리 제외)
+  description: AI 면접 시스템 – 지원자/질문/면접/결과/다운로드/코멘트, 관리자만 로그인 (면접관 계정 관리 X)
   version: "1.0.0"
 
 servers:
@@ -9,13 +9,11 @@ servers:
 
 tags:
   - name: Auth
-    description: JWT 로그인/로그아웃 및 권한
+    description: 관리자 JWT 로그인/로그아웃
   - name: Interviewee
     description: 지원자 관리 (조회/생성/수정/삭제)
   - name: Interview
     description: 면접 세션 관리 (조회/생성/수정/삭제)
-  - name: User
-    description: 면접관/HR팀 계정 관리 (조회/생성/수정/삭제)
   - name: Question
     description: 질문 관리 (조회/등록/수정/삭제)
   - name: InterviewResult
@@ -25,7 +23,10 @@ paths:
   /auth/login:
     post:
       tags: [Auth]
-      summary: JWT 로그인
+      summary: 관리자(HR팀) 로그인 (JWT 반환)
+      description: |
+        관리자 페이지에서만 사용하는 로그인 API.
+        일반 면접관은 로그인 불필요, 관리 기능 접근 시만 사용.
       requestBody:
         required: true
         content:
@@ -318,74 +319,6 @@ paths:
         '204':
           description: 삭제 성공
 
-  /users:
-    get:
-      tags: [User]
-      summary: 전체 사용자(면접관/HR) 조회
-      responses:
-        '200':
-          description: 사용자 배열
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/User'
-    post:
-      tags: [User]
-      summary: 사용자(면접관/HR) 등록
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UserCreateRequest'
-      responses:
-        '201':
-          description: 등록 성공
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-
-  /users/{user_id}:
-    put:
-      tags: [User]
-      summary: 사용자 정보 수정
-      parameters:
-        - in: path
-          name: user_id
-          schema:
-            type: integer
-          required: true
-          description: 사용자 ID
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UserUpdateRequest'
-      responses:
-        '200':
-          description: 수정 성공
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-    delete:
-      tags: [User]
-      summary: 사용자 삭제
-      parameters:
-        - in: path
-          name: user_id
-          schema:
-            type: integer
-          required: true
-          description: 사용자 ID
-      responses:
-        '204':
-          description: 삭제 성공
-
   /interview/result:
     post:
       tags: [InterviewResult]
@@ -434,7 +367,7 @@ paths:
   /interview/{interviewee_id}/comment:
     put:
       tags: [InterviewResult]
-      summary: 면접자별 관리자/면접관 평가 코멘트 입력/수정
+      summary: 면접자별 관리자 평가 코멘트 입력/수정
       parameters:
         - in: path
           name: interviewee_id
@@ -602,46 +535,6 @@ components:
           enum: [공통질문, 개별질문]
         content:
           type: string
-
-    User:
-      type: object
-      properties:
-        user_id:
-          type: integer
-        username:
-          type: string
-        name:
-          type: string
-        role:
-          type: string
-          enum: [ADMIN, INTERVIEWER]
-        created_at:
-          type: string
-          format: date-time
-
-    UserCreateRequest:
-      type: object
-      properties:
-        username:
-          type: string
-        password:
-          type: string
-        name:
-          type: string
-        role:
-          type: string
-          enum: [ADMIN, INTERVIEWER]
-
-    UserUpdateRequest:
-      type: object
-      properties:
-        password:
-          type: string
-        name:
-          type: string
-        role:
-          type: string
-          enum: [ADMIN, INTERVIEWER]
 
     InterviewResultRequest:
       type: object
