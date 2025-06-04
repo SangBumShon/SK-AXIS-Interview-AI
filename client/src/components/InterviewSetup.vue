@@ -34,18 +34,18 @@
               @click="toggleRoomDropdown"
               class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500 cursor-pointer text-gray-700 flex justify-between items-center"
             >
-              <span v-if="selectedRoom">{{ rooms.find(r => r.id === selectedRoom)?.name }}</span>
+              <span v-if="selectedRoom">{{ selectedRoom }}</span>
               <span v-else class="text-gray-500">면접 호실을 선택해주세요</span>
               <i class="fas fa-chevron-down text-gray-600"></i>
             </div>
             <div v-if="showRoomDropdown" class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg">
               <div
-                v-for="room in rooms"
-                :key="room.id"
-                @click="selectRoom(room.id)"
+                v-for="roomName in uniqueRoomNames"
+                :key="roomName"
+                @click="selectRoom(roomName)"
                 class="px-3 py-2 hover:bg-gray-50 cursor-pointer"
               >
-                {{ room.name }}
+                {{ roomName }}
               </div>
             </div>
           </div>
@@ -115,126 +115,104 @@
   <script setup lang="ts">
   import { ref, computed, onMounted, watch } from 'vue';
   import { useRouter } from 'vue-router';
-  import type { Room, TimeSlot, Person } from '../data/interviewData';
-  import { getPersonById } from '../data/interviewData';
   import AdminLoginModal from './AdminLoginModal.vue';
-  import { getInterviewSchedules } from '../services/interviewService';
-  
-  interface Props {
-    rooms: Room[];
-    timeSlots: TimeSlot[];
-    people: Person[];
-  }
-  
-  const props = withDefaults(defineProps<Props>(), {
-    rooms: () => [],
-    timeSlots: () => [],
-    people: () => []
-  });
+  import { getInterviewSchedules, type InterviewSchedule } from '../services/interviewService';
   
   const router = useRouter();
   
-  const selectedRoom = ref<string>('');
-  const selectedTimeSlot = ref<string>('');
+  // 상태 변수들
+  const selectedDate = ref(new Date().toISOString().split('T')[0]);
+  const selectedRoom = ref('');
+  const selectedTimeSlot = ref('');
   const showRoomDropdown = ref(false);
-  const selectedDate = ref<string>(new Date().toISOString().split('T')[0]);
-  const schedules = ref<any[]>([]);
-  const loading = ref(false);
-  const error = ref<string | null>(null);
   const showAdminLogin = ref(false);
-  const selectedSchedule = ref<any>(null);
+  const loading = ref(false);
+  const error = ref('');
+  const schedules = ref<InterviewSchedule[]>([]);
   
-  // 오늘 날짜와 선택된 날짜가 일치하는지 확인하는 computed 속성 추가
+  // API 응답에서 고유한 방 이름들 추출
+  const uniqueRoomNames = computed(() => {
+    const roomNames = schedules.value.map((schedule: InterviewSchedule) => schedule.roomName);
+    return [...new Set(roomNames)];
+  });
+  
+  // 오늘 날짜인지 확인
   const isToday = computed(() => {
     const today = new Date().toISOString().split('T')[0];
     return selectedDate.value === today;
   });
   
-  const availableTimeSlots = computed(() => {
-    if (!selectedRoom.value || !selectedDate.value) return [];
-    return props.timeSlots.filter(slot => 
-      slot.roomId === selectedRoom.value && 
-      slot.date === selectedDate.value &&
-      slot.candidateIds.length > 0
+  // 면접 시작 가능 여부
+  const canProceed = computed(() => {
+    return selectedRoom.value && selectedTimeSlot.value && isToday.value;
+  });
+  
+  // 필터링된 일정
+  const filteredSchedules = computed(() => {
+    if (!selectedRoom.value) return schedules.value;
+    return schedules.value.filter((schedule: InterviewSchedule) => 
+      schedule.roomName === selectedRoom.value
     );
   });
   
-  const canProceed = computed(() => {
-    return selectedRoom.value && 
-           selectedTimeSlot.value && 
-           isToday.value && 
-           selectedSchedule.value; // 선택된 일정이 있는 경우에만 true
-  });
-  
-  const filteredSchedules = computed(() =>
-    schedules.value.filter(schedule => 
-      schedule.roomName === props.rooms.find(r => r.id === selectedRoom.value)?.name
-    )
-  );
-  
-  const toggleRoomDropdown = () => { showRoomDropdown.value = !showRoomDropdown.value; };
-  const selectRoom = (roomId: string) => {
-    selectedRoom.value = roomId;
+  // 방 선택 함수
+  const selectRoom = (roomName: string) => {
+    selectedRoom.value = roomName;
     selectedTimeSlot.value = '';
     showRoomDropdown.value = false;
   };
   
+  // 드롭다운 토글
+  const toggleRoomDropdown = () => {
+    showRoomDropdown.value = !showRoomDropdown.value;
+  };
+  
+  // 시간대 선택
+  const selectTimeSlot = (schedule: InterviewSchedule) => {
+    selectedTimeSlot.value = schedule.timeRange;
+  };
+  
+  // 일정 가져오기
   const fetchSchedules = async () => {
     if (!selectedDate.value) return;
     
     loading.value = true;
-    error.value = null;
+    error.value = '';
     
     try {
       const response = await getInterviewSchedules(selectedDate.value);
       schedules.value = response.schedules;
     } catch (err) {
-      error.value = '면접 일정을 불러오는데 실패했습니다.';
-      console.error(err);
+      error.value = '일정을 불러오는데 실패했습니다.';
+      console.error('Error fetching schedules:', err);
     } finally {
       loading.value = false;
     }
   };
   
-  // 날짜가 변경될 때마다 일정을 다시 불러옵니다
-  watch(selectedDate, () => {
-    fetchSchedules();
-  });
-  
-  const selectTimeSlot = (schedule: any) => {
-    selectedSchedule.value = schedule;
-    selectedTimeSlot.value = schedule.timeRange;
-  };
-  
+  // 면접 시작
   const onStartInterview = () => {
-    if (!canProceed.value || !selectedSchedule.value) return;
-    
-    router.push({
-      name: 'interview',
-      query: {
-        roomName: selectedSchedule.value.roomName,
-        date: selectedDate.value,
-        timeRange: selectedSchedule.value.timeRange,
-        interviewers: selectedSchedule.value.interviewers.join(', '),
-        candidates: JSON.stringify(selectedSchedule.value.interviewees),
-        candidateIds: JSON.stringify(selectedSchedule.value.interviewees)
-      }
-    });
+    if (canProceed.value) {
+      router.push('/interview');
+    }
   };
   
+  // 관리자 로그인 처리
   const handleAdminLogin = () => {
-    // 로그인 성공 시 관리자 대시보드로 이동
+    showAdminLogin.value = false;
     router.push('/admin');
   };
   
+  // 날짜 변경 시 일정 다시 가져오기
+  watch(selectedDate, () => {
+    selectedRoom.value = '';
+    selectedTimeSlot.value = '';
+    fetchSchedules();
+  });
+  
+  // 컴포넌트 마운트 시 일정 가져오기
   onMounted(() => {
     fetchSchedules();
-    document.addEventListener('click', (event) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('.relative') && showRoomDropdown.value) {
-        showRoomDropdown.value = false;
-      }
-    });
   });
   </script>
   
