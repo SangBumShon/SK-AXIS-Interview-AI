@@ -1,0 +1,182 @@
+<template>
+  <div class="fixed inset-0 bg-white z-50 overflow-auto">
+    <div class="container mx-auto px-4 py-6">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-2xl font-bold text-gray-900">면접 진행</h3>
+        <button @click="close" class="text-gray-400 hover:text-gray-600 cursor-pointer">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="flex items-center gap-2">
+            <i class="fas fa-door-open text-red-600"></i>
+            <span class="text-gray-700">면접실: {{ roomName }}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <i class="fas fa-clock text-red-600"></i>
+            <span class="text-gray-700">시간: {{ timeRange }}</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <i class="fas fa-users text-red-600"></i>
+            <span class="text-gray-700">면접관: {{ interviewers }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="mb-8">
+        <div class="grid" :class="[candidates.length > 1 ? 'grid-cols-2 gap-6' : 'grid-cols-1']">
+          <div v-for="(candidate, index) in candidates" :key="index" class="bg-white rounded-lg shadow-lg p-6">
+            <div class="flex justify-between items-center mb-4">
+              <h4 class="text-xl font-semibold text-gray-900">{{ candidate }} 님</h4>
+              <span class="text-sm text-gray-500">지원자 {{ index + 1 }}</span>
+            </div>
+            <div class="space-y-4">
+              <div v-for="(question, qIndex) in getQuestionsForCandidate(candidateIds[index])" :key="question.id" class="p-4 bg-gray-50 rounded-lg">
+                <div class="flex items-center gap-3 mb-2">
+                  <span class="flex items-center justify-center w-6 h-6 bg-red-600 text-white rounded-full text-sm font-medium">
+                    {{ qIndex + 1 }}
+                  </span>
+                  <h5 class="font-medium text-gray-900">
+                    {{ question.type === 'common' ? '공통 질문' : '개별 질문' }} {{ qIndex + 1 }}
+                  </h5>
+                </div>
+                <p class="text-gray-700 ml-9">{{ question.content }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="flex justify-center space-x-4 mt-8">
+          <button
+            class="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium !rounded-button whitespace-nowrap cursor-pointer flex items-center gap-2"
+            @click="startSession"
+          >
+            <i class="fas fa-play"></i>
+            면접 시작
+          </button>
+          <button
+            class="px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium !rounded-button whitespace-nowrap cursor-pointer flex items-center gap-2"
+            @click="endSession"
+          >
+            <i class="fas fa-stop"></i>
+            면접 종료
+          </button>
+          <button
+            class="px-8 py-3 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 font-medium !rounded-button whitespace-nowrap cursor-pointer flex items-center gap-2"
+            @click="close"
+          >
+            <i class="fas fa-times"></i>
+            취소
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 우측 하단 실시간 캠/분석 오버레이 (480x270픽셀 고정) -->
+    <div
+      class="fixed bottom-4 right-4 bg-gray-900 rounded-lg overflow-hidden shadow-lg z-50 flex items-center justify-center"
+      style="width:480px; height:270px; pointer-events:none;"
+    >
+      <PoseMiniWidget style="width:100%; height:100%;" />
+    </div>
+
+    <!-- AI 로딩 모달 -->
+    <AiLoadingModal v-if="isAnalyzing" />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+import type { Question } from '../data/questionData';
+import { getQuestionsForCandidate as getCandidateQuestions } from '../data/questionData';
+import AiLoadingModal from './AiLoadingModal.vue';
+import PoseMiniWidget from './PoseMiniWidget.vue';
+
+interface Props {
+  roomName: string;
+  timeRange: string;
+  interviewers: string;
+  candidates: string[];
+  candidateIds: string[];
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  roomName: '',
+  timeRange: '',
+  interviewers: '',
+  candidates: () => [],
+  candidateIds: () => []
+});
+
+const emit = defineEmits<{
+  (e: 'close'): void;
+  (e: 'startSession'): void;
+  (e: 'endSession'): void;
+  (e: 'toggleWebcam'): void;
+}>();
+
+const router = useRouter();
+const isAnalyzing = ref(false);
+
+const getQuestionsForCandidate = (candidateId: string): Question[] => {
+  return getCandidateQuestions(candidateId);
+};
+
+const startSession = () => {
+  emit('startSession');
+};
+
+const endSession = async () => {
+  try {
+    isAnalyzing.value = true;
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    const interviewResults = props.candidates.map((candidate, index) => ({
+      candidateInfo: {
+        name: candidate,
+        position: '개발자',
+        department: 'IT',
+        interviewDate: new Date().toLocaleDateString(),
+        interviewTime: props.timeRange
+      },
+      score: Math.floor(Math.random() * 30) + 70,
+      evaluationKeywords: [
+        {
+          category: '기술 역량',
+          score: Math.floor(Math.random() * 30) + 70,
+          reason: '기술적 이해도가 높고 실무 경험이 풍부합니다.'
+        },
+        {
+          category: '의사소통 능력',
+          score: Math.floor(Math.random() * 30) + 70,
+          reason: '명확한 의사 전달과 적극적인 커뮤니케이션이 돋보입니다.'
+        },
+        {
+          category: '문제해결 능력',
+          score: Math.floor(Math.random() * 30) + 70,
+          reason: '논리적 사고와 창의적인 해결책 제시가 뛰어납니다.'
+        }
+      ],
+      questions: getQuestionsForCandidate(props.candidateIds[index]).map(q => q.content),
+      answers: getQuestionsForCandidate(props.candidateIds[index]).map(() => '지원자의 답변 내용...'),
+      feedback: '전반적으로 우수한 역량을 보여주었습니다. 특히 기술적 이해도와 문제해결 능력이 돋보였습니다.'
+    }));
+
+    router.push({
+      name: 'result',
+      query: {
+        results: JSON.stringify(interviewResults),
+        candidates: JSON.stringify(props.candidates),
+        tab: '0'
+      }
+    });
+  } catch (error) {
+    console.error('면접 분석 중 오류 발생:', error);
+  } finally {
+    isAnalyzing.value = false;
+  }
+};
+
+const close = () => {
+  router.push('/');
+};
+</script>
