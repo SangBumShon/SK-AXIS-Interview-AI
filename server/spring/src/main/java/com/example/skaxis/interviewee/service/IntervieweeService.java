@@ -259,4 +259,68 @@ public class IntervieweeService {
             return startTime + "~";
         }
     }
+
+    public SimpleInterviewScheduleResponseDto getAllSimpleInterviewSchedules(String status) {
+        try {
+            // 모든 면접 일정 조회 (상태 필터링 포함)
+            List<Interview> interviews;
+            if (status != null && !status.trim().isEmpty()) {
+
+                interviews = interviewRepository.findByStatusOrderByScheduledAt(Interview.InterviewStatus.valueOf(status));
+            } else {
+                interviews = interviewRepository.findAllOrderByScheduledAt();
+            }
+
+            
+            List<InterviewScheduleItemDto> schedules = new ArrayList<>();
+            
+            for (Interview interview : interviews) {
+                // 면접관 이름들 파싱
+                List<String> interviewerNames = parseInterviewers(interview.getInterviewers());
+                
+                // 해당 면접의 지원자들 조회
+                List<InterviewInterviewee> interviewInterviewees = 
+                    interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
+                
+                List<String> interviewees = new ArrayList<>();
+                for (InterviewInterviewee ii : interviewInterviewees) {
+                    Interviewee interviewee = intervieweeRepository.findById(ii.getIntervieweeId())
+                        .orElse(null);
+                    if (interviewee != null && interviewee.getName() != null) {
+                        interviewees.add(interviewee.getName());
+                    }
+                }
+                
+                // 시간 범위 포맷팅
+                String timeRange = formatSimpleTimeRange(interview.getScheduledAt(), interview.getScheduledEndAt());
+                
+                // 날짜 추출 (LocalDate)
+                LocalDate interviewDate = interview.getScheduledAt().toLocalDate();
+                
+                InterviewScheduleItemDto scheduleItem = InterviewScheduleItemDto.builder()
+                    .interviewDate(interviewDate)
+                    .timeRange(timeRange)
+                    .roomName(interview.getRoomId())
+                    .interviewers(interviewerNames)
+                    .interviewees(interviewees)
+                    .status(interview.getStatus().getDescription())
+                    .build();
+                
+                schedules.add(scheduleItem);
+            }
+            
+            return SimpleInterviewScheduleResponseDto.builder()
+                .schedules(schedules)
+                .message("전체 면접 일정을 성공적으로 조회했습니다.")
+                .build();
+                
+        } catch (Exception e) {
+            log.error("전체 면접 일정 조회 중 오류 발생: {}", e.getMessage(), e);
+            return SimpleInterviewScheduleResponseDto.builder()
+                .schedules(new ArrayList<>())
+                .message("면접 일정 조회 중 오류가 발생했습니다: " + e.getMessage())
+                .build();
+        }
+    }
+
 }
