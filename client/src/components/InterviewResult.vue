@@ -1,302 +1,254 @@
 <template>
-  <div class="min-h-screen bg-white py-8 px-4 sm:px-6 lg:px-8">
-    <!-- Header -->
-    <header class="bg-white shadow-sm">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div class="flex justify-between items-center">
-          <h1 class="text-2xl font-bold text-gray-900">면접 결과</h1>
-          <router-link to="/" class="text-[#FF7A00] hover:text-[#E60012]">
-            <i class="fas fa-arrow-left mr-2"></i>대시보드로 돌아가기
-          </router-link>
-        </div>
-      </div>
-    </header>
-
-    <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <!-- Candidate Info -->
-      <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
-        <div class="flex justify-between items-start">
-          <div>
-            <h2 class="text-xl font-semibold text-gray-900">{{ candidateName }}님의 면접 결과</h2>
-            <p class="text-gray-600 mt-1">면접 일시: {{ formattedDate }}</p>
-          </div>
-          <div class="flex space-x-4">
-            <button @click="downloadPdf" class="!rounded-button whitespace-nowrap px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200">
-              <i class="fas fa-download mr-2"></i>PDF 다운로드
-            </button>
-            <button @click="sendEmail" class="!rounded-button whitespace-nowrap px-4 py-2 bg-[#FF7A00] text-white hover:bg-[#e66e00]">
-              <i class="fas fa-envelope mr-2"></i>이메일 전송
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Score Section -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <!-- Overall Score -->
-        <div class="bg-white rounded-lg shadow-sm p-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">종합 점수</h3>
-          <div class="flex items-center justify-center">
-            <div class="relative w-48 h-48">
-              <div ref="scoreChart" class="w-full h-full"></div>
+  <div class="fixed inset-0 bg-white z-50 overflow-auto">
+    <div class="container mx-auto px-4 py-6">
+      <!-- 헤더 -->
+      <div class="flex justify-between items-center mb-6 sticky top-0 bg-white z-10 py-4 border-b border-gray-200">
+        <div class="flex items-center gap-4">
+          <h2 class="text-2xl font-bold">
+            <span class="text-red-600">SK</span><span class="text-orange-500">AXIS</span>
+            <span class="text-gray-900 ml-2">면접 결과 보고서</span>
+          </h2>
+          <div class="flex items-center gap-2 ml-6">
+            <div v-for="(candidate, idx) in selectedCandidates" :key="idx"
+              @click="setTab(idx)"
+              class="px-4 py-2 rounded-md cursor-pointer transition-colors"
+              :class="tab === idx ? 'bg-red-100 text-red-700 font-medium' : 'bg-gray-100 text-gray-700'">
+              {{ candidate }}
             </div>
           </div>
         </div>
-
-        <!-- Assessment Categories -->
-        <div class="bg-white rounded-lg shadow-sm p-6 lg:col-span-2">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">평가 항목</h3>
-          <div class="space-y-4">
-            <div v-for="(category, index) in assessmentCategories" :key="index" class="flex items-center">
-              <div class="w-32 text-sm text-gray-600">{{ category.name }}</div>
-              <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div 
-                  class="h-full bg-[#FF7A00] rounded-full"
-                  :style="{ width: `${category.score}%` }"
-                ></div>
+        <div class="flex items-center gap-4">
+          <!-- 목차 TOC 드롭다운 -->
+          <div class="relative">
+            <button @click="toggleTocDropdown"
+              class="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors !rounded-button whitespace-nowrap cursor-pointer">
+              <i class="fas fa-list-ul text-gray-700"></i>
+              <span class="text-gray-700">목차</span>
+              <i class="fas fa-chevron-down text-gray-500 text-xs"></i>
+            </button>
+            <div v-if="showTocDropdown" class="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+              <div class="p-2">
+                <div v-for="section in tocSections" :key="section.id"
+                  @click="scrollToSection(section.id)"
+                  class="px-3 py-2 hover:bg-gray-50 rounded cursor-pointer text-gray-700 text-sm">
+                  {{ section.title }}
+                </div>
               </div>
-              <div class="w-16 text-right text-sm font-medium text-gray-900">{{ category.score }}%</div>
+            </div>
+          </div>
+          <button @click="emitClose" class="text-gray-400 hover:text-gray-600">
+            <i class="fas fa-times text-xl"></i>
+          </button>
+        </div>
+      </div>
+      <!-- 결과 본문 -->
+      <div v-if="result" class="bg-white rounded-lg p-8">
+        <!-- 기본 정보 -->
+        <div id="basic-info" class="mb-8 bg-gray-50 rounded-lg p-6">
+          <div class="grid grid-cols-2 gap-6">
+            <div>
+              <h3 class="text-xl font-bold text-gray-900 mb-4">면접자 정보</h3>
+              <div class="space-y-2">
+                <p class="text-gray-700"><span class="font-medium">이름:</span> {{ result.candidateInfo.name }}</p>
+                <p class="text-gray-700"><span class="font-medium">지원 직무:</span> {{ result.candidateInfo.position }}</p>
+                <p class="text-gray-700"><span class="font-medium">지원 부서:</span> {{ result.candidateInfo.department }}</p>
+              </div>
+            </div>
+            <div>
+              <h3 class="text-xl font-bold text-gray-900 mb-4">면접 정보</h3>
+              <div class="space-y-2">
+                <p class="text-gray-700"><span class="font-medium">면접 일시:</span> {{ result.candidateInfo.interviewDate }}</p>
+                <p class="text-gray-700"><span class="font-medium">면접 시간:</span> {{ result.candidateInfo.interviewTime }}</p>
+                <p class="text-gray-700"><span class="font-medium">면접 장소:</span> {{ result.candidateInfo.room ?? '-' }}</p>
+                <p class="text-gray-700"><span class="font-medium">면접관:</span> {{ result.candidateInfo.interviewers?.join(', ') ?? '-' }}</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-
-      <!-- Detailed Assessment -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Strengths -->
-        <div class="bg-white rounded-lg shadow-sm p-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">강점</h3>
-          <ul class="space-y-2">
-            <li v-for="(strength, index) in strengths" :key="index" class="flex items-start">
-              <i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i>
-              <span class="text-gray-700">{{ strength }}</span>
-            </li>
-          </ul>
-        </div>
-
-        <!-- Areas for Improvement -->
-        <div class="bg-white rounded-lg shadow-sm p-6">
-          <h3 class="text-lg font-semibold text-gray-900 mb-4">개선 사항</h3>
-          <ul class="space-y-2">
-            <li v-for="(area, index) in areasForImprovement" :key="index" class="flex items-start">
-              <i class="fas fa-exclamation-circle text-[#FF7A00] mt-1 mr-2"></i>
-              <span class="text-gray-700">{{ area }}</span>
-            </li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- Overall Assessment -->
-      <div class="bg-white rounded-lg shadow-sm p-6 mt-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">종합 평가</h3>
-        <p class="text-gray-700 whitespace-pre-line">{{ overallAssessment }}</p>
-      </div>
-
-      <!-- Interviewer Notes -->
-      <div class="bg-white rounded-lg shadow-sm p-6 mt-6">
-        <h3 class="text-lg font-semibold text-gray-900 mb-4">면접관 코멘트</h3>
-        <div class="space-y-4">
-          <div v-for="(note, index) in interviewerNotes" :key="index" class="border-l-4 border-[#FF7A00] pl-4">
-            <p class="text-gray-700">{{ note }}</p>
+        <!-- 종합 점수 -->
+        <div id="total-score" class="mb-12 text-center">
+          <div class="inline-block relative">
+            <div class="w-56 h-56 rounded-full border-8 border-red-100 flex items-center justify-center bg-white shadow-lg">
+              <div class="text-center">
+                <div class="text-7xl font-bold text-red-600">
+                  {{ result.score }}
+                </div>
+                <div class="text-gray-500 mt-2 text-xl">종합 점수</div>
+              </div>
+            </div>
           </div>
         </div>
+        <!-- 역량별 평가 (5개 항목, 아이콘별 색상) -->
+        <div id="competency-evaluation" class="mb-8">
+          <h3 class="text-2xl font-bold text-gray-900 mb-6">역량별 평가</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div v-for="(item, i) in fixedKeywordList" :key="i" class="bg-gray-50 rounded-lg p-6">
+              <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-12 h-12 rounded-full flex items-center justify-center"
+                    :class="item.bgClass">
+                    <i :class="item.icon + ' text-2xl ' + item.iconColor"></i>
+                  </div>
+                  <h4 class="text-lg font-semibold text-gray-900">{{ item.category }}</h4>
+                </div>
+                <div class="flex items-center gap-2">
+                  <div class="text-2xl font-bold" :class="item.textColor">
+                    {{ item.score ?? '-' }}
+                  </div>
+                  <span class="text-gray-500">/ 100</span>
+                </div>
+              </div>
+              <p class="text-gray-700">{{ item.reason ?? '해당 평가 항목에 대한 데이터가 없습니다.' }}</p>
+            </div>
+          </div>
+        </div>
+        <!-- 면접 질문 및 답변 -->
+        <div id="interview-content" class="mb-8">
+          <h3 class="text-2xl font-bold text-gray-900 mb-6">면접 내용 요약</h3>
+          <div class="space-y-6">
+            <div v-for="(question, qIdx) in result.questions" :key="qIdx"
+              class="bg-gray-50 rounded-lg p-6">
+              <div class="mb-4">
+                <h4 class="text-lg font-semibold text-gray-900 mb-2">
+                  Q{{ qIdx + 1 }}. {{ question }}
+                </h4>
+                <p class="text-gray-700 pl-6">A: {{ result.answers[qIdx] }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- 종합 평가 -->
+        <div id="overall-evaluation" class="mb-8">
+          <h3 class="text-2xl font-bold text-gray-900 mb-6">종합 평가</h3>
+          <div class="bg-gray-50 rounded-lg p-6">
+            <p class="text-gray-700 leading-relaxed">{{ result.feedback }}</p>
+          </div>
+        </div>
+        <!-- 다운로드 버튼 -->
+        <div id="download-section" class="mt-12 text-center">
+          <button @click="emitDownload"
+            class="bg-red-600 text-white px-12 py-4 rounded-lg hover:bg-red-700 text-xl font-bold shadow-lg transform transition hover:scale-105 !rounded-button whitespace-nowrap cursor-pointer inline-flex items-center gap-3">
+            <i class="fas fa-file-pdf text-2xl"></i>
+            면접 결과 리포트 다운로드
+          </button>
+        </div>
       </div>
-    </main>
+    </div>
   </div>
 </template>
 
-<script lang="ts" setup>
-import { ref, onMounted, computed } from 'vue';
-import * as echarts from 'echarts';
-import { useRoute } from 'vue-router';
+<script setup lang="ts">
+import { ref, computed, defineProps, defineEmits, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 
-const route = useRoute();
+const router = useRouter();
 
-// Data
-const score = ref(78);
-const candidateName = ref(route.query.candidateName as string || 'Michael Johnson');
-const interviewDate = ref(new Date().toLocaleDateString('en-US', {
-  year: 'numeric',
-  month: 'long',
-  day: 'numeric'
-}));
-const formattedDate = computed(() => new Date().toLocaleDateString('en-US', {
-  weekday: 'long',
-  year: 'numeric',
-  month: 'long',
-  day: 'numeric'
-}));
-
-const overallAssessment = ref(`지원자는 전반적으로 우수한 역량을 보여주었습니다. 특히 기술적 전문성과 의사소통 능력이 뛰어나며, 팀 프로젝트 경험도 풍부합니다. 문제 해결에 대한 창의적인 접근 방식이 인상적이었습니다.
-
-다만, 일부 기술적 영역에서 추가적인 학습이 필요해 보이며, 프레젠테이션 스킬과 시간 관리 능력에서 개선의 여지가 있습니다. 이러한 부분들을 보완한다면 더욱 뛰어난 성과를 낼 수 있을 것으로 기대됩니다.
-
-전반적으로 이 직무에 적합한 역량을 갖추고 있으며, 회사의 문화와도 잘 맞을 것으로 판단됩니다.`);
-
-const strengths = ref([
-  '기술적 전문성이 뛰어남',
-  '명확하고 논리적인 의사소통',
-  '프로젝트 경험 풍부',
-  '팀 협업 능력이 우수함',
-  '문제 해결에 대한 창의적 접근'
-]);
-
-const areasForImprovement = ref([
-  '일부 기술적 영역에서 추가 학습 필요',
-  '프레젠테이션 스킬 향상 필요',
-  '시간 관리 능력 개선 필요'
-]);
-
-const assessmentCategories = ref([
-  { name: '전문성', score: 85 },
-  { name: '의사소통', score: 90 },
-  { name: '문제해결', score: 75 },
-  { name: '팀워크', score: 80 },
-  { name: '적응력', score: 88 }
-]);
-
-const interviewerNotes = ref([
-  '기술적 질문에 대해 깊이 있는 이해를 보여줌',
-  '실무 경험을 바탕으로 한 구체적인 사례 제시가 인상적',
-  '팀 프로젝트 경험에서 리더십 역량이 돋보임',
-  '회사에 대한 이해도가 높고 지원 동기가 명확함'
-]);
-
-const scoreChart = ref<HTMLElement | null>(null);
-let chart: echarts.ECharts | null = null;
-
-onMounted(() => {
-  if (scoreChart.value) {
-    chart = echarts.init(scoreChart.value);
-    
-    const option = {
-      series: [
-        {
-          type: 'gauge',
-          startAngle: 90,
-          endAngle: -270,
-          pointer: {
-            show: false
-          },
-          progress: {
-            show: true,
-            overlap: false,
-            roundCap: true,
-            clip: false,
-            itemStyle: {
-              color: {
-                type: 'linear',
-                x: 0,
-                y: 0,
-                x2: 0,
-                y2: 1,
-                colorStops: [
-                  {
-                    offset: 0,
-                    color: '#E60012' // SK Group red
-                  },
-                  {
-                    offset: 1,
-                    color: '#FF7A00' // Orange
-                  }
-                ]
-              }
-            }
-          },
-          axisLine: {
-            lineStyle: {
-              width: 12,
-              color: [
-                [1, '#E8E8E8']
-              ]
-            }
-          },
-          splitLine: {
-            show: false
-          },
-          axisTick: {
-            show: false
-          },
-          axisLabel: {
-            show: false
-          },
-          data: [
-            {
-              value: score.value,
-              name: 'Score',
-              title: {
-                show: true,
-                offsetCenter: [0, '30%'],
-                fontSize: 14,
-                color: '#666'
-              },
-              detail: {
-                show: true,
-                offsetCenter: [0, '-10%'],
-                fontSize: 24,
-                fontWeight: 'bold',
-                color: '#FF7A00',
-                formatter: '{value}/100'
-              }
-            }
-          ],
-          animation: false
-        }
-      ]
-    };
-    
-    chart.setOption(option);
+// 카테고리별 기본 아이콘/색상 세팅
+const competencyConfig = [
+  {
+    category: '문제 해결 능력',
+    icon: 'fas fa-lightbulb',
+    iconColor: 'text-green-600',
+    bgClass: 'bg-green-100',
+    textColor: 'text-green-600'
+  },
+  {
+    category: '커뮤니케이션',
+    icon: 'fas fa-comments',
+    iconColor: 'text-blue-600',
+    bgClass: 'bg-blue-100',
+    textColor: 'text-blue-600'
+  },
+  {
+    category: '전문성',
+    icon: 'fas fa-code',
+    iconColor: 'text-purple-600',
+    bgClass: 'bg-purple-100',
+    textColor: 'text-purple-600'
+  },
+  {
+    category: '팀워크',
+    icon: 'fas fa-users',
+    iconColor: 'text-orange-600',
+    bgClass: 'bg-orange-100',
+    textColor: 'text-orange-600'
+  },
+  {
+    category: '리더십',
+    icon: 'fas fa-crown',
+    iconColor: 'text-yellow-600',
+    bgClass: 'bg-yellow-100',
+    textColor: 'text-yellow-600'
   }
+];
+
+const props = defineProps<{
+  interviewResults: any[]
+  selectedCandidates: string[]
+  initialTab?: number
+}>();
+
+const emit = defineEmits(['close', 'download']);
+
+const tab = ref(props.initialTab ?? 0);
+const result = computed(() => props.interviewResults[tab.value]);
+
+// 항목이 빠져있어도 5개 항목을 모두 채워서 보여줌
+const fixedKeywordList = computed(() => {
+  // 실제 받은 평가 배열
+  const evalArr = result.value?.evaluationKeywords || [];
+  // 5개 고정 카테고리 loop
+  return competencyConfig.map(conf => {
+    const found = evalArr.find(e => e.category === conf.category);
+    return {
+      ...conf,
+      score: found?.score ?? null,
+      reason: found?.reason ?? null
+    };
+  });
 });
 
-// Methods
-const downloadPdf = () => {
-  // In a real application, this would generate and download a PDF
-  alert('Downloading interview results as PDF...');
-};
+// 목차
+const tocSections = [
+  { id: 'basic-info', title: '기본 정보' },
+  { id: 'total-score', title: '종합 점수' },
+  { id: 'competency-evaluation', title: '역량별 평가' },
+  { id: 'interview-content', title: '면접 내용 요약' },
+  { id: 'overall-evaluation', title: '종합 평가' },
+  { id: 'download-section', title: '리포트 다운로드' }
+];
+const showTocDropdown = ref(false);
+function toggleTocDropdown() {
+  showTocDropdown.value = !showTocDropdown.value;
+}
+function scrollToSection(sectionId: string) {
+  const el = document.getElementById(sectionId);
+  if (el) el.scrollIntoView({ behavior: 'smooth' });
+  showTocDropdown.value = false;
+}
 
-const sendEmail = () => {
-  // In a real application, this would send an email
-  alert('Sending interview results via email...');
-};
+function setTab(idx: number) {
+  tab.value = idx;
+}
+function emitClose() {
+  emit('close');
+  router.push('/');
+}
+function emitDownload() {
+  emit('download', tab.value);
+}
+
+// 드롭다운 외부 클릭시 닫기
+onMounted(() => {
+  document.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.relative') && showTocDropdown.value) {
+      showTocDropdown.value = false;
+    }
+  });
+});
 </script>
 
 <style scoped>
-/* Pretendard 폰트 적용 */
-:root {
-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
-  background-color: white;
-}
-
-/* 전체 배경색 하얀색으로 설정 */
-body {
-  background-color: white;
-}
-
-/* 전체 텍스트에 Pretendard 폰트 적용 */
-* {
-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
-}
-
-/* Custom styles that can't be handled by Tailwind */
-.rounded-button {
-  border-radius: 0.375rem;
-  transition: all 0.2s ease;
-}
-
-/* Ensure the chart container maintains aspect ratio */
-.chart-container {
-  position: relative;
-  width: 100%;
-  padding-bottom: 100%;
-}
-
-.chart-container > div {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-}
-</style> 
+/* 스크롤바 등 스타일 보강은 여기에! */
+</style>
