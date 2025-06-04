@@ -115,7 +115,11 @@ services:
       - shared-network
 
   spring-app:
+    build:
+      context: ./server/spring
+      dockerfile: Dockerfile
     image: spring-app
+    
     container_name: spring-app
     ports:
       - "${SPRING_PORT:-8080}:8080"
@@ -130,3 +134,5 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
+    volumes:
+      - ./server/spring/uploads:/uploads
