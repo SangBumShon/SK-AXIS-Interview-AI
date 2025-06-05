@@ -27,10 +27,10 @@ public interface InterviewRepository extends JpaRepository<Interview, Long> {
     List<Interview> findByStatusOrderByScheduledAt(@Param("status") InterviewStatus status);
     
     // 고유한 면접실 ID들을 조회하는 메서드 추가
-    @Query("SELECT DISTINCT i.roomId FROM Interview i WHERE i.roomId IS NOT NULL ORDER BY i.roomId")
+    @Query("SELECT DISTINCT i.roomNo FROM Interview i WHERE i.roomNo IS NOT NULL ORDER BY i.roomNo")
     List<String> findDistinctRoomIds();
-    
+
     // 특정 날짜의 고유한 면접실 ID들을 조회하는 메서드 추가
-    @Query("SELECT DISTINCT i.roomId FROM Interview i WHERE DATE(i.scheduledAt) = :date AND i.roomId IS NOT NULL ORDER BY i.roomId")
+    @Query("SELECT DISTINCT i.roomNo FROM Interview i WHERE DATE(i.scheduledAt) = :date AND i.roomNo IS NOT NULL ORDER BY i.roomNo")
     List<String> findDistinctRoomIdsByDate(@Param("date") LocalDate date);
 }
