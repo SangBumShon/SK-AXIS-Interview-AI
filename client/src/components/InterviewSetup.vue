@@ -52,14 +52,7 @@
         </div>
         <div class="mb-6" v-if="selectedRoom">
           <label class="block text-sm font-medium text-gray-700 mb-2">면접 일정</label>
-          <div v-if="loading" class="text-center py-4">
-            <i class="fas fa-spinner fa-spin text-gray-500"></i>
-            <span class="ml-2 text-gray-500">일정을 불러오는 중...</span>
-          </div>
-          <div v-else-if="error" class="text-center py-4 text-red-500">
-            {{ error }}
-          </div>
-          <div v-else class="overflow-x-auto">
+          <div class="overflow-x-auto">
             <table class="min-w-full bg-white border border-gray-200">
               <thead>
                 <tr class="bg-gray-50">
@@ -69,18 +62,32 @@
                   <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b w-20">선택</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr v-for="schedule in filteredSchedules" :key="schedule.timeRange" class="hover:bg-gray-50">
-                  <td class="px-4 py-3 text-center text-sm text-gray-700 border-b">{{ schedule.timeRange }}</td>
-                  <td class="px-4 py-3 text-center text-sm text-gray-700 border-b">{{ schedule.interviewers.join(', ') }}</td>
-                  <td class="px-4 py-3 text-center text-sm text-gray-700 border-b">{{ schedule.interviewees.join(', ') }}</td>
-                  <td class="px-4 py-3 text-center border-b">
-                    <button
-                      @click="selectTimeSlot(schedule)"
-                      class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
-                    >
-                      선택
-                    </button>
+              <tbody class="divide-y divide-gray-200">
+                <tr v-for="timeSlot in availableTimeSlots"
+                    :key="timeSlot.id"
+                    class="hover:bg-gray-50 cursor-pointer transition-colors"
+                    :class="{'bg-red-50': selectedTimeSlot === timeSlot.id}"
+                    @click="selectedTimeSlot = timeSlot.id">
+                  <td class="px-4 py-3 text-sm text-gray-900 whitespace-nowrap text-center">{{ timeSlot.timeRange }}</td>
+                  <td class="px-4 py-3 text-sm text-gray-600">
+                    <div class="flex flex-col items-center space-y-1">
+                      <div v-for="interviewerId in timeSlot.interviewerIds" :key="interviewerId" class="text-center">
+                        {{ getPersonById(interviewerId)?.name }}
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 text-sm text-gray-600">
+                    <div class="flex flex-col items-center space-y-1">
+                      <div v-for="candidateId in timeSlot.candidateIds" :key="candidateId" class="text-center">
+                        {{ getPersonById(candidateId)?.name }}
+                      </div>
+                    </div>
+                  </td>
+                  <td class="px-4 py-3 text-center">
+                    <div class="w-5 h-5 rounded-full border inline-flex items-center justify-center mx-auto"
+                         :class="selectedTimeSlot === timeSlot.id ? 'border-red-500 bg-red-500' : 'border-gray-300'">
+                      <i v-if="selectedTimeSlot === timeSlot.id" class="fas fa-check text-white text-xs"></i>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -113,12 +120,11 @@
   </template>
   
   <script setup lang="ts">
-  import { ref, computed, onMounted, watch } from 'vue';
+  import { ref, computed, onMounted } from 'vue';
   import { useRouter } from 'vue-router';
   import type { Room, TimeSlot, Person } from '../data/interviewData';
   import { getPersonById } from '../data/interviewData';
   import AdminLoginModal from './AdminLoginModal.vue';
-  import { getInterviewSchedules } from '../services/interviewService';
   
   interface Props {
     rooms: Room[];
@@ -137,12 +143,8 @@
   const selectedRoom = ref<string>('');
   const selectedTimeSlot = ref<string>('');
   const showRoomDropdown = ref(false);
-  const selectedDate = ref<string>(new Date().toISOString().split('T')[0]);
-  const schedules = ref<any[]>([]);
-  const loading = ref(false);
-  const error = ref<string | null>(null);
+  const selectedDate = ref<string>(new Date().toISOString().split('T')[0]); // 오늘 날짜를 기본값으로
   const showAdminLogin = ref(false);
-  const selectedSchedule = ref<any>(null);
   
   // 오늘 날짜와 선택된 날짜가 일치하는지 확인하는 computed 속성 추가
   const isToday = computed(() => {
@@ -162,15 +164,8 @@
   const canProceed = computed(() => {
     return selectedRoom.value && 
            selectedTimeSlot.value && 
-           isToday.value && 
-           selectedSchedule.value; // 선택된 일정이 있는 경우에만 true
+           isToday.value; // 오늘 날짜와 일치하는 경우에만 true
   });
-  
-  const filteredSchedules = computed(() =>
-    schedules.value.filter(schedule => 
-      schedule.roomName === props.rooms.find(r => r.id === selectedRoom.value)?.name
-    )
-  );
   
   const toggleRoomDropdown = () => { showRoomDropdown.value = !showRoomDropdown.value; };
   const selectRoom = (roomId: string) => {
@@ -179,45 +174,22 @@
     showRoomDropdown.value = false;
   };
   
-  const fetchSchedules = async () => {
-    if (!selectedDate.value) return;
-    
-    loading.value = true;
-    error.value = null;
-    
-    try {
-      const response = await getInterviewSchedules(selectedDate.value);
-      schedules.value = response.schedules;
-    } catch (err) {
-      error.value = '면접 일정을 불러오는데 실패했습니다.';
-      console.error(err);
-    } finally {
-      loading.value = false;
-    }
-  };
-  
-  // 날짜가 변경될 때마다 일정을 다시 불러옵니다
-  watch(selectedDate, () => {
-    fetchSchedules();
-  });
-  
-  const selectTimeSlot = (schedule: any) => {
-    selectedSchedule.value = schedule;
-    selectedTimeSlot.value = schedule.timeRange;
-  };
-  
   const onStartInterview = () => {
-    if (!canProceed.value || !selectedSchedule.value) return;
+    if (!canProceed.value) return;
+    const timeSlot = availableTimeSlots.value.find(t => t.id === selectedTimeSlot.value);
+    if (!timeSlot) return;
+    
+    const roomName = props.rooms.find(r => r.id === selectedRoom.value)?.name || '';
     
     router.push({
       name: 'interview',
       query: {
-        roomName: selectedSchedule.value.roomName,
+        roomName,
         date: selectedDate.value,
-        timeRange: selectedSchedule.value.timeRange,
-        interviewers: selectedSchedule.value.interviewers.join(', '),
-        candidates: JSON.stringify(selectedSchedule.value.interviewees),
-        candidateIds: JSON.stringify(selectedSchedule.value.interviewees)
+        timeRange: timeSlot.timeRange,
+        interviewers: timeSlot.interviewerIds.map(id => getPersonById(id)?.name).join(', '),
+        candidates: JSON.stringify(timeSlot.candidateIds.map(id => getPersonById(id)?.name)),
+        candidateIds: JSON.stringify(timeSlot.candidateIds)
       }
     });
   };
@@ -228,7 +200,6 @@
   };
   
   onMounted(() => {
-    fetchSchedules();
     document.addEventListener('click', (event) => {
       const target = event.target as HTMLElement;
       if (!target.closest('.relative') && showRoomDropdown.value) {

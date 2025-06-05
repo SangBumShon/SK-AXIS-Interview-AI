@@ -74,8 +74,7 @@
     <!-- 우측 하단 실시간 캠/분석 오버레이 (480x270픽셀 고정) -->
     <div
       class="fixed bottom-4 right-4 bg-gray-900 rounded-lg overflow-hidden shadow-lg z-50 flex items-center justify-center"
-      style="width:480px; height:270px; pointer-events:none;"
-    >
+      style="width:480px; aspect-ratio:4/3; pointer-events:none;">
       <PoseMiniWidget style="width:100%; height:100%;" />
     </div>
 

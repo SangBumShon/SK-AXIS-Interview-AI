@@ -11,10 +11,9 @@
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.4.2",
-    "@mediapipe/tasks-vision": "^0.10.22-rc.20250304",
     "autoprefixer": "^10.4.15",
-    "axios": "^1.9.0",
     "echarts": "^5.4.3",
+    "face-api.js": "^0.22.2",
     "postcss": "^8.4.28",
     "tailwindcss": "^3.3.3",
     "vue": "^3.3.4",
