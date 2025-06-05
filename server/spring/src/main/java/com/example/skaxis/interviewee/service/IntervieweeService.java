@@ -128,9 +128,10 @@ public class IntervieweeService {
                 List<String> interviewerNames = parseInterviewers(interview.getInterviewers());
                 
                 // 해당 면접의 지원자들 조회
-                List<InterviewInterviewee> interviewInterviewees = 
+                List<InterviewInterviewee> interviewInterviewees =
                     interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
-                
+                String status = interview.getStatus().getDescription();
+
                 List<String> interviewees = new ArrayList<>();
                 for (InterviewInterviewee ii : interviewInterviewees) {
                     Interviewee interviewee = intervieweeRepository.findById(ii.getIntervieweeId())
@@ -144,13 +145,14 @@ public class IntervieweeService {
                 String timeRange = formatSimpleTimeRange(interview.getScheduledAt(), interview.getScheduledEndAt());
                 
                 InterviewScheduleItemDto scheduleItem = InterviewScheduleItemDto.builder()
-                    .interviewDate(date)
-                    .timeRange(timeRange)
-                    .roomName(interview.getRoomId())
-                    .interviewers(interviewerNames)
-                    .interviewees(interviewees)
-                    .build();
-                    
+                        .interviewDate(date)
+                        .timeRange(timeRange)
+                        .roomName(interview.getRoomId())
+                        .status(status)
+                        .interviewers(interviewerNames)
+                        .interviewees(interviewees)
+                        .build();
+
                 schedules.add(scheduleItem);
             }
             
