@@ -12,8 +12,4 @@ import java.util.List;
 
 @Repository
 public interface InterviewRepository extends JpaRepository<Interview, Long> {
-    
-    @Query("SELECT i FROM Interview i WHERE DATE(i.scheduledAt) = :date ORDER BY i.scheduledAt")
-    List<Interview> findByScheduledDate(@Param("date") LocalDate date);
-    
 }

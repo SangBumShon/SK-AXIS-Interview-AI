@@ -26,7 +26,7 @@ public class Interview {
     private Long interviewId;
     
     @Column(name = "room_id", length = 20)
-    private String roomId;
+    private String roomNo;
     
     @Column(name = "round", nullable = false)
     private Integer round;

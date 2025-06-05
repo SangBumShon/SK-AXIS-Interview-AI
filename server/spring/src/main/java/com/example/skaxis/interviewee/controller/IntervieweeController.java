@@ -1,7 +1,7 @@
 package com.example.skaxis.interviewee.controller;
 
 import com.example.skaxis.interview.dto.InterviewScheduleResponseDto;
-import com.example.skaxis.interview.service.InterviewScheduleService;
+import com.example.skaxis.interview.service.InterviewService;
 import com.example.skaxis.interviewee.dto.IntervieweeListResponseDto;
 import com.example.skaxis.interviewee.service.IntervieweeService;
 import com.example.skaxis.util.dto.ExcelParseRequestDto;
@@ -32,7 +32,7 @@ import java.time.LocalDate;
 public class IntervieweeController {
     
     private final IntervieweeService intervieweeService;
-    private final InterviewScheduleService interviewScheduleService;
+    private final InterviewService interviewScheduleService;
     
     @GetMapping
     @Operation(summary = "면접 대상자 목록 조회", description = "필터 조건에 따라 면접 대상자 목록을 조회합니다.")
