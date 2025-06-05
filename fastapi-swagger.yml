@@ -1,21 +1,21 @@
 openapi: 3.0.1
 info:
   title: SK AXIS AI Interview FastAPI
-  description: AI 면접 실시간 녹음/녹화, 평가, 파일 경로 연동 API
+  description: AI 면접 실시간 녹음, 비언어적 분석, 평가 및 결과물 생성 API
   version: "1.0.0"
 
 servers:
-  - url: /api/v1
+  - url: http://sk-axis-fastapi:8000/api/v1  # docker-compose 서비스명과 일치
 
 tags:
   - name: Interview
-    description: 면접 시작/종료, 실시간 녹음/녹화 API
+    description: 면접 시작/종료, 실시간 녹음 API
 
 paths:
   /interview/start:
     post:
       tags: [Interview]
-      summary: 면접 시작 (Spring Boot로부터 질문 5개 조회)
+      summary: 면접 시작 (STT 실시간 녹음 시작)
       requestBody:
         required: true
         content:
@@ -24,7 +24,7 @@ paths:
               $ref: '#/components/schemas/StartInterviewRequest'
       responses:
         '200':
-          description: 면접 질문 5개 반환
+          description: 면접자별 질문 5개 반환
           content:
             application/json:
               schema:
@@ -33,7 +33,7 @@ paths:
   /interview/end:
     post:
       tags: [Interview]
-      summary: 면접 종료 (평가 및 파일경로 Spring Boot 연동)
+      summary: 면접 종료 (STT 병합 + 비언어적 요소 수신 + 레포트 생성)
       requestBody:
         required: true
         content:
@@ -42,7 +42,7 @@ paths:
               $ref: '#/components/schemas/EndInterviewRequest'
       responses:
         '200':
-          description: 처리 완료
+          description: 보고서 생성 완료
           content:
             application/json:
               schema:
@@ -53,25 +53,62 @@ components:
     StartInterviewRequest:
       type: object
       required:
-        - interviewee_id
-        - interviewer_id
+        - interviewee_ids
+        - interviewer_ids
       properties:
-        interviewee_id:
-          type: integer
-          description: 면접자 ID (`interviewee_table`)
-          example: 101
-        interviewer_id:
-          type: integer
-          description: 면접관 ID (`user_table`)
-          example: 11
+        interviewee_ids:
+          type: array
+          items:
+            type: integer
+          example: [101, 102]
+        interviewer_ids:
+          type: array
+          items:
+            type: integer
+          example: [11, 12]
 
     StartInterviewResponse:
       type: object
       properties:
-        questions:
-          type: array
-          items:
-            $ref: '#/components/schemas/Question'
+        questions_per_interviewee:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/Question'
+          example:
+            "101":
+              - question_id: 1
+                type: 공통질문
+                content: "자신의 장점을 말씀해 주세요."
+              - question_id: 2
+                type: 공통질문
+                content: "팀 프로젝트에서 맡은 역할은 무엇이었나요?"
+              - question_id: 3
+                type: 공통질문
+                content: "단점을 어떻게 극복하려고 하나요?"
+              - question_id: 4
+                type: 개별질문
+                content: "자기소개서에 언급한 경험을 구체적으로 설명해 주세요."
+              - question_id: 5
+                type: 개별질문
+                content: "지원 동기가 궁금합니다."
+            "102":
+              - question_id: 6
+                type: 공통질문
+                content: "자신의 장점을 말씀해 주세요."
+              - question_id: 7
+                type: 공통질문
+                content: "팀 프로젝트에서 맡은 역할은 무엇이었나요?"
+              - question_id: 8
+                type: 공통질문
+                content: "단점을 어떻게 극복하려고 하나요?"
+              - question_id: 9
+                type: 개별질문
+                content: "해외 경험 중 가장 인상 깊었던 순간은?"
+              - question_id: 10
+                type: 개별질문
+                content: "기술 블로그를 운영하신다고 들었는데, 어떤 주제로 쓰시나요?"
         status:
           type: string
           example: started
@@ -81,26 +118,48 @@ components:
       properties:
         question_id:
           type: integer
-          description: 질문 ID (`question_table`)
-          example: 3001
         type:
           type: string
-          description: 공통질문/개별질문
           example: 공통질문
         content:
           type: string
-          description: 질문 내용
           example: "자신의 장점을 말씀해 주세요."
 
     EndInterviewRequest:
       type: object
       required:
         - interview_id
+        - interviewees
       properties:
         interview_id:
           type: integer
-          description: 면접 ID (`interview_table`)
           example: 1001
+        interviewees:
+          type: array
+          items:
+            type: object
+            required:
+              - interviewee_id
+              - counts
+            properties:
+              interviewee_id:
+                type: integer
+                example: 101
+              counts:
+                type: object
+                properties:
+                  posture:
+                    type: integer
+                    example: 152
+                  gaze:
+                    type: integer
+                    example: 138
+                  expression:
+                    type: integer
+                    example: 160
+                  gesture:
+                    type: integer
+                    example: 98
 
     EndInterviewResponse:
       type: object
@@ -111,3 +170,57 @@ components:
         report_ready:
           type: boolean
           example: true
+
+#######################################################################
+# WebSocket 확장 명세 (Vue → FastAPI)
+#######################################################################
+
+# Endpoint
+#   ws://sk-axis-fastapi:8000/ws/nonverbal
+#
+# 설명
+#   Vue에서 MediaPipe를 통해 비언어적 요소들을 실시간 분석 후
+#   1초 주기로 면접자별 JSON 배열로 전송
+#
+# 전송 형식 (예시 JSON)
+# [
+#   {
+#     "interviewee_id": "101",
+#     "is_speaking": false,
+#     "posture": {
+#       "leg_spread": 0,
+#       "leg_shake": 0,
+#       "head_down": 0
+#     },
+#     "facial_expression": {
+#       "smile": 0,
+#       "neutral": 4,
+#       "embarrassed": 0,
+#       "tearful": 0,
+#       "frown": 0
+#     }
+#   },
+#   {
+#     "interviewee_id": "102",
+#     "is_speaking": true,
+#     "posture": {
+#       "leg_spread": 1,
+#       "leg_shake": 0,
+#       "head_down": 2
+#     },
+#     "facial_expression": {
+#       "smile": 1,
+#       "neutral": 3,
+#       "embarrassed": 0,
+#       "tearful": 0,
+#       "frown": 0
+#     }
+#   }
+# ]
+#
+# 응답
+#   없음 (서버는 수신만 처리)
+#
+# 연결 흐름
+#   - 면접 시작 시 Vue가 WebSocket 연결
+#   - 면접 종료 시 Vue가 연결 해제 (close)

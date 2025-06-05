@@ -1,62 +1,87 @@
 openapi: 3.0.1
 info:
   title: SK AXIS AI Interview Internal API
-  description: Spring Boot ↔ FastAPI 연동 전용 Internal API 명세서
+  description: Spring Boot ↔ FastAPI 연동 전용 API 명세서 (다대다 질문 조회 포함 + WebSocket 확장)
   version: "1.0.0"
 
 servers:
-  - url: http://springboot:8080/api/v1  # 내부 통신용 base url, docker-compose 서비스명과 일치
+  - url: http://sk-axis-springboot:8080/api/v1
 
 tags:
   - name: Internal
-    description: 시스템 내부 연동(서버-서버) 전용 API
+    description: 내부 시스템 연동 API (FastAPI → Spring Boot)
 
 paths:
-  /internal/interviewee/{interviewee_id}/questions:
-    get:
+  /internal/interviewees/questions:
+    post:
       tags: [Internal]
-      summary: 지원자별 면접 질문 5개 조회 (FastAPI → Spring Boot)
+      summary: 다중 지원자 질문 5개 조회 (FastAPI → Spring Boot)
       description: |
-        FastAPI에서 Spring Boot로 특정 지원자의 질문 5개(공통 3개+개별 2개)를 요청.
-        FastAPI의 면접 시작시, Spring Boot가 DB에서 지원자별 질문을 조회해 제공.
-      parameters:
-        - in: path
-          name: interviewee_id
-          required: true
-          schema:
-            type: integer
-          description: 지원자 ID
+        면접 시작 시 FastAPI가 여러 명의 지원자 ID를 Spring Boot로 전달하여,
+        각 지원자별 질문 5개(공통 3 + 개별 2)를 한번에 요청하는 내부 API입니다.
+      operationId: getMultipleIntervieweeQuestions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                interviewee_ids:
+                  type: array
+                  items:
+                    type: integer
+                  example: [101, 102, 103]
       responses:
         '200':
-          description: 질문 5개 반환
+          description: 각 지원자별 질문 반환 성공
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  questions:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Question'
+                  questions_per_interviewee:
+                    type: object
+                    additionalProperties:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Question'
                 example:
-                  questions:
-                    - question_id: 101
-                      type: 공통질문
-                      content: "본인의 장점을 말씀해 주세요."
-                    - question_id: 102
-                      type: 공통질문
-                      content: "팀으로 일할 때 중요하게 생각하는 점은?"
-                    - question_id: 103
-                      type: 공통질문
-                      content: "본인의 단점은 무엇인가요?"
-                    - question_id: 104
-                      type: 개별질문
-                      content: "지원 동기가 궁금합니다."
-                    - question_id: 105
-                      type: 개별질문
-                      content: "자기소개서에서 언급한 경험을 더 자세히 설명해 주세요."
+                  questions_per_interviewee:
+                    "101":
+                      - question_id: 1
+                        type: 공통질문
+                        content: "본인의 장점을 말씀해 주세요."
+                      - question_id: 2
+                        type: 공통질문
+                        content: "팀워크 경험 중 기억에 남는 일은?"
+                      - question_id: 3
+                        type: 공통질문
+                        content: "협업 시 중요하게 생각하는 점은?"
+                      - question_id: 4
+                        type: 개별질문
+                        content: "자기소개서에 언급한 프로젝트를 설명해 주세요."
+                      - question_id: 5
+                        type: 개별질문
+                        content: "지원 동기를 말씀해 주세요."
+                    "102":
+                      - question_id: 6
+                        type: 공통질문
+                        content: "본인의 장점을 말씀해 주세요."
+                      - question_id: 7
+                        type: 공통질문
+                        content: "팀워크 경험 중 기억에 남는 일은?"
+                      - question_id: 8
+                        type: 공통질문
+                        content: "협업 시 중요하게 생각하는 점은?"
+                      - question_id: 9
+                        type: 개별질문
+                        content: "대외활동 중 기억에 남는 경험은?"
+                      - question_id: 10
+                        type: 개별질문
+                        content: "이 회사에 지원한 이유는?"
         '404':
-          description: 해당 지원자 또는 질문 없음
+          description: 일부 또는 전체 지원자의 질문을 찾을 수 없음
 
 components:
   schemas:
