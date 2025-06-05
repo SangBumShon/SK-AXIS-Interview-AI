@@ -2,29 +2,37 @@
 
 from fastapi import APIRouter, HTTPException
 from typing import List, Dict
+
 from app.services.internal_client import fetch_interviewee_questions
-from app.schemas.internal_result import InterviewResultBatch
+from app.schemas.interview import Question, MultipleIntervieweesRequest, MultipleIntervieweesResponse
 
 router = APIRouter(tags=["Internal"])
 
 
-@router.get("/internal/interviewee/{interviewee_id}/questions")
-async def get_interviewee_questions(interviewee_id: int):
+@router.post(
+    "/internal/interviewees/questions",
+    response_model=MultipleIntervieweesResponse,
+    summary="다중 지원자 질문 5개 조회 (FastAPI → Spring Boot)",
+)
+async def get_multiple_interviewee_questions(req: MultipleIntervieweesRequest):
     """
-    Spring Boot → FastAPI: 지원자별 면접 질문 5개 조회
+    Spring Boot ↔ FastAPI Internal API:
+    - Body로 받은 여러 interviewee_id 리스트를 Spring Boot로 전달하여,
+      각 지원자별 질문 5개를 한 번에 받아옵니다.
+    - 현재 예시에서는 Spring Boot에 '한 번에 다중 조회' API가 없다고 가정하고,
+      내부적으로 fetch_interviewee_questions()를 ID마다 반복 호출합니다.
     """
-    questions = await fetch_interviewee_questions(interviewee_id)
-    if not questions:
-        raise HTTPException(status_code=404, detail="해당 지원자 또는 질문 없음")
-    return {"questions": questions}
+    questions_per_interviewee: Dict[str, List[Question]] = {}
 
+    for interviewee_id in req.interviewee_ids:
+        raw_questions = await fetch_interviewee_questions(interviewee_id)
+        if not raw_questions:
+            # 하나라도 실패하면 404 반환
+            raise HTTPException(
+                status_code=404,
+                detail=f"지원자 {interviewee_id}의 질문을 찾을 수 없습니다."
+            )
+        # raw_questions는 List[Dict] 형태로 받아오므로, Pydantic Question 모델로 가정
+        questions_per_interviewee[str(interviewee_id)] = raw_questions
 
-@router.post("/internal/interview/{interview_id}/results")
-async def post_interview_results(interview_id: int, batch: InterviewResultBatch):
-    """
-    FastAPI → Spring Boot: 면접 종료 후, 모든 지원자별 평가 결과 및 파일 경로를 전달
-    """
-    if batch.interview_id != interview_id:
-        raise HTTPException(status_code=400, detail="interview_id 불일치")
-    # (실제 Spring Boot 저장 로직이 필요하다면 여기에 구현)
-    return {"result": "ok"}
+    return MultipleIntervieweesResponse(questions_per_interviewee=questions_per_interviewee)
