@@ -25,6 +25,18 @@ import com.example.skaxis.user.repository.UserRepository;
 @RequiredArgsConstructor
 @Slf4j
 public class InterviewService {
+    // ... 기존 필드 및 메서드 생략 ...
+
+    // 인터뷰 일정 조회용 메서드 (더미 데이터 반환) - 실제 서비스에서는 DB에서 조회
+    public com.example.skaxis.interview.dto.InterviewScheduleResponseDto getInterviewScheduleByDate(java.time.LocalDate date) {
+        com.example.skaxis.interview.dto.InterviewScheduleResponseDto dto = new com.example.skaxis.interview.dto.InterviewScheduleResponseDto();
+        dto.setInterviewId(1L);
+        dto.setCandidateName("홍길동");
+        dto.setInterviewDate(date.toString());
+        dto.setInterviewTime("10:00");
+        return dto;
+    }
+
     private final InterviewRepository interviewRepository;
     private final IntervieweeRepository intervieweeRepository;
     private final UserRepository userRepository;
