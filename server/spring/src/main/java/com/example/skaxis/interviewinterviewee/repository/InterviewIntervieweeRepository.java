@@ -12,5 +12,5 @@ public interface InterviewIntervieweeRepository extends JpaRepository<InterviewI
     
     List<InterviewInterviewee> findByInterviewId(Long interviewId);
 
-    void deleteByInterviewId(Long interviewId);
+    List<InterviewInterviewee> findByIntervieweeId(Long intervieweeId);
 }

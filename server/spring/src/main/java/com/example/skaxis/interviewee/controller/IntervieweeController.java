@@ -1,6 +1,7 @@
 package com.example.skaxis.interviewee.controller;
 
 import com.example.skaxis.interview.dto.InterviewScheduleResponseDto;
+import com.example.skaxis.interview.service.InterviewService;
 import com.example.skaxis.interview.dto.SimpleInterviewScheduleResponseDto;
 // import com.example.skaxis.interview.service.InterviewScheduleService; // 주석처리
 import com.example.skaxis.interviewee.dto.IntervieweeListResponseDto;
@@ -27,7 +28,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/interviewees")
 @RequiredArgsConstructor
 @Tag(name = "면접 대상자 관리", description = "면접 대상자 정보 및 일정 관리 API")
 public class IntervieweeController {
@@ -50,7 +51,7 @@ public class IntervieweeController {
             @RequestParam(required = false) String position) {
 
         IntervieweeListResponseDto response = null;
-        // TODO: 필터링 로직 구현
+//                intervieweeService.getInterviewees(date, status, position);
         return ResponseEntity.ok(response);
     }
 
@@ -97,7 +98,4 @@ public class IntervieweeController {
         InterviewScheduleResponseDto response = intervieweeService.getInterviewScheduleByDate(date);
         return ResponseEntity.ok(response);
     }
-
-
-
 }
