@@ -7,9 +7,9 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
-import com.example.skaxis.util.dto.PersonDto;
-import com.example.skaxis.util.dto.RoomDto;
-import com.example.skaxis.util.dto.TimeSlotDto;
+import com.example.skaxis.interview.dto.common.PersonDto;
+import com.example.skaxis.interview.dto.common.RoomDto;
+import com.example.skaxis.interview.dto.common.TimeSlotDto;
 
 @Data
 @NoArgsConstructor
