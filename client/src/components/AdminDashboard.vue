@@ -315,8 +315,8 @@
     }
     // Apply sorting
     return filtered.sort((a, b) => {
-      const aVal = a[sortConfig.value.key as keyof typeof a];
-      const bVal = b[sortConfig.value.key as keyof typeof b];
+      const aVal = a[sortConfig.value.key as keyof typeof a] || '';
+      const bVal = b[sortConfig.value.key as keyof typeof b] || '';
       if (aVal < bVal) return sortConfig.value.direction === 'asc' ? -1 : 1;
       if (aVal > bVal) return sortConfig.value.direction === 'asc' ? 1 : -1;
       return 0;

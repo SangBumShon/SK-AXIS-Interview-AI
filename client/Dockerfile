@@ -8,7 +8,7 @@ RUN npm install
 
 # Tailwind CSS 및 추가 패키지 설치
 RUN npm install -D tailwindcss@latest postcss@latest autoprefixer@latest
-RUN npm install @mediapipe/pose @mediapipe/camera_utils @mediapipe/drawing_utils
+RUN npm install @mediapipe/pose @mediapipe/camera_utils @mediapipe/drawing_utils @mediapipe/tasks-vision
 RUN npm install axios vue-router@4 pinia@latest chart.js vue-chartjs
 
 # 소스 코드 복사 및 빌드
