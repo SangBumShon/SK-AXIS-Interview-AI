@@ -9,8 +9,6 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import com.example.skaxis.interviewinterviewee.model.InterviewInterviewee;
-
 @Entity
 @Data
 @Builder

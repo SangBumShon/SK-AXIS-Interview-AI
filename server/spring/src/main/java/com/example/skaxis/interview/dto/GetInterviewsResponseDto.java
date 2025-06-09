@@ -1,7 +1,7 @@
 package com.example.skaxis.interview.dto;
 
 import com.example.skaxis.user.model.User;
-import com.example.skaxis.interviewee.model.Interviewee;
+import com.example.skaxis.interview.model.Interviewee;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import lombok.AllArgsConstructor;
