@@ -26,7 +26,7 @@ public class CustomLogoutFilter extends GenericFilterBean {
     }
     private void doFilter(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws IOException, ServletException {
         String requestUri = request.getRequestURI();
-        if(!requestUri.endsWith("/signout")){
+        if(!requestUri.endsWith("/api/v1/auth/logout")){
             filterChain.doFilter(request, response);
             return;
         }

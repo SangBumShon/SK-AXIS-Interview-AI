@@ -9,11 +9,11 @@ public final class AuthConstants {
     }
     //토큰 없이 허용된 URI목록
     public static final String[] PERMITTED_URI = {
-            "/signin",
-            "/signup/**",
-            "/reissue",
-             "/api/media/**",  // 미디어 업로드 API 허용
-             "/api/interviewees/**",
+            "/api/v1/auth/login",
+            "/api/v1/auth/signup/**",
+            "/api/v1/auth/reissue",
+            "/api/media/**",  // 미디어 업로드 API 허용
+            "/api/interviewees/**",
     };
     //admin user만 접근 가능한 URI
     public static final String[] ADMIN_URI = {
