@@ -96,7 +96,6 @@ ai/temp/
 .mtj.tmp/
 
 # Package Files #
-*.jar
 *.war
 *.nar
 *.ear

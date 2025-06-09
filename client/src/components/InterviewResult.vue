@@ -199,7 +199,7 @@ const fixedKeywordList = computed(() => {
   const evalArr = result.value?.evaluationKeywords || [];
   // 5개 고정 카테고리 loop
   return competencyConfig.map(conf => {
-    const found = evalArr.find(e => e.category === conf.category);
+    const found = evalArr.find((e: { category: string; score?: number; reason?: string }) => e.category === conf.category);
     return {
       ...conf,
       score: found?.score ?? null,

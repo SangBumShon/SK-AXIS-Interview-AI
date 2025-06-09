@@ -1,32 +1,31 @@
 openapi: 3.0.1
 info:
   title: SK AXIS AI Interview Spring Boot API
-  description: AI 면접 시스템 – 지원자/질문/면접/결과/다운로드/코멘트, 관리자만 로그인 (면접관 계정 관리 X)
+  description: AI 면접 시스템 – 다대N 지원자/면접관, 결과, 다운로드, 코멘트 등 전체 기능 API (MP3/MP4 파일 관리 제외)
   version: "1.0.0"
 
 servers:
-  - url: /api/v1
+  - url: http://sk-axis-springboot:8080/api/v1  # docker-compose 서비스명과 일치
 
 tags:
   - name: Auth
-    description: 관리자 JWT 로그인/로그아웃
+    description: JWT 로그인/로그아웃 및 권한
   - name: Interviewee
     description: 지원자 관리 (조회/생성/수정/삭제)
   - name: Interview
-    description: 면접 세션 관리 (조회/생성/수정/삭제)
+    description: 면접 세션 관리 (조회/생성/수정/삭제, 다수 지원자/면접관 할당)
+  - name: User
+    description: 면접관/HR팀 계정 관리 (조회/생성/수정/삭제)
   - name: Question
     description: 질문 관리 (조회/등록/수정/삭제)
   - name: InterviewResult
-    description: 면접 결과 파일 경로 등록/다운로드/코멘트
+    description: 면접 결과 파일 다운로드/코멘트 (1명 지원자+1개 세션 단위)
 
 paths:
   /auth/login:
     post:
       tags: [Auth]
-      summary: 관리자(HR팀) 로그인 (JWT 반환)
-      description: |
-        관리자 페이지에서만 사용하는 로그인 API.
-        일반 면접관은 로그인 불필요, 관리 기능 접근 시만 사용.
+      summary: JWT 로그인
       requestBody:
         required: true
         content:
@@ -161,7 +160,7 @@ paths:
                   $ref: '#/components/schemas/Interview'
     post:
       tags: [Interview]
-      summary: 면접 세션 생성
+      summary: 면접 세션 생성 (다수 지원자/면접관 할당)
       requestBody:
         required: true
         content:
@@ -179,7 +178,7 @@ paths:
   /interviews/{interview_id}:
     get:
       tags: [Interview]
-      summary: 개별 면접 세션 상세조회
+      summary: 개별 면접 세션 상세조회 (지원자/면접관 포함)
       parameters:
         - in: path
           name: interview_id
@@ -196,7 +195,7 @@ paths:
                 $ref: '#/components/schemas/Interview'
     put:
       tags: [Interview]
-      summary: 면접 세션 정보 수정
+      summary: 면접 세션 정보 수정 (지원자/면접관 재지정 포함)
       parameters:
         - in: path
           name: interview_id
@@ -234,20 +233,14 @@ paths:
   /questions:
     get:
       tags: [Question]
-      summary: 면접 질문 목록(필터 interviewee_id/interview_id/type)
+      summary: 면접 질문 목록(필터 interview_id/type)
       parameters:
-        - in: query
-          name: interviewee_id
-          schema:
-            type: integer
-          required: false
-          description: 지원자 ID
         - in: query
           name: interview_id
           schema:
             type: integer
           required: false
-          description: 면접 ID
+          description: 면접 세션 ID
         - in: query
           name: type
           schema:
@@ -319,35 +312,91 @@ paths:
         '204':
           description: 삭제 성공
 
-  /interview/result:
+  /users:
+    get:
+      tags: [User]
+      summary: 전체 사용자(면접관/HR) 조회
+      responses:
+        '200':
+          description: 사용자 배열
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
     post:
-      tags: [InterviewResult]
-      summary: 면접 결과 파일 경로/점수/코멘트 등록 (FastAPI → SpringBoot)
+      tags: [User]
+      summary: 사용자(면접관/HR) 등록
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/InterviewResultRequest'
+              $ref: '#/components/schemas/UserCreateRequest'
       responses:
-        '200':
+        '201':
           description: 등록 성공
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/InterviewResultResponse'
+                $ref: '#/components/schemas/User'
 
-  /interview/{interviewee_id}/download:
+  /users/{user_id}:
+    put:
+      tags: [User]
+      summary: 사용자 정보 수정
+      parameters:
+        - in: path
+          name: user_id
+          schema:
+            type: integer
+          required: true
+          description: 사용자 ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+      responses:
+        '200':
+          description: 수정 성공
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    delete:
+      tags: [User]
+      summary: 사용자 삭제
+      parameters:
+        - in: path
+          name: user_id
+          schema:
+            type: integer
+          required: true
+          description: 사용자 ID
+      responses:
+        '204':
+          description: 삭제 성공
+
+  /interview/{interview_id}/{interviewee_id}/download:
     get:
       tags: [InterviewResult]
-      summary: 면접 결과 파일 다운로드 (PDF/EXCEL/TXT)
+      summary: 특정 면접 세션 내 지원자 결과 파일 다운로드 (PDF/EXCEL/TXT)
       parameters:
+        - in: path
+          name: interview_id
+          schema:
+            type: integer
+          required: true
+          description: 면접 세션 ID
         - in: path
           name: interviewee_id
           schema:
             type: integer
           required: true
-          description: 면접자 ID
+          description: 지원자 ID
         - in: query
           name: type
           schema:
@@ -364,17 +413,23 @@ paths:
                 type: string
                 format: binary
 
-  /interview/{interviewee_id}/comment:
+  /interview/{interview_id}/{interviewee_id}/comment:
     put:
       tags: [InterviewResult]
-      summary: 면접자별 관리자 평가 코멘트 입력/수정
+      summary: 특정 면접 세션 내 지원자별 관리자/면접관 평가 코멘트 입력/수정
       parameters:
+        - in: path
+          name: interview_id
+          schema:
+            type: integer
+          required: true
+          description: 면접 세션 ID
         - in: path
           name: interviewee_id
           schema:
             type: integer
           required: true
-          description: 면접자 ID
+          description: 지원자 ID
       requestBody:
         required: true
         content:
@@ -417,7 +472,7 @@ paths:
                     type: integer
                   not_started:
                     type: integer
-                  interviewees:
+                  interviews:
                     type: array
                     items:
                       $ref: '#/components/schemas/InterviewStatus'
@@ -472,6 +527,14 @@ components:
         created_at:
           type: string
           format: date-time
+        interviewees:
+          type: array
+          items:
+            $ref: '#/components/schemas/Interviewee'
+        interviewers:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
 
     InterviewCreateRequest:
       type: object
@@ -487,6 +550,14 @@ components:
           type: integer
         status:
           type: string
+        interviewee_ids:
+          type: array
+          items:
+            type: integer
+        interviewer_ids:
+          type: array
+          items:
+            type: integer
 
     InterviewUpdateRequest:
       type: object
@@ -502,6 +573,14 @@ components:
           type: integer
         status:
           type: string
+        interviewee_ids:
+          type: array
+          items:
+            type: integer
+        interviewer_ids:
+          type: array
+          items:
+            type: integer
 
     Question:
       type: object
@@ -536,52 +615,87 @@ components:
         content:
           type: string
 
-    InterviewResultRequest:
+    User:
       type: object
-      required:
-        - interviewee_id
-        - interview_id
-        - pdf_path
-        - excel_path
-        - txt_path
       properties:
-        interviewee_id:
+        user_id:
           type: integer
-        interview_id:
-          type: integer
-        pdf_path:
+        username:
           type: string
-        excel_path:
+        name:
           type: string
-        txt_path:
+        role:
           type: string
-        score:
-          type: integer
-        comment:
+          enum: [ADMIN, INTERVIEWER]
+        created_at:
           type: string
+          format: date-time
 
-    InterviewResultResponse:
+    UserCreateRequest:
       type: object
       properties:
-        result:
+        username:
           type: string
-        interviewee_id:
-          type: integer
-        interview_id:
-          type: integer
+        password:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [ADMIN, INTERVIEWER]
+
+    UserUpdateRequest:
+      type: object
+      properties:
+        password:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [ADMIN, INTERVIEWER]
 
     InterviewStatus:
       type: object
       properties:
-        interviewee_id:
+        interview_id:
           type: integer
-        name:
-          type: string
         status:
           type: string
+        scheduled_at:
+          type: string
+        room_no:
+          type: string
+        interviewees:
+          type: array
+          items:
+            type: object
+            properties:
+              interviewee_id:
+                type: integer
+              name:
+                type: string
+              score:
+                type: integer
+              pdf_path:
+                type: string
+              stt_path:
+                type: string
+
+    InterviewResult:
+      type: object
+      properties:
+        interview_id:
+          type: integer
+        interviewee_id:
+          type: integer
         score:
           type: integer
+        comment:
+          type: string
         pdf_path:
           type: string
-        txt_path:
+        excel_path:
+          type: string
+        stt_path:
           type: string

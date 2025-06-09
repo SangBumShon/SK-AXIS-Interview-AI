@@ -28,7 +28,7 @@ export const timeSlots: TimeSlot[] = [
   {
     id: 'ts1',
     roomId: 'room1',
-    date: '2025-06-02',
+    date: '2025-06-04',
     timeRange: '09:00 - 10:00',
     interviewerIds: ['i1', 'i2', 'i3'],
     candidateIds: ['c1']
@@ -36,7 +36,7 @@ export const timeSlots: TimeSlot[] = [
   {
     id: 'ts2',
     roomId: 'room1',
-    date: '2025-06-02',
+    date: '2025-06-05',
     timeRange: '10:30 - 11:30',
     interviewerIds: ['i1', 'i2', 'i3'],
     candidateIds: ['c2', 'c3']
@@ -44,7 +44,7 @@ export const timeSlots: TimeSlot[] = [
   {
     id: 'ts3',
     roomId: 'room2',
-    date: '2025-06-02',
+    date: '2025-06-05',
     timeRange: '09:00 - 10:00',
     interviewerIds: ['i1', 'i2', 'i3'],
     candidateIds: ['c4']
@@ -52,7 +52,7 @@ export const timeSlots: TimeSlot[] = [
   {
     id: 'ts4',
     roomId: 'room2',
-    date: '2025-06-02',
+    date: '2025-06-05',
     timeRange: '10:30 - 11:30',
     interviewerIds: ['i1', 'i2', 'i3'],
     candidateIds: ['c5', 'c6']
@@ -60,7 +60,7 @@ export const timeSlots: TimeSlot[] = [
   {
     id: 'ts5',
     roomId: 'room1',
-    date: '2025-06-02',
+    date: '2025-06-05',
     timeRange: '09:00 - 10:00',
     interviewerIds: ['i1', 'i2', 'i3'],
     candidateIds: ['c7']
@@ -68,7 +68,7 @@ export const timeSlots: TimeSlot[] = [
   {
     id: 'ts6',
     roomId: 'room2',
-    date: '2025-06-02',
+    date: '2025-06-05',
     timeRange: '10:30 - 11:30',
     interviewerIds: ['i1', 'i2', 'i3'],
     candidateIds: ['c8', 'c9']
@@ -76,7 +76,7 @@ export const timeSlots: TimeSlot[] = [
   {
     id: 'ts7',
     roomId: 'room3',
-    date: '2025-06-02',
+    date: '2025-06-05',
     timeRange: '09:00 - 10:00',
     interviewerIds: ['i4', 'i5', 'i6'],
     candidateIds: ['c1', 'c2']
@@ -84,7 +84,7 @@ export const timeSlots: TimeSlot[] = [
   {
     id: 'ts8',
     roomId: 'room3',
-    date: '2025-06-02',
+    date: '2025-06-05',
     timeRange: '10:30 - 11:30',
     interviewerIds: ['i4', 'i5', 'i6'],
     candidateIds: ['c3', 'c4']
@@ -92,7 +92,7 @@ export const timeSlots: TimeSlot[] = [
   {
     id: 'ts9',
     roomId: 'room3',
-    date: '2025-06-02',
+    date: '2025-06-05',
     timeRange: '09:00 - 10:00',
     interviewerIds: ['i4', 'i5', 'i6'],
     candidateIds: ['c5', 'c6']
@@ -100,7 +100,7 @@ export const timeSlots: TimeSlot[] = [
   {
     id: 'ts10',
     roomId: 'room3',
-    date: '2025-06-02',
+    date: '2025-06-05',
     timeRange: '10:30 - 11:30',
     interviewerIds: ['i4', 'i5', 'i6'],
     candidateIds: ['c7', 'c8', 'c9']
