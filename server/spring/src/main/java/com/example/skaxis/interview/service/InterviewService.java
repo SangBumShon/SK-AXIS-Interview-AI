@@ -5,17 +5,17 @@ import com.example.skaxis.interview.dto.GetInterviewByIdResponseDto;
 import com.example.skaxis.interview.dto.GetInterviewsResponseDto;
 import com.example.skaxis.interview.dto.UpdateInterviewRequestDto;
 import com.example.skaxis.interview.model.Interview;
+import com.example.skaxis.interview.model.InterviewInterviewee;
+import com.example.skaxis.interview.model.Interviewee;
 import com.example.skaxis.interview.repository.InterviewRepository;
-import com.example.skaxis.interviewee.model.Interviewee;
-import com.example.skaxis.interviewee.repository.IntervieweeRepository;
-import com.example.skaxis.interviewinterviewee.model.InterviewInterviewee;
-import com.example.skaxis.interviewinterviewer.model.InterviewerAssignment;
-
+import com.example.skaxis.interview.repository.IntervieweeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
-
+import java.util.ArrayList;
 import org.springframework.stereotype.Service;
 
 import com.example.skaxis.user.model.User;
@@ -25,17 +25,6 @@ import com.example.skaxis.user.repository.UserRepository;
 @RequiredArgsConstructor
 @Slf4j
 public class InterviewService {
-    // ... 기존 필드 및 메서드 생략 ...
-
-    // 인터뷰 일정 조회용 메서드 (더미 데이터 반환) - 실제 서비스에서는 DB에서 조회
-    public com.example.skaxis.interview.dto.InterviewScheduleResponseDto getInterviewScheduleByDate(java.time.LocalDate date) {
-        com.example.skaxis.interview.dto.InterviewScheduleResponseDto dto = new com.example.skaxis.interview.dto.InterviewScheduleResponseDto();
-        dto.setInterviewId(1L);
-        dto.setCandidateName("홍길동");
-        dto.setInterviewDate(date.toString());
-        dto.setInterviewTime("10:00");
-        return dto;
-    }
 
     private final InterviewRepository interviewRepository;
     private final IntervieweeRepository intervieweeRepository;
@@ -60,13 +49,19 @@ public class InterviewService {
                 .map(i -> i.getInterviewee())
                 .toList();
             interviewSession.setInterviewees(intervieweeList.toArray(new Interviewee[0]));
-
-            List<User> interviewerList = interview.getInterviewerAssignments()
-                .stream()
-                .map(a -> a.getUser())
-                .toList();
-            interviewSession.setInterviewers(interviewerList.toArray(new User[0]));
-            
+    
+            // 면접관 정보를 문자열로만 처리 (User 엔티티 사용하지 않음)
+            String interviewersStr = interview.getInterviewers();
+            if (interviewersStr != null && !interviewersStr.isEmpty()) {
+                String[] interviewerNames = interviewersStr.split(",");
+                // User 배열 대신 문자열 배열로 처리하거나, 더미 User 객체 생성
+                // GetInterviewsResponseDto.InterviewSession의 setInterviewers가 User[] 타입을 받는다면
+                // 더미 User 객체를 생성해야 합니다
+                interviewSession.setInterviewers(new User[0]); // 임시로 빈 배열 설정
+            } else {
+                interviewSession.setInterviewers(new User[0]);
+            }
+    
             getInterviewsResponseDto.getInterviewSessions().add(interviewSession);
         }
         return getInterviewsResponseDto;
@@ -119,15 +114,14 @@ public class InterviewService {
         }
 
         if (updateInterviewRequestDto.getInterviewerIds() != null) {
+            // InterviewerAssignment 대신 문자열로 저장
+            List<String> interviewerNames = new ArrayList<>();
             for (Long interviewerId : updateInterviewRequestDto.getInterviewerIds()) {
                 User interviewer = userRepository.findById(interviewerId)
                     .orElseThrow(() -> new RuntimeException("Interviewer not found with ID: " + interviewerId));
-                InterviewerAssignment interviewerAssignment = new InterviewerAssignment();
-                interviewerAssignment.setInterview(interview);
-                interviewerAssignment.setUser(interviewer);
-                interview.getInterviewerAssignments().add(interviewerAssignment);
-                //TODO: Handle additional fields if needed
+                interviewerNames.add(interviewer.getName());
             }
+            interview.setInterviewers(String.join(",", interviewerNames));
         }
 
         interviewRepository.save(interview);
@@ -152,16 +146,58 @@ public class InterviewService {
                 i.getInterviewee().getApplicantCode(),
                 i.getCreatedAt().toString()))
             .toArray(GetInterviewByIdResponseDto.IntervieweeDto[]::new));
-        getInterviewByIdResponseDto.setInterviewers(interview.getInterviewerAssignments()
-            .stream()
-            .map(i -> new GetInterviewByIdResponseDto.InterviewerDto(
-                i.getUser().getUserId(),
-                i.getUser().getUserName(),
-                i.getUser().getName(),
-                i.getUser().getUserType().getValue(),
-                i.getUser().getCreatedAt().toString()))
-            .toArray(GetInterviewByIdResponseDto.InterviewerDto[]::new));
+        
+        // 면접관 정보를 문자열로만 처리 (User 엔티티 사용하지 않음)
+        String interviewersStr = interview.getInterviewers();
+        if (interviewersStr != null && !interviewersStr.isEmpty()) {
+            String[] interviewerNames = interviewersStr.split(",");
+            List<GetInterviewByIdResponseDto.InterviewerDto> interviewerDtos = new ArrayList<>();
+            for (int i = 0; i < interviewerNames.length; i++) {
+                String name = interviewerNames[i].trim();
+                // User 엔티티를 사용하지 않으므로 더미 데이터로 설정
+                interviewerDtos.add(new GetInterviewByIdResponseDto.InterviewerDto(
+                    (long) (i + 1), // 더미 userId
+                    name, // userName으로 name 사용
+                    name, // name
+                    "INTERVIEWER", // 기본 userType
+                    LocalDateTime.now().toString() // 더미 createdAt
+                ));
+            }
+            getInterviewByIdResponseDto.setInterviewers(interviewerDtos.toArray(new GetInterviewByIdResponseDto.InterviewerDto[0]));
+        } else {
+            getInterviewByIdResponseDto.setInterviewers(new GetInterviewByIdResponseDto.InterviewerDto[0]);
+        }
         
         return getInterviewByIdResponseDto;
+    }
+
+    // 공통 유틸리티 메서드들
+    public Interview findInterviewById(Long interviewId) {
+        return interviewRepository.findById(interviewId)
+            .orElseThrow(() -> new RuntimeException("Interview not found with ID: " + interviewId));
+    }
+
+    public boolean existsById(Long interviewId) {
+        return interviewRepository.existsById(interviewId);
+    }
+
+    public List<Interview> findInterviewsByDate(LocalDate date) {
+        return interviewRepository.findByScheduledDate(date);
+    }
+
+    public List<String> findDistinctRoomIdsByDate(LocalDate date) {
+        return interviewRepository.findDistinctRoomIdsByDate(date);
+    }
+
+    public List<String> findDistinctRoomIds() {
+        return interviewRepository.findDistinctRoomIds();
+    }
+
+    public List<Interview> findByStatusOrderByScheduledAt(Interview.InterviewStatus status) {
+        return interviewRepository.findByStatusOrderByScheduledAt(status);
+    }
+
+    public List<Interview> findAllOrderByScheduledAt() {
+        return interviewRepository.findAllOrderByScheduledAt();
     }
 }

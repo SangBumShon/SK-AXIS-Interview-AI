@@ -1,29 +1,23 @@
 package com.example.skaxis.interview.dto;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.util.List;
+
+import com.example.skaxis.interview.dto.common.PersonDto;
+import com.example.skaxis.interview.dto.common.RoomDto;
+import com.example.skaxis.interview.dto.common.TimeSlotDto;
+
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class InterviewScheduleResponseDto {
-    private Long interviewId;
-    private String candidateName;
-    private String interviewDate;
-    private String interviewTime;
-
-    public InterviewScheduleResponseDto() {}
-
-    public InterviewScheduleResponseDto(Long interviewId, String candidateName, String interviewDate, String interviewTime) {
-        this.interviewId = interviewId;
-        this.candidateName = candidateName;
-        this.interviewDate = interviewDate;
-        this.interviewTime = interviewTime;
-    }
-
-    public Long getInterviewId() { return interviewId; }
-    public void setInterviewId(Long interviewId) { this.interviewId = interviewId; }
-
-    public String getCandidateName() { return candidateName; }
-    public void setCandidateName(String candidateName) { this.candidateName = candidateName; }
-
-    public String getInterviewDate() { return interviewDate; }
-    public void setInterviewDate(String interviewDate) { this.interviewDate = interviewDate; }
-
-    public String getInterviewTime() { return interviewTime; }
-    public void setInterviewTime(String interviewTime) { this.interviewTime = interviewTime; }
+    private List<RoomDto> rooms;
+    private List<TimeSlotDto> timeSlots;
+    private List<PersonDto> people;
+    private String message;
 }

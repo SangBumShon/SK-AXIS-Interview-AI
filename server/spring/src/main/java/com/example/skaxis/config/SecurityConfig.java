@@ -55,11 +55,18 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth->auth
                         .requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
                         .requestMatchers(AuthConstants.ADMIN_URI).hasRole("ADMIN")
-                        .requestMatchers(AuthConstants.PERMITTED_URI).permitAll()
+                        .requestMatchers(AuthConstants.PERMITTED_URI).permitAll()// Swagger UI 관련 경로 허용
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
+                        // API 경로들 허용 (필요에 따라 수정)
+                        .requestMatchers("/api/**", "/interviewees/**", "/upload/**", "/parse/**").permitAll()
+                        // 새로 추가된 면접 일정 API 허용
+                        .requestMatchers("/api/interview-schedule/**").permitAll()
+                        .requestMatchers("/api/media/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(new CustomLogoutFilter(jwtUtil), LogoutFilter.class)
                 .addFilterBefore(new JWTFilter(jwtUtil),LoginFilter.class)
                 .addFilterAt(new LoginFilter(authenticationManager(authenticationConfiguration),jwtUtil,objectMapper()), UsernamePasswordAuthenticationFilter.class);
+
 
         return http.build();
     }
@@ -76,11 +83,16 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000"));
+        configuration.setAllowedOriginPatterns(List.of(
+            "http://localhost:*",
+            "http://127.0.0.1:*",
+            "http://192.168.*.*:*"  // 로컬 네트워크 허용
+        ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
-
+        configuration.setMaxAge(3600L);
+    
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

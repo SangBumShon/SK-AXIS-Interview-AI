@@ -1,9 +1,9 @@
 package com.example.skaxis.question.service;
 
 import com.example.skaxis.interview.model.Interview;
-import com.example.skaxis.interviewee.model.Interviewee;
-import com.example.skaxis.interviewinterviewee.model.InterviewInterviewee;
-import com.example.skaxis.interviewinterviewee.repository.InterviewIntervieweeRepository;
+import com.example.skaxis.interview.model.Interviewee;
+import com.example.skaxis.interview.model.InterviewInterviewee;
+import com.example.skaxis.interview.repository.InterviewIntervieweeRepository;
 import com.example.skaxis.question.model.Question;
 import com.example.skaxis.question.repository.QuestionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
