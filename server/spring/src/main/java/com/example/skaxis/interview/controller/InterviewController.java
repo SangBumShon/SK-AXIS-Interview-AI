@@ -58,13 +58,13 @@ public class InterviewController {
     }
 
     @DeleteMapping("/{interviewId}")
-    public ResponseEntity<?> deleteInterview(@PathVariable("interview_id") Long interviewId) {
+    public ResponseEntity<?> deleteInterview(@PathVariable("interviewId") Long interviewId) {
         try {
             if (interviewId == null || interviewId <= 0) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "Invalid interview ID"));
             }
             interviewService.deleteInterview(interviewId);
-            return ResponseEntity.ok().body(Map.of("messgae", "Interview deleted successfully")); 
+            return ResponseEntity.ok().body(Map.of("message", "Interview deleted successfully")); 
         } catch (Exception e) {
             log.error("Error deleting interview: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Internal Server Error"));
@@ -72,7 +72,7 @@ public class InterviewController {
     }
     
     @PutMapping("/{interviewId}")
-    public ResponseEntity<?> updateInterview(@RequestBody UpdateInterviewRequestDto updateInterviewRequestDto, @PathVariable("interview_id") Long interviewId) {
+    public ResponseEntity<?> updateInterview(@RequestBody UpdateInterviewRequestDto updateInterviewRequestDto, @PathVariable("interviewId") Long interviewId) {
         try {
             if (interviewId == null || interviewId <= 0) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "Invalid interview ID"));
@@ -89,7 +89,7 @@ public class InterviewController {
     }
 
     @GetMapping("/{interviewId}")
-    public ResponseEntity<?> getInterviewById(@PathVariable("interview_id") Long interviewId) {
+    public ResponseEntity<?> getInterviewById(@PathVariable("interviewId") Long interviewId) {
         try {
             if (interviewId == null || interviewId <= 0) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message","Invalid interview ID"));
@@ -105,70 +105,7 @@ public class InterviewController {
         }
     }
     
-    // IntervieweeController에서 통합된 메서드들 - 수정된 버전
-    @GetMapping("simple")
-    public ResponseEntity<?> getInterviewees(
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) String position) {
-        try {
-            IntervieweeListResponseDto interviewees = intervieweeService.getInterviewees(date, status, position);
-            if (interviewees == null || interviewees.getData().isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No interviewees found");
-            }
-            return ResponseEntity.ok(interviewees);
-        } catch (Exception e) {
-            log.error("Error fetching interviewees: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
-        }
-    }
-    
-    @GetMapping("schedule")
-    public ResponseEntity<?> getInterviewSchedule(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        try {
-            SimpleInterviewScheduleResponseDto schedule = intervieweeService.getInterviewSchedule(date);
-            if (schedule == null || schedule.getSchedules().isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No schedule found for the given date");
-            }
-            return ResponseEntity.ok(schedule);
-        } catch (Exception e) {
-            log.error("Error fetching interview schedule: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
-        }
-    }
-    
-    @GetMapping("schedule/all")
-    public ResponseEntity<?> getAllInterviewSchedules(
-            @RequestParam(required = false) String status) {
-        try {
-            SimpleInterviewScheduleResponseDto schedules = intervieweeService.getAllInterviewSchedules(status);
-            if (schedules == null || schedules.getSchedules().isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No schedules found");
-            }
-            return ResponseEntity.ok(schedules);
-        } catch (Exception e) {
-            log.error("Error fetching all interview schedules: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
-        }
-    }
-    
-    @GetMapping("schedule/detailed")
-    public ResponseEntity<?> getDetailedInterviewSchedule(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        try {
-            InterviewScheduleResponseDto detailedSchedule = intervieweeService.getDetailedInterviewSchedule(date);
-            if (detailedSchedule == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No detailed schedule found for the given date");
-            }
-            return ResponseEntity.ok(detailedSchedule);
-        } catch (Exception e) {
-            log.error("Error fetching detailed interview schedule: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
-        }
-    }
-    
-    // IntervieweeController에서 통합된 메서드들 - 수정된 버전
+    // IntervieweeController에서 통합된 메서드들
     @GetMapping("simple")
     public ResponseEntity<?> getInterviewees(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
