@@ -49,7 +49,7 @@ public class InterviewService {
                 .map(i -> i.getInterviewee())
                 .toList();
             interviewSession.setInterviewees(intervieweeList.toArray(new Interviewee[0]));
-    
+
             // 면접관 정보를 문자열로만 처리 (User 엔티티 사용하지 않음)
             String interviewersStr = interview.getInterviewers();
             if (interviewersStr != null && !interviewersStr.isEmpty()) {
@@ -61,7 +61,7 @@ public class InterviewService {
             } else {
                 interviewSession.setInterviewers(new User[0]);
             }
-    
+
             getInterviewsResponseDto.getInterviewSessions().add(interviewSession);
         }
         return getInterviewsResponseDto;
@@ -92,7 +92,7 @@ public class InterviewService {
         if (updateInterviewRequestDto.getRound() != null) {
             interview.setRound(updateInterviewRequestDto.getRound());
         }
-        if (updateInterviewRequestDto.getScheduledAt() != null) {   
+        if (updateInterviewRequestDto.getScheduledAt() != null) {
             interview.setScheduledAt(java.time.LocalDateTime.parse(updateInterviewRequestDto.getScheduledAt()));
         }
         if (updateInterviewRequestDto.getOrderNo() != null) {
@@ -146,7 +146,7 @@ public class InterviewService {
                 i.getInterviewee().getApplicantCode(),
                 i.getCreatedAt().toString()))
             .toArray(GetInterviewByIdResponseDto.IntervieweeDto[]::new));
-        
+
         // 면접관 정보를 문자열로만 처리 (User 엔티티 사용하지 않음)
         String interviewersStr = interview.getInterviewers();
         if (interviewersStr != null && !interviewersStr.isEmpty()) {
@@ -167,7 +167,7 @@ public class InterviewService {
         } else {
             getInterviewByIdResponseDto.setInterviewers(new GetInterviewByIdResponseDto.InterviewerDto[0]);
         }
-        
+
         return getInterviewByIdResponseDto;
     }
 
@@ -199,5 +199,10 @@ public class InterviewService {
 
     public List<Interview> findAllOrderByScheduledAt() {
         return interviewRepository.findAllOrderByScheduledAt();
+    }
+
+    public Interview findById(Long recentInterviewId) {
+        return interviewRepository.findById(recentInterviewId)
+            .orElseThrow(() -> new RuntimeException("Interview not found with ID: " + recentInterviewId));
     }
 }

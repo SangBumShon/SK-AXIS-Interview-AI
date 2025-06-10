@@ -25,7 +25,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 
 @RestController
-@RequestMapping("/api/interviewees")
+@RequestMapping("/api/v1/interviewees")
 @RequiredArgsConstructor
 @Tag(name = "면접 대상자 관리", description = "면접 대상자 정보 및 일정 관리 API")
 public class IntervieweeController {
@@ -52,13 +52,8 @@ public class IntervieweeController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("interviews")
+    @GetMapping("schedule")
     @Operation(summary = "날짜별 면접 일정 조회", description = "특정 날짜의 면접 일정 정보를 조회합니다.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "조회 성공",
-                content = @Content(schema = @Schema(implementation = SimpleInterviewScheduleResponseDto.class))),
-        @ApiResponse(responseCode = "400", description = "잘못된 요청")
-    })
     public ResponseEntity<SimpleInterviewScheduleResponseDto> getInterviewSchedule(
             @Parameter(description = "면접 날짜 (YYYY-MM-DD)", example = "2024-01-15", required = true)
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
@@ -66,28 +61,18 @@ public class IntervieweeController {
         SimpleInterviewScheduleResponseDto response = intervieweeService.getSimpleInterviewScheduleByDate(date);
         return ResponseEntity.ok(response);
     }
-    @GetMapping("interviews/all")
+    @GetMapping("schedule/all")
     @Operation(summary = "전체 면접 일정 조회", description = "모든 날짜의 면접 일정 정보를 조회합니다.")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "조회 성공",
-                    content = @Content(schema = @Schema(implementation = SimpleInterviewScheduleResponseDto.class))),
-            @ApiResponse(responseCode = "400", description = "잘못된 요청")
-    })
     public ResponseEntity<SimpleInterviewScheduleResponseDto> getAllInterviewSchedules(
-            @Parameter(description = "면접 상태별 필터 (SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED)", required = false)
+            @Parameter(description = "면접 상태별 필터", required = false)
             @RequestParam (required = false) String status) {
         System.out.println("조회 필터 status = " + status);
         SimpleInterviewScheduleResponseDto response = intervieweeService.getAllSimpleInterviewSchedules(status);
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("interviews/detailed")
+    @GetMapping("schedule/detailed")
     @Operation(summary = "상세한 날짜별 면접 일정 조회", description = "특정 날짜의 면접 일정 정보를 상세한 형식으로 조회합니다.")
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "조회 성공",
-                content = @Content(schema = @Schema(implementation = InterviewScheduleResponseDto.class))),
-        @ApiResponse(responseCode = "400", description = "잘못된 요청")
-    })
     public ResponseEntity<InterviewScheduleResponseDto> getDetailedInterviewSchedule(
             @Parameter(description = "면접 날짜 (YYYY-MM-DD)", example = "2024-01-15", required = true)
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {

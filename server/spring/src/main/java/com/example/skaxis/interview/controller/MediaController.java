@@ -16,13 +16,12 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 
 @RestController
-@RequestMapping("/api/media")
+@RequestMapping("/api/v1/media")
 @RequiredArgsConstructor
 @Tag(name = "미디어 파일 관리", description = "STT 파일 업로드 및 관리 API")
 public class MediaController {
     
     private final MediaService mediaService;
-    private final IntervieweeService intervieweeService;
     
     @PostMapping(value = "/upload/stt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "STT 파일 업로드", description = "음성 인식 결과 파일을 업로드합니다.")

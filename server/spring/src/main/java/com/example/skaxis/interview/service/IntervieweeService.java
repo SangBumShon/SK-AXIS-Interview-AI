@@ -3,6 +3,8 @@ package com.example.skaxis.interview.service;
 import com.example.skaxis.interview.dto.InterviewScheduleItemDto;
 import com.example.skaxis.interview.dto.InterviewScheduleResponseDto;
 import com.example.skaxis.interview.dto.SimpleInterviewScheduleResponseDto;
+import com.example.skaxis.interview.dto.interviewee.IntervieweeListResponseDto;
+import com.example.skaxis.interview.dto.interviewee.IntervieweeResponseDto;
 import com.example.skaxis.interview.model.Interview;
 import com.example.skaxis.interview.model.Interviewee;
 import com.example.skaxis.interview.repository.IntervieweeRepository;
@@ -11,7 +13,6 @@ import com.example.skaxis.interview.repository.InterviewIntervieweeRepository;
 import com.example.skaxis.interview.dto.common.PersonDto;
 import com.example.skaxis.interview.dto.common.RoomDto;
 import com.example.skaxis.interview.dto.common.TimeSlotDto;
-// import com.example.skaxis.interview.repository.InterviewRepository; // 이 라인 제거
 import com.example.skaxis.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -325,6 +326,89 @@ public class IntervieweeService {
                 .message("면접 일정 조회 중 오류가 발생했습니다: " + e.getMessage())
                 .build();
         }
+    }
+
+    // 누락된 메서드 추가
+    public IntervieweeListResponseDto getInterviewees(LocalDate date, String status, String position) {
+        try {
+            List<Interviewee> interviewees;
+            
+            if (date != null) {
+                // 특정 날짜의 면접에 참여하는 면접자들 조회
+                List<Interview> interviews = interviewService.findInterviewsByDate(date);
+                Set<Long> intervieweeIds = new HashSet<>();
+                
+                for (Interview interview : interviews) {
+                    // 상태 필터링
+                    if (status != null && !status.isEmpty() && 
+                        !interview.getStatus().getDescription().equalsIgnoreCase(status)) {
+                        continue;
+                    }
+                    
+                    List<InterviewInterviewee> interviewInterviewees = 
+                        interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
+                    
+                    for (InterviewInterviewee ii : interviewInterviewees) {
+                        intervieweeIds.add(ii.getIntervieweeId());
+                    }
+                }
+                
+                interviewees = intervieweeIds.stream()
+                    .map(id -> intervieweeRepository.findById(id).orElse(null))
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toList());
+            } else {
+                // 전체 면접자 조회
+                interviewees = intervieweeRepository.findAll();
+            }
+            
+            List<IntervieweeResponseDto> responseList = interviewees.stream()
+                .map(this::convertToResponseDto)
+                .collect(Collectors.toList());
+            
+            return new IntervieweeListResponseDto(responseList, responseList.size());
+            
+        } catch (Exception e) {
+            log.error("면접자 목록 조회 중 오류 발생: {}", e.getMessage(), e);
+            return new IntervieweeListResponseDto(new ArrayList<>(), 0);
+        }
+    }
+
+    public SimpleInterviewScheduleResponseDto getInterviewSchedule(LocalDate date) {
+        return getSimpleInterviewScheduleByDate(date);
+    }
+
+    public SimpleInterviewScheduleResponseDto getAllInterviewSchedules(String status) {
+        return getAllSimpleInterviewSchedules(status);
+    }
+
+    public InterviewScheduleResponseDto getDetailedInterviewSchedule(LocalDate date) {
+        return getInterviewScheduleByDate(date);
+    }
+
+    private IntervieweeResponseDto convertToResponseDto(Interviewee interviewee) {
+        // 해당 면접자의 최근 면접 정보 조회
+        List<InterviewInterviewee> interviewInterviewees = 
+            interviewIntervieweeRepository.findByIntervieweeId(interviewee.getIntervieweeId());
+        
+        Interview recentInterview = null;
+        if (!interviewInterviewees.isEmpty()) {
+            Long recentInterviewId = interviewInterviewees.get(0).getInterviewId();
+            recentInterview = interviewService.findById(recentInterviewId);
+        }
+        
+        return IntervieweeResponseDto.builder()
+            .intervieweeId(interviewee.getIntervieweeId())
+            .applicantName(interviewee.getName())
+            .applicantId(interviewee.getApplicantCode())
+//            .position("개발자") // 기본값, 추후 엔티티에 필드 추가 필요
+            .interviewDate(recentInterview != null ? recentInterview.getScheduledAt().toLocalDate() : null)
+            .interviewStatus(recentInterview != null ? recentInterview.getStatus().getDescription() : "미정")
+            .score(interviewee.getScore())
+            .interviewer(recentInterview != null ? recentInterview.getInterviewers() : "미정")
+            .interviewLocation(recentInterview != null ? recentInterview.getRoomNo() : "미정")
+            .createdAt(interviewee.getCreatedAt())
+            .build();
     }
 
 }
