@@ -24,7 +24,6 @@ import java.io.IOException;
 public class MediaController {
     
     private final MediaService mediaService;
-    private final IntervieweeService intervieweeService;
     
     @PostMapping(value = "/stt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "STT 파일 업로드", description = "음성 인식 결과 파일을 업로드합니다.")

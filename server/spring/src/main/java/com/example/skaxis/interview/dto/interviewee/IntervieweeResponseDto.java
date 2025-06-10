@@ -20,7 +20,6 @@ public class IntervieweeResponseDto {
     private Long intervieweeId;
     private String applicantName;
     private String applicantId;
-    private String position;
     private LocalDate interviewDate;
     private String interviewStatus;
     private Integer score;

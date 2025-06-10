@@ -35,38 +35,33 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    //authenticationManager가 인자로 받을 AuthenticationConfiguration객체
     private final AuthenticationConfiguration authenticationConfiguration;
     private final JWTUtil jwtUtil;
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration)throws Exception {
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
-
     }
+
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, AuthenticationManager authenticationManager) throws Exception {
         http
                 .cors(withDefaults())
-                .csrf(AbstractHttpConfigurer::disable) //disable crsf
-                .formLogin(AbstractHttpConfigurer::disable)// disable formLogin
-                .httpBasic(AbstractHttpConfigurer::disable)//disable http basic
+                .csrf(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth->auth
                         .requestMatchers(CorsUtils::isPreFlightRequest).permitAll()
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll()
                         .requestMatchers(AuthConstants.ADMIN_URI).hasRole("ADMIN")
-                        .requestMatchers(AuthConstants.PERMITTED_URI).permitAll()// Swagger UI 관련 경로 허용
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
-                        // API 경로들 허용 (필요에 따라 수정)
+                        .requestMatchers(AuthConstants.PERMITTED_URI).permitAll()
                         .requestMatchers("/api/**", "/interviewees/**", "/upload/**", "/parse/**").permitAll()
-                        // 새로 추가된 면접 일정 API 허용
-                        .requestMatchers("/api/interview-schedule/**").permitAll()
-                        .requestMatchers("/api/media/**").permitAll()
+                        .requestMatchers("/api/v1/media/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(new CustomLogoutFilter(jwtUtil), LogoutFilter.class)
-                .addFilterBefore(new JWTFilter(jwtUtil),LoginFilter.class)
-                .addFilterAt(new LoginFilter(authenticationManager(authenticationConfiguration),jwtUtil,objectMapper()), UsernamePasswordAuthenticationFilter.class);
-
+                .addFilterBefore(new JWTFilter(jwtUtil), LoginFilter.class)
+                .addFilterAt(new LoginFilter(authenticationManager, jwtUtil, objectMapper()), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
