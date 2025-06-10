@@ -1,34 +1,36 @@
 package com.example.skaxis.interview.controller;
 
 import com.example.skaxis.interview.dto.result.CommentUpdateRequest;
-import com.example.skaxis.interview.model.InterviewResult;
 import com.example.skaxis.interview.service.InterviewResultService;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import lombok.RequiredArgsConstructor;
+
+import java.util.Map;
+
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.Map;
-
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/results")
+@RequiredArgsConstructor
 public class InterviewResultController {
-
     private final InterviewResultService interviewResultService;
 
-    @Autowired
-    public InterviewResultController(InterviewResultService interviewResultService) {
-        this.interviewResultService = interviewResultService;
-    }
-
-    @GetMapping("/interview/{interview_id}/{interviewee_id}/download")
-    public ResponseEntity<Resource> downloadFile(
+    @GetMapping("/{interview_id}/{interviewee_id}/download")
+    public ResponseEntity<?> downloadFile(
             @PathVariable("interview_id") Long interviewId,
             @PathVariable("interviewee_id") Long intervieweeId,
             @RequestParam("type") String fileType) {
+        
+        if (interviewId == null || interviewId <= 0 ||
+            intervieweeId == null || intervieweeId <= 0 || 
+            fileType == null || fileType.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "Invalid request data"));
+        }
         
         Resource file = interviewResultService.downloadFile(interviewId, intervieweeId, fileType);
         
@@ -59,17 +61,20 @@ public class InterviewResultController {
                 .body(file);
     }
 
-    @PutMapping("/interview/{interview_id}/{interviewee_id}/comment")
-    public ResponseEntity<Map<String, String>> updateComment(
+    @PutMapping("/{interview_id}/{interviewee_id}/comment")
+    public ResponseEntity<?> updateComment(
             @PathVariable("interview_id") Long interviewId,
             @PathVariable("interviewee_id") Long intervieweeId,
             @RequestBody CommentUpdateRequest request) {
+
+        if (interviewId == null || interviewId <= 0 ||
+            intervieweeId == null || intervieweeId <= 0 ||
+            request == null || request.getComment() == null || request.getComment().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "Invalid request data"));
+        }
         
-        InterviewResult result = interviewResultService.updateComment(interviewId, intervieweeId, request);
-        
-        Map<String, String> response = new HashMap<>();
-        response.put("result", "updated");
-        
-        return ResponseEntity.ok(response);
+        interviewResultService.updateComment(interviewId, intervieweeId, request);
+  
+        return ResponseEntity.ok().body(Map.of("message", "Comment updated successfully"));
     }
 }

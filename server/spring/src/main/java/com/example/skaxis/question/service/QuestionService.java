@@ -5,21 +5,18 @@ import com.example.skaxis.question.dto.QuestionUpdateRequest;
 import com.example.skaxis.question.model.Question;
 import com.example.skaxis.question.repository.QuestionRepository;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class QuestionService {
 
     private final QuestionRepository questionRepository;
-
-    @Autowired
-    public QuestionService(QuestionRepository questionRepository) {
-        this.questionRepository = questionRepository;
-    }
 
     public List<Question> getAllQuestions(Long interviewId, String type) {
         if (interviewId != null && type != null) {

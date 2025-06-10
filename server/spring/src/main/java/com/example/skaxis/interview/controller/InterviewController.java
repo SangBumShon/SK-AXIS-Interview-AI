@@ -11,6 +11,8 @@ import com.example.skaxis.interview.dto.GetInterviewByIdResponseDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -26,7 +28,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 @Slf4j
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/interviews")
+@RequestMapping("/api/v1/interviews")
 public class InterviewController {
     private final InterviewService interviewService;
 
@@ -35,12 +37,12 @@ public class InterviewController {
         try {
             GetInterviewsResponseDto interviewList = interviewService.getAllInterviews();
             if (interviewList.getInterviewSessions() == null || interviewList.getInterviewSessions().isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No interviews found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "No interviews found"));
             }
             return ResponseEntity.ok(interviewList);
         } catch (Exception e) {
             log.error("Error fetching interviews: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Internal Server Error"));
         }
     }
 
@@ -50,61 +52,61 @@ public class InterviewController {
             if (createInterviewRequestDto == null || createInterviewRequestDto.getRoomNo() == null ||
                 createInterviewRequestDto.getRound() <= 0 || createInterviewRequestDto.getScheduledAt() == null ||
                 createInterviewRequestDto.getOrderNo() <= 0) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid request data");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "Invalid request data"));
             }
             interviewService.createInterview(createInterviewRequestDto);
-            return ResponseEntity.ok().body("Interview created successfully");
+            return ResponseEntity.ok().body(Map.of("message", "Interview created successfully"));
         } catch (Exception e) {
             log.error("Error creating interview: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Internal Server Error"));
         }
     }
 
     @DeleteMapping("/{interviewId}")
-    public ResponseEntity<?> deleteInterview(@PathVariable Long interviewId) {
+    public ResponseEntity<?> deleteInterview(@PathVariable("interview_id") Long interviewId) {
         try {
             if (interviewId == null || interviewId <= 0) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid interview ID");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "Invalid interview ID"));
             }
             interviewService.deleteInterview(interviewId);
-            return ResponseEntity.ok().body("Interview deleted successfully"); 
+            return ResponseEntity.ok().body(Map.of("messgae", "Interview deleted successfully")); 
         } catch (Exception e) {
             log.error("Error deleting interview: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Internal Server Error"));
         }
     }
     
     @PutMapping("/{interviewId}")
-    public ResponseEntity<?> updateInterview(@RequestBody UpdateInterviewRequestDto updateInterviewRequestDto, @PathVariable Long interviewId) {
+    public ResponseEntity<?> updateInterview(@RequestBody UpdateInterviewRequestDto updateInterviewRequestDto, @PathVariable("interview_id") Long interviewId) {
         try {
             if (interviewId == null || interviewId <= 0) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid interview ID");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "Invalid interview ID"));
             }
             if (updateInterviewRequestDto == null) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid request data");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", "Invalid request data"));
             }
             interviewService.updateInterview(updateInterviewRequestDto, interviewId);
-            return ResponseEntity.ok().body("Interview updated successfully");
+            return ResponseEntity.ok().body(Map.of("message", "Interview updated successfully"));
         } catch (Exception e) {
             log.error("Error updating interview: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Internal Server Error"));
         }
     }
 
     @GetMapping("/{interviewId}")
-    public ResponseEntity<?> getInterviewById(@PathVariable Long interviewId) {
+    public ResponseEntity<?> getInterviewById(@PathVariable("interview_id") Long interviewId) {
         try {
             if (interviewId == null || interviewId <= 0) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid interview ID");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message","Invalid interview ID"));
             }
             GetInterviewByIdResponseDto interview = interviewService.getInterviewById(interviewId);
             if (interview == null) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Interview not found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Interview not found"));
             }
             return ResponseEntity.ok(interview);
         } catch (Exception e) {
             log.error("Error fetching interview by ID: {}", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("message", "Internal Server Error"));
         }
     }
 }

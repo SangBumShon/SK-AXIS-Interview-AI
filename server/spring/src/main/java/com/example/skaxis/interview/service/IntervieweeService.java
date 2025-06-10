@@ -12,7 +12,6 @@ import com.example.skaxis.interview.dto.common.PersonDto;
 import com.example.skaxis.interview.dto.common.RoomDto;
 import com.example.skaxis.interview.dto.common.TimeSlotDto;
 // import com.example.skaxis.interview.repository.InterviewRepository; // 이 라인 제거
-import com.example.skaxis.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;

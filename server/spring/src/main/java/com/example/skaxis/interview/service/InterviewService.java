@@ -53,7 +53,7 @@ public class InterviewService {
             // 면접관 정보를 문자열로만 처리 (User 엔티티 사용하지 않음)
             String interviewersStr = interview.getInterviewers();
             if (interviewersStr != null && !interviewersStr.isEmpty()) {
-                String[] interviewerNames = interviewersStr.split(",");
+                interviewersStr.split(",");
                 // User 배열 대신 문자열 배열로 처리하거나, 더미 User 객체 생성
                 // GetInterviewsResponseDto.InterviewSession의 setInterviewers가 User[] 타입을 받는다면
                 // 더미 User 객체를 생성해야 합니다
