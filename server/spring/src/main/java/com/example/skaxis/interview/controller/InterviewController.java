@@ -27,7 +27,7 @@ public class InterviewController {
     private final IntervieweeService intervieweeService;
 
     // 기존 면접 관련 메서드들
-    @GetMapping("all")
+    @GetMapping("/all")
     public ResponseEntity<?> getAllInterviews() {
         try {
             GetInterviewsResponseDto interviewList = interviewService.getAllInterviews();
@@ -106,7 +106,7 @@ public class InterviewController {
     }
     
     // IntervieweeController에서 통합된 메서드들
-    @GetMapping("simple")
+    @GetMapping("/simple")
     public ResponseEntity<?> getInterviewees(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @RequestParam(required = false) String status,
@@ -123,7 +123,7 @@ public class InterviewController {
         }
     }
     
-    @GetMapping("schedule")
+    @GetMapping("/schedule")
     public ResponseEntity<?> getInterviewSchedule(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         try {
@@ -153,7 +153,7 @@ public class InterviewController {
         }
     }
     
-    @GetMapping("schedule/detailed")
+    @GetMapping("/schedule/detailed")
     public ResponseEntity<?> getDetailedInterviewSchedule(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         try {
