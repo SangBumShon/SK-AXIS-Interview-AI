@@ -30,6 +30,22 @@ import org.springframework.web.bind.annotation.PathVariable;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/interviews")
 public class InterviewController {
+
+    // 전체 면접 및 연관 데이터 삭제 (관리자 권한 필요)
+    @DeleteMapping("")
+    @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> deleteAllInterviews(
+        @RequestParam(name = "deleteFiles", defaultValue = "true") boolean deleteFiles) {
+        try {
+            interviewService.deleteAllInterviews(deleteFiles);
+            return ResponseEntity.noContent().build(); // 204 No Content
+        } catch (Exception e) {
+            log.error("전체 면접 삭제 중 오류: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("message", "면접 전체 삭제 중 서버 오류가 발생했습니다."));
+        }
+    }
+
     private final InterviewService interviewService;
 
     @GetMapping("/")

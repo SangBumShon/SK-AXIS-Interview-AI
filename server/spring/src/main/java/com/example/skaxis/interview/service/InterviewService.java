@@ -26,6 +26,9 @@ import com.example.skaxis.user.repository.UserRepository;
 @Slf4j
 public class InterviewService {
 
+    private final com.example.skaxis.interview.repository.InterviewIntervieweeRepository interviewIntervieweeRepository;
+    private final com.example.skaxis.interview.repository.InterviewResultRepository interviewResultRepository;
+    private final com.example.skaxis.question.repository.QuestionRepository questionRepository;
     private final InterviewRepository interviewRepository;
     private final IntervieweeRepository intervieweeRepository;
     private final UserRepository userRepository;
@@ -199,5 +202,48 @@ public class InterviewService {
 
     public List<Interview> findAllOrderByScheduledAt() {
         return interviewRepository.findAllOrderByScheduledAt();
+    }
+
+    // === 전체 면접 및 연관 데이터 삭제 ===
+    @org.springframework.transaction.annotation.Transactional
+    public void deleteAllInterviews(boolean deleteFiles) {
+        // InterviewResult 파일 및 데이터 삭제
+        if (deleteFiles) {
+            interviewResultRepository.findAll().forEach(result -> {
+                deleteFileIfExists(result.getPdfPath());
+                deleteFileIfExists(result.getExcelPath());
+                deleteFileIfExists(result.getSttPath());
+            });
+        }
+        interviewResultRepository.deleteAll();
+
+        // InterviewInterviewee 파일 및 데이터 삭제
+        if (deleteFiles) {
+            interviewIntervieweeRepository.findAll().forEach(ii -> {
+                deleteFileIfExists(ii.getPdfPath());
+                deleteFileIfExists(ii.getExcelPath());
+                deleteFileIfExists(ii.getSttPath());
+            });
+        }
+        interviewIntervieweeRepository.deleteAll();
+
+        // Question 전체 삭제
+        questionRepository.deleteAll();
+
+        // Interview 전체 삭제
+        interviewRepository.deleteAll();
+    }
+
+    private void deleteFileIfExists(String path) {
+        if (path != null && !path.isBlank()) {
+            try {
+                java.io.File file = new java.io.File(path);
+                if (file.exists()) {
+                    file.delete();
+                }
+            } catch (Exception e) {
+                log.warn("파일 삭제 실패: {}", path);
+            }
+        }
     }
 }
