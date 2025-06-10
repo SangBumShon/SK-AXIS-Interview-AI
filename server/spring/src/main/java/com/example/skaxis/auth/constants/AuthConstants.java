@@ -12,7 +12,7 @@ public final class AuthConstants {
             "/api/v1/auth/login",
             "/api/v1/auth/signup/**",
             "/api/v1/auth/reissue",
-            "/api/v1/media/**",  // 미디어 업로드 API 허용
+            "/api/v1/uploads/**",  // 미디어 업로드 API 허용
             "/api/v1/interviews/**",
             "/api/v1/interviewees/**",
     };

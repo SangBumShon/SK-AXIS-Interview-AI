@@ -20,7 +20,8 @@ interface ScheduleResponse {
 
 export const getInterviewSchedules = async (date: string): Promise<ScheduleResponse> => {
   try {
-    const response = await axios.get<ScheduleResponse>(`${API_BASE_URL}/interviews/all`, {
+    // 수정: schedule/all 엔드포인트 사용
+    const response = await axios.get<ScheduleResponse>(`${API_BASE_URL}/interviews/schedule/all`, {
       params: { date }
     });
     return response.data;

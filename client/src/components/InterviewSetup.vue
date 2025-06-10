@@ -115,22 +115,22 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import type { Room, TimeSlot, Person } from '../data/interviewData';
-// getPersonById 제거 (사용하지 않음)
+
 import AdminLoginModal from './AdminLoginModal.vue';
 import { getInterviewSchedules } from '../services/interviewService';
 
-interface Props {
-  rooms: Room[];
-  timeSlots: TimeSlot[];
-  people: Person[];
-}
+// Props 인터페이스와 선언 제거 (더 이상 사용하지 않음)
+// interface Props {
+//   rooms: Room[];
+//   timeSlots: TimeSlot[];
+//   people: Person[];
+// }
 
-const props = withDefaults(defineProps<Props>(), {
-  rooms: () => [],
-  timeSlots: () => [],
-  people: () => []
-});
+// const props = withDefaults(defineProps<Props>(), {
+//   rooms: () => [],
+//   timeSlots: () => [],
+//   people: () => []
+// });
 
 const router = useRouter();
 
@@ -144,32 +144,33 @@ const error = ref<string | null>(null);
 const showAdminLogin = ref(false);
 const selectedSchedule = ref<any>(null);
 
-// 오늘 날짜와 선택된 날짜가 일치하는지 확인하는 computed 속성 추가
+// API 데이터에서 동적으로 rooms 생성
+const rooms = computed(() => {
+  const uniqueRooms = new Set(schedules.value.map(schedule => schedule.roomName));
+  return Array.from(uniqueRooms).map((roomName, index) => ({
+    id: `room${index + 1}`,
+    name: roomName
+  }));
+});
+
+// 오늘 날짜와 선택된 날짜가 일치하는지 확인하는 computed 속성
 const isToday = computed(() => {
   const today = new Date().toISOString().split('T')[0];
   return selectedDate.value === today;
 });
 
-// Remove the unused availableTimeSlots computed property
-// const availableTimeSlots = computed(() => {
-//   if (!selectedRoom.value || !selectedDate.value) return [];
-//   return props.timeSlots.filter(slot => 
-//     slot.roomId === selectedRoom.value && 
-//     slot.date === selectedDate.value &&
-//     slot.candidateIds.length > 0
-//   );
-// });
-
+// selectedRoom, selectedTimeSlot, isToday가 모두 true일 때만 canProceed가 true가 되도록 변경
 const canProceed = computed(() => {
   return selectedRoom.value && 
          selectedTimeSlot.value && 
          isToday.value && 
-         selectedSchedule.value; // 선택된 일정이 있는 경우에만 true
+         selectedSchedule.value;
 });
 
+// props.rooms 대신 rooms.value 사용
 const filteredSchedules = computed(() =>
   schedules.value.filter(schedule => 
-    schedule.roomName === props.rooms.find(r => r.id === selectedRoom.value)?.name
+    schedule.roomName === rooms.value.find(r => r.id === selectedRoom.value)?.name
   )
 );
 
