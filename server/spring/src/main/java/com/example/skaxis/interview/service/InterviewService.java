@@ -204,6 +204,11 @@ public class InterviewService {
         return interviewRepository.findAllOrderByScheduledAt();
     }
 
+    public Interview findById(Long recentInterviewId) {
+        return interviewRepository.findById(recentInterviewId)
+            .orElseThrow(() -> new RuntimeException("Interview not found with ID: " + recentInterviewId));
+    }
+
     // === 전체 면접 및 연관 데이터 삭제 ===
     @org.springframework.transaction.annotation.Transactional
     public void deleteAllInterviews(boolean deleteFiles) {
