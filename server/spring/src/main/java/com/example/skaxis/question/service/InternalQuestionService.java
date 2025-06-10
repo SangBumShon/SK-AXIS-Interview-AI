@@ -6,27 +6,20 @@ import com.example.skaxis.interview.model.InterviewInterviewee;
 import com.example.skaxis.interview.repository.InterviewIntervieweeRepository;
 import com.example.skaxis.question.model.Question;
 import com.example.skaxis.question.repository.QuestionRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class InternalQuestionService {
-
     private final QuestionRepository questionRepository;
     private final InterviewIntervieweeRepository interviewIntervieweeRepository;
-
-    @Autowired
-    public InternalQuestionService(QuestionRepository questionRepository,
-                                  InterviewIntervieweeRepository interviewIntervieweeRepository) {
-        this.questionRepository = questionRepository;
-        this.interviewIntervieweeRepository = interviewIntervieweeRepository;
-    }
 
     /**
      * 여러 면접자 ID를 받아 각 면접자별로 질문 5개(공통 3 + 개별 2)를 조회

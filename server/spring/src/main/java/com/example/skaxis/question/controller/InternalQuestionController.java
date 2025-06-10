@@ -4,6 +4,9 @@ import com.example.skaxis.question.dto.MultipleIntervieweeQuestionsRequest;
 import com.example.skaxis.question.dto.MultipleIntervieweeQuestionsResponse;
 import com.example.skaxis.question.model.Question;
 import com.example.skaxis.question.service.InternalQuestionService;
+
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,15 +18,10 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/v1/internal")
 public class InternalQuestionController {
-
     private final InternalQuestionService internalQuestionService;
-
-    @Autowired
-    public InternalQuestionController(InternalQuestionService internalQuestionService) {
-        this.internalQuestionService = internalQuestionService;
-    }
 
     /**
      * 다중 지원자 질문 5개 조회 API (FastAPI → Spring Boot)
@@ -31,8 +29,11 @@ public class InternalQuestionController {
      * @return 면접자별 질문 목록
      */
     @PostMapping("/interviewees/questions")
-    public ResponseEntity<MultipleIntervieweeQuestionsResponse> getMultipleIntervieweeQuestions(
+    public ResponseEntity<?> getMultipleIntervieweeQuestions(
             @RequestBody MultipleIntervieweeQuestionsRequest request) {
+        if (request.getInterviewee_ids() == null || request.getInterviewee_ids().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Invalid request data: interviewee_ids is required"));
+        }
         
         Map<String, List<Question>> questionsPerInterviewee = 
                 internalQuestionService.getQuestionsForMultipleInterviewees(request.getInterviewee_ids());

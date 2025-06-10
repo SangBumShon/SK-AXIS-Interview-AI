@@ -4,7 +4,8 @@ import com.example.skaxis.interview.dto.result.CommentUpdateRequest;
 import com.example.skaxis.interview.model.InterviewResult;
 import com.example.skaxis.interview.repository.InterviewResultRepository;
 import jakarta.persistence.EntityNotFoundException;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.UrlResource;
@@ -16,17 +17,12 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 @Service
+@RequiredArgsConstructor
 public class InterviewResultService {
-
     private final InterviewResultRepository interviewResultRepository;
     
     @Value("${file.upload.path:./uploads}")
     private String fileUploadPath;
-
-    @Autowired
-    public InterviewResultService(InterviewResultRepository interviewResultRepository) {
-        this.interviewResultRepository = interviewResultRepository;
-    }
 
     public InterviewResult getInterviewResult(Long interviewId, Long intervieweeId) {
         return interviewResultRepository.findByInterviewIdAndIntervieweeId(interviewId, intervieweeId)

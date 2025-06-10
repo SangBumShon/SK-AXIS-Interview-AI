@@ -1,7 +1,6 @@
 package com.example.skaxis.interview.controller;
 
 import com.example.skaxis.interview.dto.InterviewScheduleResponseDto;
-import com.example.skaxis.interview.service.InterviewService;
 import com.example.skaxis.interview.dto.SimpleInterviewScheduleResponseDto;
 import com.example.skaxis.interview.dto.interviewee.IntervieweeListResponseDto;
 import com.example.skaxis.interview.service.IntervieweeService;
@@ -16,23 +15,20 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.time.LocalDate;
 
 @RestController
-@RequestMapping("/api/interviewees")
+@RequestMapping("/api/v1/interviewees")
 @RequiredArgsConstructor
 @Tag(name = "면접 대상자 관리", description = "면접 대상자 정보 및 일정 관리 API")
 public class IntervieweeController {
     
     private final IntervieweeService intervieweeService;
 
-    @GetMapping("simple")
+    @GetMapping("/simple")
     @Operation(summary = "면접 대상자 목록 조회", description = "필터 조건에 따라 면접 대상자 목록을 조회합니다.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "조회 성공",
@@ -52,7 +48,7 @@ public class IntervieweeController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("interviews")
+    @GetMapping("/interviews")
     @Operation(summary = "날짜별 면접 일정 조회", description = "특정 날짜의 면접 일정 정보를 조회합니다.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "조회 성공",
@@ -66,7 +62,7 @@ public class IntervieweeController {
         SimpleInterviewScheduleResponseDto response = intervieweeService.getSimpleInterviewScheduleByDate(date);
         return ResponseEntity.ok(response);
     }
-    @GetMapping("interviews/all")
+    @GetMapping("/interviews/all")
     @Operation(summary = "전체 면접 일정 조회", description = "모든 날짜의 면접 일정 정보를 조회합니다.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "조회 성공",
@@ -81,7 +77,7 @@ public class IntervieweeController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("interviews/detailed")
+    @GetMapping("/interviews/detailed")
     @Operation(summary = "상세한 날짜별 면접 일정 조회", description = "특정 날짜의 면접 일정 정보를 상세한 형식으로 조회합니다.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "조회 성공",
