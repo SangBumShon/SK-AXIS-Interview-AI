@@ -167,4 +167,67 @@ public class InterviewController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
         }
     }
+    
+    // IntervieweeController에서 통합된 메서드들 - 수정된 버전
+    @GetMapping("simple")
+    public ResponseEntity<?> getInterviewees(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String position) {
+        try {
+            IntervieweeListResponseDto interviewees = intervieweeService.getInterviewees(date, status, position);
+            if (interviewees == null || interviewees.getData().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No interviewees found");
+            }
+            return ResponseEntity.ok(interviewees);
+        } catch (Exception e) {
+            log.error("Error fetching interviewees: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
+        }
+    }
+    
+    @GetMapping("schedule")
+    public ResponseEntity<?> getInterviewSchedule(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        try {
+            SimpleInterviewScheduleResponseDto schedule = intervieweeService.getInterviewSchedule(date);
+            if (schedule == null || schedule.getSchedules().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No schedule found for the given date");
+            }
+            return ResponseEntity.ok(schedule);
+        } catch (Exception e) {
+            log.error("Error fetching interview schedule: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
+        }
+    }
+    
+    @GetMapping("schedule/all")
+    public ResponseEntity<?> getAllInterviewSchedules(
+            @RequestParam(required = false) String status) {
+        try {
+            SimpleInterviewScheduleResponseDto schedules = intervieweeService.getAllInterviewSchedules(status);
+            if (schedules == null || schedules.getSchedules().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No schedules found");
+            }
+            return ResponseEntity.ok(schedules);
+        } catch (Exception e) {
+            log.error("Error fetching all interview schedules: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
+        }
+    }
+    
+    @GetMapping("schedule/detailed")
+    public ResponseEntity<?> getDetailedInterviewSchedule(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        try {
+            InterviewScheduleResponseDto detailedSchedule = intervieweeService.getDetailedInterviewSchedule(date);
+            if (detailedSchedule == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No detailed schedule found for the given date");
+            }
+            return ResponseEntity.ok(detailedSchedule);
+        } catch (Exception e) {
+            log.error("Error fetching detailed interview schedule: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
+        }
+    }
 }

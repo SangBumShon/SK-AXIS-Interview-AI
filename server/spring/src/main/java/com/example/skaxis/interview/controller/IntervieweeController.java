@@ -50,6 +50,11 @@ public class IntervieweeController {
 
     @GetMapping("/interviews")
     @Operation(summary = "날짜별 면접 일정 조회", description = "특정 날짜의 면접 일정 정보를 조회합니다.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "조회 성공",
+                content = @Content(schema = @Schema(implementation = SimpleInterviewScheduleResponseDto.class))),
+        @ApiResponse(responseCode = "400", description = "잘못된 요청")
+    })
     public ResponseEntity<SimpleInterviewScheduleResponseDto> getInterviewSchedule(
             @Parameter(description = "면접 날짜 (YYYY-MM-DD)", example = "2024-01-15", required = true)
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
@@ -65,7 +70,7 @@ public class IntervieweeController {
             @ApiResponse(responseCode = "400", description = "잘못된 요청")
     })
     public ResponseEntity<SimpleInterviewScheduleResponseDto> getAllInterviewSchedules(
-            @Parameter(description = "면접 상태별 필터", required = false)
+            @Parameter(description = "면접 상태별 필터 (SCHEDULED, IN_PROGRESS, COMPLETED, CANCELLED)", required = false)
             @RequestParam (required = false) String status) {
         System.out.println("조회 필터 status = " + status);
         SimpleInterviewScheduleResponseDto response = intervieweeService.getAllSimpleInterviewSchedules(status);
