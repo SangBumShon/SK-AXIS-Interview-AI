@@ -12,8 +12,9 @@ public final class AuthConstants {
             "/api/v1/auth/login",
             "/api/v1/auth/signup/**",
             "/api/v1/auth/reissue",
-            "/api/media/**",  // 미디어 업로드 API 허용
-            "/api/interviewees/**",
+            "/api/v1/media/**",  // 미디어 업로드 API 허용
+            "/api/v1/interviews/**",
+            "/api/v1/interviewees/**",
     };
     //admin user만 접근 가능한 URI
     public static final String[] ADMIN_URI = {
