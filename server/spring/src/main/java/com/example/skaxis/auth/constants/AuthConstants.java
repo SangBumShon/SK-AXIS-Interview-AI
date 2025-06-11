@@ -15,6 +15,7 @@ public final class AuthConstants {
             "/api/v1/uploads/**",  // 미디어 업로드 API 허용
             "/api/v1/interviews/**",
             "/api/v1/interviewees/**",
+            "/api/v1/internal/**",
     };
     //admin user만 접근 가능한 URI
     public static final String[] ADMIN_URI = {
