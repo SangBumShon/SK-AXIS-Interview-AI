@@ -15,6 +15,7 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 
@@ -155,6 +156,7 @@ public class InterviewController {
     }
     
     @GetMapping("schedule/all")
+    @Transactional(readOnly = true)
     public ResponseEntity<?> getAllInterviewSchedules(
             @RequestParam(required = false) String status) {
         try {
