@@ -25,7 +25,7 @@ import {
 } from '@mediapipe/tasks-vision'
 
 // 1. WebSocket 연결
-const wsUrl = 'ws://localhost:9000'   // 서버 주소에 맞게 수정
+const wsUrl = `ws://localhost:8000/api/v1/ws/nonverbal`// 서버 주소에 맞게 수정
 let ws = null
 function connectWebSocket() {
   ws = new WebSocket(wsUrl)
