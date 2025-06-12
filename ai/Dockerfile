@@ -38,16 +38,14 @@ RUN pip install --no-cache-dir \
     reportlab \
     pandas \
     openpyxl \
-    python-dotenv
+    python-dotenv \
+    fpdf2
 
 # 애플리케이션 코드 복사
 COPY . .
 
 # 출력 디렉토리 생성
-RUN mkdir -p output
-RUN mkdir -p app/uploads
-RUN mkdir -p app/temp
-RUN mkdir -p static
+RUN mkdir -p output app/uploads app/temp static
 
 # 환경 변수 설정
 ENV OPENAI_API_KEY=""
@@ -59,5 +57,5 @@ ENV PYTHONUNBUFFERED=1
 # 포트 노출
 EXPOSE 8000
 
-# 애플리케이션 실행
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# 애플리케이션 실행 (개발 모드 비활성화)
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
