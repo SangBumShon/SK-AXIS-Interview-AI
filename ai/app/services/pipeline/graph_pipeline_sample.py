@@ -3,7 +3,7 @@ from datetime import datetime
 import os
 import asyncio
 from typing import TypedDict, Literal
-
+import openai
 from app.services.interview.stt_service import transcribe_audio_file
 from app.services.interview.rewrite_service import rewrite_answer
 from app.services.interview.evaluation_service import evaluate_keywords_from_full_answer
@@ -11,17 +11,20 @@ from app.services.interview.report_service import create_radar_chart, generate_p
 from app.schemas.nonverbal import Posture, FacialExpression, NonverbalData
 from app.services.interview.nonverbal_service import evaluate  
 from app.schemas.state import InterviewState
+from langgraph.channels import LastValue, BinaryOperatorAggregate
+
+
 
 # ──────────────── Typed State ────────────────
 
-class InterviewState(TypedDict, total=False):
-    interviewee_id: str
-    audio_path: str
-    stt: dict
-    rewrite: dict
-    evaluation: dict
-    report: dict
-    decision_log: list
+# class InterviewState(TypedDict, total=False):
+#     interviewee_id: str
+#     audio_path: str
+#     stt: dict
+#     rewrite: dict
+#     evaluation: dict
+#     report: dict
+#     decision_log: list
 
 # ──────────────── Nodes / Agents ────────────────
 # stt node
@@ -128,7 +131,7 @@ async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
 
         try:
             start = time.perf_counter()
-            response = openai.ChatCompletion.create(
+            response = openai.chat.completions.create(
                 model="gpt-4",  # gpt-4o-mini는 존재하지 않는 모델명입니다
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0,
@@ -492,23 +495,38 @@ interview_flow_executor = interview_builder.compile()
 
 # 📄 면접 종료: 전체 평가 및 리포트 생성
 final_builder = StateGraph(InterviewState)
-final_builder.add_node("nonverbal_eval", nonverbal_evaluation_agent)  # async여도 그냥 등록
+final_builder.add_node("nonverbal_eval", nonverbal_evaluation_agent)
 final_builder.add_node("evaluation_agent", evaluation_agent)
 final_builder.add_node("evaluation_judge_agent", evaluation_judge_agent)
 final_builder.add_node("pdf_node", pdf_node)
-# final_builder.add_node("excel_node", excel_node)
 final_builder.set_entry_point("nonverbal_eval")
-
 final_builder.add_edge("nonverbal_eval", "evaluation_agent")
+final_builder.add_edge("evaluation_agent", "evaluation_judge_agent")
+
+# ───────── decision_log 채널 재설정 ─────────
+# (A) 최근 1건만 남기기
+final_builder.set_channel(
+    "decision_log",
+    LastValue()
+)
+
+# 또는
+
+# (B) 마지막 20건만 유지하기
+def reducer(old: list, new: dict) -> list:
+    return (old + [new])[-20:]
+
+final_builder.set_channel(
+    "decision_log",
+    BinaryOperatorAggregate(list, reducer)
+)
+# ──────────────────────────────────────────
+
+# conditional 분기만 남기고 direct edge 제거
 final_builder.add_conditional_edges(
     "evaluation_judge_agent",
     should_retry_evaluation,
-    {
-        "retry": "evaluation_agent",
-        "continue": "pdf_node"
-    }
+    {"retry": "evaluation_agent", "continue": "pdf_node"}
 )
-final_builder.add_edge("evaluation_agent", "evaluation_judge_agent")
-final_builder.add_edge("evaluation_judge_agent", "pdf_node")
-# final_builder.add_edge("pdf_node", "excel_node")
+
 final_report_flow_executor = final_builder.compile()

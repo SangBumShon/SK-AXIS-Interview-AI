@@ -70,7 +70,7 @@ async def evaluate_keywords_from_full_answer(full_answer: str) -> dict:
 
     start = time.perf_counter()
     try:
-        response = openai.ChatCompletion.create(
+        response = openai.chat.completions.create(
             model="gpt-4o",  # 최신 멀티모달 모델 사용
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},

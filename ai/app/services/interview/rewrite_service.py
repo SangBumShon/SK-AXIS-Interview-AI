@@ -25,7 +25,7 @@ async def rewrite_answer(raw: str) -> tuple[str, float]:
     """
     prompt = REWRITE_PROMPT.format(answer_raw=raw)
     start = time.perf_counter()
-    response = openai.ChatCompletion.create(
+    response = openai.chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=1024,
