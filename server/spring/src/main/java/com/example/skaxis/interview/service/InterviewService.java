@@ -55,7 +55,7 @@ public class InterviewService {
             interviewSession.setInterviewees(intervieweeList.toArray(new Interviewee[0]));
 
             // 면접관 정보를 문자열로만 처리 (User 엔티티 사용하지 않음)
-            String interviewersStr = interview.getInterviewerAssignments().toString();
+            String interviewersStr = interview.getInterviewers();
             if (interviewersStr != null && !interviewersStr.isEmpty()) {
                 interviewersStr.split(",");
                 // User 배열 대신 문자열 배열로 처리하거나, 더미 User 객체 생성
@@ -152,7 +152,7 @@ public class InterviewService {
             .toArray(GetInterviewByIdResponseDto.IntervieweeDto[]::new));
 
         // 면접관 정보를 문자열로만 처리 (User 엔티티 사용하지 않음)
-        String interviewersStr = interview.getInterviewerAssignments().toString();
+        String interviewersStr = interview.getInterviewers();
         if (interviewersStr != null && !interviewersStr.isEmpty()) {
             String[] interviewerNames = interviewersStr.split(",");
             List<GetInterviewByIdResponseDto.InterviewerDto> interviewerDtos = new ArrayList<>();

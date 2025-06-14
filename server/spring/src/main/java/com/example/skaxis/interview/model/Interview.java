@@ -9,9 +9,6 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 import java.util.List;
 
-import com.example.skaxis.interviewinterviewee.model.InterviewInterviewee;
-import com.example.skaxis.interviewinterviewer.model.InterviewerAssignment;
-
 @Entity
 @Data
 @Builder
@@ -34,9 +31,16 @@ public class Interview {
     @Column(name = "scheduled_at", nullable = false)
     private LocalDateTime scheduledAt;
     
+    @Column(name = "scheduled_end_at", nullable = false)
+    private LocalDateTime scheduledEndAt;
+
     @Column(name = "order_no")
     private Integer orderNo;
     
+    // 면접관 정보를 단순 문자열로 저장 (쉼표로 구분)
+    @Column(name = "interviewers", length = 500)
+    private String interviewers;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 20)
     private InterviewStatus status;
@@ -44,11 +48,7 @@ public class Interview {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
     
-    // 면접-면접관 관계 (다대다)
-    @OneToMany(mappedBy = "interview", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<InterviewerAssignment> interviewerAssignments;
-    
-    // 면접-면접 대상자 관계 (다대다)
+    // 면접-면접 대상자 관계만 유지
     @OneToMany(mappedBy = "interview", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<InterviewInterviewee> interviewInterviewees;
     
