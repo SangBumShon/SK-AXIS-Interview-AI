@@ -1,4 +1,4 @@
-from app.services.pipeline.graph_pipeline_sample import interview_flow_executor
+from ai.app.services.pipeline.graph_pipeline import interview_flow_executor
 
 dummy_state = {
     "interviewee_id": "person1",

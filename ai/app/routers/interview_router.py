@@ -1,6 +1,6 @@
 # app/routers/interview_router.py
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 import os
 from dotenv import load_dotenv
 
@@ -8,13 +8,15 @@ from app.schemas.interview import (
     StartInterviewRequest,
     StartInterviewResponse,
     EndInterviewRequest,
-    EndInterviewResponse
+    EndInterviewResponse,
+    STTUploadResponse
 )
 from app.services.internal_client import fetch_interviewee_questions
-from app.services.pipeline.graph_pipeline import final_report_flow_executor
+from app.services.pipeline.graph_pipeline import final_report_flow_executor, interview_flow_executor
 from app.schemas.state import InterviewState
 from app.state.store import INTERVIEW_STATE_STORE  # 전역 메모리 스토어
 from app.services.interview.nonverbal_service import evaluate
+from app.services.interview.stt_service import save_audio_file
 
 # 환경 변수 로드
 load_dotenv()
@@ -62,5 +64,48 @@ async def end_interview(req: EndInterviewRequest):
 
         return EndInterviewResponse(result="done", report_ready=True)
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/stt/upload", response_model=STTUploadResponse)
+async def upload_stt(
+    interviewee_id: int = Form(...),
+    audio: UploadFile = File(...)
+):
+    """
+    답변 단위 음성 파일 업로드
+    
+    Args:
+        interviewee_id: 면접자 ID
+        audio: 웹 브라우저에서 생성한 WebM 음성 파일
+        
+    Returns:
+        STTUploadResponse: 업로드 결과
+    """
+    try:
+        # 오디오 파일 저장
+        file_path = await save_audio_file(interviewee_id, audio)
+        if not file_path:
+            raise HTTPException(status_code=500, detail="파일 저장 실패")
+            
+        # 상태 저장소에 파일 경로 추가 및 파이프라인 실행
+        state = INTERVIEW_STATE_STORE.get(interviewee_id, {
+            "interviewee_id": interviewee_id,
+            "audio_path": file_path,
+            "stt": {"done": False, "segments": []},
+            "rewrite": {"done": False, "items": []},
+            "evaluation": {"done": False, "results": {}},
+            "report": {"pdf_path": ""},
+            "decision_log": [],
+        })
+        state["audio_path"] = file_path
+        
+        # 파이프라인 실행
+        await interview_flow_executor(state)
+        INTERVIEW_STATE_STORE[interviewee_id] = state
+            
+        return STTUploadResponse(result="OK")
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

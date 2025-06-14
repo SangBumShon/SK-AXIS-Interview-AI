@@ -1,7 +1,7 @@
 # test_pipeline.py
 
 import asyncio
-from app.services.pipeline.graph_pipeline_sample import (
+from ai.app.services.pipeline.graph_pipeline import (
     interview_flow_executor,
     final_report_flow_executor
 )

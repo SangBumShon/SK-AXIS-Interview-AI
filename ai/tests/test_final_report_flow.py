@@ -8,7 +8,7 @@ from datetime import datetime
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # 2. 파이프라인 로딩
-from app.services.pipeline.graph_pipeline_sample import final_report_flow_executor
+from ai.app.services.pipeline.graph_pipeline import final_report_flow_executor
 
 # 3. JSON 로딩 함수 (rewrite.items 구조 지원)
 def load_rewrite_items(file_name: str) -> list:
