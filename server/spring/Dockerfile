@@ -1,10 +1,13 @@
 # 빌드 스테이지
-# 빌드 스테이지
 FROM gradle:8.7-jdk17 AS build
 WORKDIR /app
 
 # Gradle Wrapper 및 프로젝트 파일 복사
+COPY gradlew gradlew
+COPY gradlew.bat gradlew.bat
+COPY gradle gradle
 COPY . .
+RUN chmod +x ./gradlew
 
 RUN apt-get update && apt-get install -y dos2unix
 RUN dos2unix gradlew

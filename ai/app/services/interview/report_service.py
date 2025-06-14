@@ -173,6 +173,8 @@ def generate_pdf(
         interview_time = datetime.now().strftime("%Y-%m-%d %H:%M")
         pdf = PDFReport(interviewee_id=interviewee_id, interview_time=interview_time)
         pdf.add_page()
+        
+        # 답변 텍스트만 추가
         if qa_blocks_text:
             pdf.add_qa_blocks(qa_blocks_text)
         pdf.add_page()
