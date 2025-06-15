@@ -1,5 +1,7 @@
+# app/schemas/interview.py
 from pydantic import BaseModel
 from typing import List, Dict, Literal
+from app.schemas.nonverbal import Posture, FacialExpression
 
 class StartInterviewRequest(BaseModel):
     interviewee_ids: List[int]
@@ -14,19 +16,16 @@ class StartInterviewResponse(BaseModel):
     questions_per_interviewee: Dict[str, List[Question]]
     status: str
 
-class NonverbalCounts(BaseModel):
-    posture: int
-    gaze: int
-    expression: int
-    gesture: int
-
-class IntervieweeCounts(BaseModel):
+class IntervieweeNonverbal(BaseModel):
     interviewee_id: int
-    counts: NonverbalCounts
+    posture: Posture
+    facial_expression: FacialExpression
+    gaze: int
+    gesture: int
 
 class EndInterviewRequest(BaseModel):
     interview_id: int
-    interviewees: List[IntervieweeCounts]
+    interviewees: List[IntervieweeNonverbal]
 
 class EndInterviewResponse(BaseModel):
     result: str
@@ -36,24 +35,7 @@ class QuestionsResponse(BaseModel):
     questions: List[Question]
 
 class MultipleIntervieweesRequest(BaseModel):
-    """
-    POST /internal/interviewees/questions 요청 바디 스키마
-    {
-      "interviewee_ids": [101, 102, 103]
-    }
-    """
     interviewee_ids: List[int]
 
-
 class MultipleIntervieweesResponse(BaseModel):
-    """
-    POST /internal/interviewees/questions 응답 바디 스키마
-    {
-      "questions_per_interviewee": {
-        "101": [ Question, Question, ... ],
-        "102": [ ... ],
-        "103": [ ... ]
-      }
-    }
-    """
     questions_per_interviewee: Dict[str, List[Question]]

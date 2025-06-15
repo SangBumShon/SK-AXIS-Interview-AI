@@ -30,16 +30,29 @@ os.makedirs(RESULT_DIR, exist_ok=True)
 @router.post("/start", response_model=StartInterviewResponse)
 async def start_interview(req: StartInterviewRequest):
     """
-    인터뷰 시작: 각 지원자의 질문 목록을 로드해 반환합니다.
-    상태(state)는 WebSocket 처리 중에 이미 INTERVIEW_STATE_STORE에 쌓입니다.
+    인터뷰 시작: 각 지원자의 질문 목록을 로드해 반환하고,
+    인터뷰 state를 초기화합니다.
     """
     questions_per_interviewee = {}
 
     for interviewee_id in req.interviewee_ids:
+        # 1) 질문 조회
         questions = await fetch_interviewee_questions(interviewee_id)
         if not questions:
             raise HTTPException(status_code=404, detail=f"{interviewee_id} 질문 없음")
         questions_per_interviewee[str(interviewee_id)] = questions
+
+        # 2) 상태 초기화 (questions 포함)
+        INTERVIEW_STATE_STORE[interviewee_id] = {
+            "interviewee_id": interviewee_id,
+            "questions": questions,               # ← 여기에 추가
+            "audio_path": "",
+            "stt": {"done": False, "segments": []},
+            "rewrite": {"done": False, "items": []},
+            "evaluation": {"done": False, "results": {}},
+            "report": {"pdf_path": ""},
+            "decision_log": [],
+        }
 
     return StartInterviewResponse(
         questions_per_interviewee=questions_per_interviewee,
@@ -55,18 +68,28 @@ async def end_interview(req: EndInterviewRequest):
             if not state:
                 raise HTTPException(status_code=404, detail=f"{iv.interviewee_id} 상태 없음")
 
-            # 1) 비언어적 카운트만 저장
-            counts = iv.counts.dict()
-            state["nonverbal_counts"] = counts
+            # --- (1) 마지막 녹음 파일 처리 ---
+            # audio_path에 값이 남아 있으면 STT→Rewrite 파이프라인 실행
+            if state.get("audio_path"):
+                await interview_flow_executor(state)
+                # 처리 후 중복 방지를 위해 비워줍니다
+                state["audio_path"] = ""
 
-            # 2) 최종 리포트 파이프라인 실행 (비언어적 평가 포함)
+            # --- (2) 비언어적 세부 카운트 저장 ---
+            state["nonverbal_counts"] = {
+                "posture": iv.posture.dict(),
+                "expression": iv.facial_expression.dict(),
+                "gaze": iv.gaze,
+                "gesture": iv.gesture,
+            }
+
+            # --- (3) 최종 리포트(비언어 포함) 생성 ---
             await final_report_flow_executor(state)
 
         return EndInterviewResponse(result="done", report_ready=True)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @router.post("/stt/upload", response_model=STTUploadResponse)
 async def upload_stt(
@@ -84,28 +107,23 @@ async def upload_stt(
         STTUploadResponse: 업로드 결과
     """
     try:
-        # 오디오 파일 저장
+        # 1) 오디오 파일 저장
         file_path = await save_audio_file(interviewee_id, audio)
         if not file_path:
             raise HTTPException(status_code=500, detail="파일 저장 실패")
-            
-        # 상태 저장소에 파일 경로 추가 및 파이프라인 실행
-        state = INTERVIEW_STATE_STORE.get(interviewee_id, {
-            "interviewee_id": interviewee_id,
-            "audio_path": file_path,
-            "stt": {"done": False, "segments": []},
-            "rewrite": {"done": False, "items": []},
-            "evaluation": {"done": False, "results": {}},
-            "report": {"pdf_path": ""},
-            "decision_log": [],
-        })
+
+        # 2) /start에서 초기화된 상태 가져오기
+        state = INTERVIEW_STATE_STORE.get(interviewee_id)
+        if state is None:
+            raise HTTPException(status_code=404, detail=f"Interviewee {interviewee_id} 상태 없음")
+
+        # 3) 최신 audio_path만 갱신
         state["audio_path"] = file_path
-        
-        # 파이프라인 실행
+
+        # 4) STT → Rewrite (언어적 처리) 파이프라인 실행
         await interview_flow_executor(state)
-        INTERVIEW_STATE_STORE[interviewee_id] = state
-            
+
         return STTUploadResponse(result="OK")
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
