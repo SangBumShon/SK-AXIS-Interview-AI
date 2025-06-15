@@ -25,7 +25,7 @@ def load_rewrite_items(file_name: str) -> list:
 # 4. State 구성
 def build_state_from_rewrite_items(items: list) -> dict:
     return {
-        "interviewee_id": "test_user",
+        "interviewee_id": 12345,
         "rewrite": {
             "done": True,
             "items": items
@@ -44,13 +44,15 @@ def build_state_from_rewrite_items(items: list) -> dict:
                 "leg_shake": 1,
                 "head_down": 0
             },
-            "expression": {
+            "facial_expression": {
                 "smile": 3,
                 "neutral": 2,
                 "embarrassed": 0,
                 "tearful": 0,
                 "frown": 1
-            }
+            },
+            "gaze": 0,
+            "gesture": 0
         }
     }
 

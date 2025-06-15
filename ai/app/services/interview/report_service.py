@@ -37,37 +37,27 @@ class PDFReport(FPDF):
 
     def setup_fonts(self):
         """
-        OS별 한글 폰트를 탐색해 등록합니다.
+        프로젝트 내 한글 폰트를 등록합니다.
         """
-        try:
-            if platform.system() == "Windows":
-                candidates = ["C:/Windows/Fonts/malgun.ttf"]
-            elif platform.system() == "Darwin":
-                candidates = ["/System/Library/Fonts/AppleSDGothicNeo.ttc"]
-            else:
-                candidates = ["/usr/share/fonts/truetype/nanum/NanumGothic.ttf"]
-            for fp in candidates:
-                if os.path.exists(fp):
-                    self.add_font("Korean", "", fp, uni=True)
-                    return
-        except Exception:
-            pass
+        font_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'fonts', 'NanumGothic-Regular.ttf'))
+        if os.path.exists(font_path):
+            self.add_font("Korean", "", font_path, uni=True) # 일반 스타일
+            self.add_font("Korean", "B", font_path, uni=True) # 굵은 스타일
+            self.set_font("Korean", "", 12) # 기본 폰트로 설정
+        else:
+            print(f"⚠️ 한글 폰트 파일을 찾을 수 없습니다: {font_path}")
+            # 폰트 로드 실패 시에도 진행은 가능하도록 Arial 폰트를 사용하지만, 이 경우에는 한글이 깨질 수 있음
+            self.set_font("Arial", "", 12)
 
     def header(self):
         """
         모든 페이지 상단에 지원자 ID, 면접 일시, 리포트 타이틀을 출력합니다.
         """
-        try:
-            self.set_font("Korean", "", 12)
-        except:
-            self.set_font("Arial", "", 12)
+        self.set_font("Korean", "", 12)
         self.cell(0, 10, f"지원자 ID: {self.interviewee_id}", ln=False, align="L")
         self.cell(0, 10, f"면접 일시: {self.interview_time}", ln=True, align="R")
         self.ln(5)
-        try:
-            self.set_font("Korean", "B", 16)
-        except:
-            self.set_font("Arial", "B", 16)
+        self.set_font("Korean", "B", 16)
         self.cell(0, 10, "면접 종합 평가 리포트", ln=True, align="C")
         self.ln(5)
 
@@ -76,10 +66,7 @@ class PDFReport(FPDF):
         모든 페이지 하단에 페이지 번호를 센터 정렬로 출력합니다.
         """
         self.set_y(-15)
-        try:
-            self.set_font("Korean", "", 8)
-        except:
-            self.set_font("Arial", "I", 8)
+        self.set_font("Korean", "", 8)
         self.cell(0, 10, f"Page {self.page_no()}", align="C")
 
     def add_chart(self, img_path: str):
@@ -112,16 +99,10 @@ class PDFReport(FPDF):
         """
         답변만 블록—제목 + 본문을 출력합니다.
         """
-        try:
-            self.set_font("Korean", "B", 12)
-        except:
-            self.set_font("Arial", "B", 12)
+        self.set_font("Korean", "B", 12)
         self.cell(0, 10, "답변만 보기", ln=True)
         self.ln(3)
-        try:
-            self.set_font("Korean", "", 10)
-        except:
-            self.set_font("Arial", "", 10)
+        self.set_font("Korean", "", 10)
         self.multi_cell(0, 7, answer_text)
         self.ln(5)
 
@@ -151,22 +132,13 @@ class PDFReport(FPDF):
         """
         키워드별 평가 사유를 출력합니다.
         """
-        try:
-            self.set_font("Korean", "B", 12)
-        except:
-            self.set_font("Arial", "B", 12)
+        self.set_font("Korean", "B", 12)
         self.cell(0, 10, "키워드별 평가 사유", ln=True)
         self.ln(2)
         for kw, res in keyword_results.items():
-            try:
-                self.set_font("Korean", "B", 11)
-            except:
-                self.set_font("Arial", "B", 11)
+            self.set_font("Korean", "B", 11)
             self.cell(0, 8, f"- {kw}", ln=True)
-            try:
-                self.set_font("Korean", "", 11)
-            except:
-                self.set_font("Arial", "", 11)
+            self.set_font("Korean", "", 11)
             self.multi_cell(0, 7, res.get("reasons", ""))
             self.ln(2)
 
@@ -174,10 +146,7 @@ class PDFReport(FPDF):
         """
         총합 점수 (100점 만점 기준)를 출력합니다.
         """
-        try:
-            self.set_font("Korean", "B", 13)
-        except:
-            self.set_font("Arial", "B", 13)
+        self.set_font("Korean", "B", 13)
         self.cell(0, 10, f"총합 점수 (100점 만점 기준): {score}점", ln=True)
         self.ln(5)
 

@@ -159,7 +159,8 @@ async def nonverbal_evaluation_agent(state: InterviewState) -> InterviewState:
     try:
         counts = state.get("nonverbal_counts", {})
         if not counts:
-            raise ValueError("nonverbal_counts가 없습니다.")
+            state.decision_log.append("Nonverbal data not available for evaluation.")
+            return state
 
         posture = Posture.parse_obj(counts["posture"])
         facial  = FacialExpression.parse_obj(counts["facial_expression"])
@@ -186,18 +187,25 @@ async def nonverbal_evaluation_agent(state: InterviewState) -> InterviewState:
             "step": "nonverbal_evaluation",
             "result": "success",
             "time": ts,
-            "details": {"score": pts}
+            "details": {
+                "score": pts,
+                "feedback": nv_score.feedback,
+                "analysis": nv_score.detailed_analysis,
+                "raw_llm_responses": {
+                    "posture": nv_score.posture_raw_llm_response,
+                    "facial": nv_score.facial_raw_llm_response,
+                    "overall": nv_score.overall_raw_llm_response
+                }
+            }
         })
 
     except Exception as e:
-        state.setdefault("evaluation", {})["nonverbal_error"] = str(e)
         state.setdefault("decision_log", []).append({
             "step": "nonverbal_evaluation",
             "result": "error",
             "time": ts,
             "details": {"error": str(e)}
         })
-
     return state
 
 # ───────────────────────────────────────────────────
@@ -207,9 +215,12 @@ def should_retry_evaluation(state: InterviewState) -> Literal["retry", "continue
     eval_info = state.get("evaluation", {})
     if not eval_info.get("ok", False):
         retry = eval_info.get("retry_count", 0)
+        print(f"[should_retry_evaluation] retry={retry}, ok={eval_info.get('ok', False)}")
         if retry < 3:
             state["evaluation"]["retry_count"] = retry + 1
+            print("[should_retry_evaluation] Will retry evaluation.")
             return "retry"
+    print("[should_retry_evaluation] Continue to next step.")
     return "continue"
 
 # ───────────────────────────────────────────────────
@@ -242,6 +253,7 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
             "time": datetime.now().isoformat(),
             "details": {"error": "No evaluation results found"}
         })
+        print("[judge] No evaluation results found, will retry.")
         return state
 
     judge_notes = []
@@ -268,6 +280,7 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
         judge_notes.append(f"Total {total} exceeds max {max_score}")
         is_valid = False
 
+    print(f"[judge] is_valid={is_valid}, judge_notes={judge_notes}, total={total}, max_score={max_score}")
     state["evaluation"]["judge"] = {
         "ok": is_valid,
         "judge_notes": judge_notes,
@@ -320,20 +333,29 @@ async def pdf_node(state: InterviewState) -> InterviewState:
     }
 
     # 일반키워드 vs 도메인·직무 분리
-    domain_keys = set(DOMAIN_EVAL_CRITERIA_WITH_ALL_SCORES.keys())
-    all_keys    = set(keyword_results.keys())
-    gen_keys    = list(all_keys - domain_keys)
-    jd_keys     = list(domain_keys)
+    general_categories_list = ["SUPEX", "V", "WBE", "Passionate", "Proactive", "Professional", "People"]
+    job_domain_categories_list = ["기술/직무", "도메인 전문성"]
 
-    # 원점수 합산
-    sum_gen = sum(keyword_results[k]["score"] for k in gen_keys)  # ≤105
-    sum_jd  = sum(keyword_results[k]["score"] for k in jd_keys)   # ≤30
+    sum_gen = 0
+    for cat in general_categories_list:
+        if cat in keyword_results:
+            sum_gen += keyword_results[cat]["score"]
+
+    sum_jd = 0
+    for cat in job_domain_categories_list:
+        if cat in keyword_results:
+            sum_jd += keyword_results[cat]["score"]
 
     # 영역별 100점 스케일
+    # 최대 점수
+    max_gen_score = len(general_categories_list) * 3 * 5  # 7 categories * 3 criteria/cat * 5 points/criteria = 105
+    max_jd_score = len(job_domain_categories_list) * 3 * 5   # 2 categories * 3 criteria/cat * 5 points/criteria = 30
+    max_nv_score = 15 # 비언어적 요소의 최대 점수는 15점으로 가정
+
     area_scores = {
-        "언어적 요소": round(sum_gen / (len(gen_keys)*3*5) * 100),
-        "직무·도메인":    round(sum_jd  / (len(jd_keys)*3*5) * 100),
-        "비언어적 요소": round(nv_score / 15         * 100),
+        "언어적 요소": round(sum_gen / max_gen_score * 100),
+        "직무·도메인":    round(sum_jd  / max_jd_score * 100),
+        "비언어적 요소": round(nv_score / max_nv_score * 100),
     }
     weights = {"언어적 요소":"45%", "직무·도메인":"45%", "비언어적 요소":"10%"}
 

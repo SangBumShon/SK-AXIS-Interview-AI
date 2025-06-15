@@ -10,6 +10,8 @@ class Posture(BaseModel):
 class FacialExpression(BaseModel):
     smile: int
     neutral: int
+    embarrassed: int
+    tearful: int
     frown: int
 
 class NonverbalData(BaseModel):
@@ -26,3 +28,6 @@ class NonverbalScore(BaseModel):
     overall_score: float
     feedback: Dict[str, str]
     detailed_analysis: str
+    posture_raw_llm_response: str
+    facial_raw_llm_response: str
+    overall_raw_llm_response: str

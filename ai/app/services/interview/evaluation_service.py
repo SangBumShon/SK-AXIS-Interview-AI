@@ -17,7 +17,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # ──────────────── 🧠 평가 기준 사전(JSON) 생성 ────────────────
 _all_criteria = {
-    "인성/SUPEX_V_WBE": EVAL_CRITERIA_WITH_ALL_SCORES,
+    **EVAL_CRITERIA_WITH_ALL_SCORES,  # SUPEX, V, WBE 등
     "기술/직무": TECHNICAL_EVAL_CRITERIA_WITH_ALL_SCORES,
     "도메인 전문성": DOMAIN_EVAL_CRITERIA_WITH_ALL_SCORES
 }
@@ -36,9 +36,24 @@ SYSTEM_PROMPT = f"""
 {{
   "SUPEX": {{
     "고난도 목표에 대한 도전 의지": {{"score": 5, "quotes": ["..."], "reason": "..."}},
-    ...
+    "실패 극복 및 지속적 개선 노력": {{"score": 4, "quotes": ["..."], "reason": "..."}},
+    "창의적 전략 실행을 통한 한계 극복": {{"score": 3, "quotes": ["..."], "reason": "..."}}
   }},
-  ...
+  "V": {{
+    "자기주도적 실행 의지": {{"score": 5, "quotes": ["..."], "reason": "..."}},
+    "책임감 있는 태도": {{"score": 4, "quotes": ["..."], "reason": "..."}},
+    "자율적 참여와 지속성": {{"score": 3, "quotes": ["..."], "reason": "..."}}
+  }},
+  "기술/직무": {{
+    "실무 기술/지식의 깊이": {{"score": 5, "quotes": ["..."], "reason": "..."}},
+    "문제 해결 적용력": {{"score": 4, "quotes": ["..."], "reason": "..."}},
+    "학습 및 발전 가능성": {{"score": 3, "quotes": ["..."], "reason": "..."}}
+  }},
+  "도메인 전문성": {{
+    "도메인 맥락 이해도": {{"score": 5, "quotes": ["..."], "reason": "..."}},
+    "실제 사례 기반 적용 능력": {{"score": 4, "quotes": ["..."], "reason": "..."}},
+    "전략적 사고력": {{"score": 3, "quotes": ["..."], "reason": "..."}}
+  }}
 }}
 
 평가기준 사전:
@@ -75,8 +90,14 @@ async def evaluate_keywords_from_full_answer(full_answer: str) -> dict:
         print(f"✅ 평가 완료 ({elapsed}초 소요)")
 
         # GPT 응답에서 본문 추출 → JSON 파싱
-        content = response.choices[0].message.content
-        return parse_llm_keyword_evaluation(content)
+        raw_result = response.choices[0].message.content.strip()
+        print(f"Raw evaluation result:\n{raw_result}\n")
+        try:
+            result = json.loads(raw_result)
+            return result
+        except json.JSONDecodeError as e:
+            print(f"⚠️ JSON 파싱 오류: {e}")
+            return {}
 
     except Exception as e:
         print(f"❌ GPT 평가 오류: {e}")

@@ -11,8 +11,8 @@ def dict_merge(a: Dict[Any, Any], b: Dict[Any, Any]) -> Dict[Any, Any]:
     return merged
 
 class InterviewState(TypedDict, total=False):
-    # 지원자 ID 목록 (필요시 사용)
-    interviewee_ids: Annotated[List[int], operator.add]
+    # 지원자 ID (단일 값)
+    interviewee_id: int
 
     # 질문 목록 저장
     questions: Annotated[List[Any], operator.add]
