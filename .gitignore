@@ -85,6 +85,13 @@ ai/temp/
 server/spring/src/main/resources/static/ai/weights/pose_landmarker.task
 server/spring/src/main/resources/static/ai/weights/*.task
 
+# Large zip files
+ai/ai_test*.zip
+*.zip
+
+# Client public directory
+client/public/
+
 ### Java ###
 # Compiled class file
 *.class
