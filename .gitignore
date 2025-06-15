@@ -361,3 +361,8 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnkserver/spring/src/main/resources/application.yml
+
+# Version and documentation files
+version
+introduction.mdx
+*.code-workspace
