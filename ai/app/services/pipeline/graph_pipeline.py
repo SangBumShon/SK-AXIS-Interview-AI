@@ -15,6 +15,11 @@ from app.schemas.nonverbal import Posture, FacialExpression, NonverbalData
 from app.services.interview.nonverbal_service import evaluate
 from app.schemas.state import InterviewState
 from langgraph.channels import LastValue, BinaryOperatorAggregate
+from app.constants.evaluation_constants_full_all import (
+    EVAL_CRITERIA_WITH_ALL_SCORES,
+    TECHNICAL_EVAL_CRITERIA_WITH_ALL_SCORES,
+    DOMAIN_EVAL_CRITERIA_WITH_ALL_SCORES
+)
 
 # 리라이팅 검증용 프롬프트
 JUDGE_PROMPT = """
@@ -406,5 +411,5 @@ final_builder.add_conditional_edges(
     "evaluation_judge_agent", should_retry_evaluation,
     {"retry":"evaluation_agent", "continue":"pdf_node"}
 )
-final_builder.set_channel("decision_log", LastValue())
+# final_builder.add_channel("decision_log", LastValue())
 final_report_flow_executor = final_builder.compile()

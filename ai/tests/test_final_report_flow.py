@@ -61,6 +61,9 @@ async def run_test():
     result = await final_report_flow_executor.ainvoke(state)
     
     print("✅ PDF 생성 결과:", result.get("report", {}).get("pdf"))
+    print("\n=== decision_log ===")
+    for log in result.get("decision_log", []):
+        print(log)
 
 # 6. 메인 실행
 if __name__ == "__main__":
