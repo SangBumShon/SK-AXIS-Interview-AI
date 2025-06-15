@@ -57,6 +57,11 @@ USER_TEMPLATE = """지원자의 전체 면접 답변:
 
 
 async def evaluate_keywords_from_full_answer(full_answer: str) -> dict:
+        """
+        Evaluate keywords from a full answer using the GPT-4o model.
+        @param full_answer (str): The full answer provided by the candidate.
+        @return dict: Evaluation results including keywords, scores, reasons, and citations.
+        """
     """
     지원자의 전체 답변을 받아 GPT-4o 모델을 통해 평가를 수행합니다.
 
