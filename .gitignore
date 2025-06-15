@@ -81,6 +81,9 @@ ai/temp/
 !server/temp/.gitkeep
 !ai/temp/.gitkeep
 
+# Large model files
+server/spring/src/main/resources/static/ai/weights/pose_landmarker.task
+server/spring/src/main/resources/static/ai/weights/*.task
 
 ### Java ###
 # Compiled class file
