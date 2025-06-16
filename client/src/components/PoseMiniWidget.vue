@@ -25,7 +25,7 @@ import {
 } from '@mediapipe/tasks-vision'
 
 // 1. WebSocket 연결
-const wsUrl = `ws://localhost:8000/api/v1/ws/nonverbal`// 서버 주소에 맞게 수정
+const wsUrl = 'ws://localhost:9000'   // 서버 주소에 맞게 수정
 let ws = null
 function connectWebSocket() {
   ws = new WebSocket(wsUrl)
@@ -253,22 +253,12 @@ onMounted(async () => {
 
         // ----- JSON 송신 -----
         const payload = {
-  interviewee_id: k + 1,                                    // int
-  is_speaking: isSpeaking,                                  // bool
-  posture: {                                                // Posture 필드명과 개수 일치
-    leg_spread: poseObj.leg_spread,
-    leg_shake:  poseObj.leg_shake,
-    head_down:  poseObj.head_down
-  },
-  facial_expression: {                                      // FacialExpression 키와 개수 일치
-    smile:       faceExpCount[k].smile     || 0,
-    neutral:     faceExpCount[k].neutral   || 0,
-    embarrassed: faceExpCount[k].embarrassed || 0,
-    tearful:     faceExpCount[k].tearful   || 0,
-    frown:       faceExpCount[k].frown     || 0
-  },
-  timestamp: new Date().toISOString()                       // (추가 필드는 무시됨)
-};
+          person: k + 1,
+          speaking: isSpeaking,
+          pose: poseObj,
+          expression: Object.fromEntries(expList.map(e => [e, faceExpCount[k][e] || 0])),
+          timestamp: new Date().toISOString()
+        }
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify(payload))
         }
