@@ -3,16 +3,15 @@ from pydantic import BaseModel
 from typing import Dict
 
 class Posture(BaseModel):
-    leg_spread: int
-    leg_shake: int
-    head_down: int
+    upright: int
+    leaning: int
+    slouching: int
 
 class FacialExpression(BaseModel):
     smile: int
     neutral: int
-    embarrassed: int
-    tearful: int
     frown: int
+    angry: int
 
 class NonverbalData(BaseModel):
     interviewee_id: str

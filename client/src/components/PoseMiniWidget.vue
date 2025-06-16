@@ -17,7 +17,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, defineProps, watch } from 'vue'
+import { ref, onMounted, onBeforeUnmount, defineProps, watch, defineEmits } from 'vue'
 import * as faceapi from 'face-api.js'
 
 const props = defineProps({
@@ -32,6 +32,8 @@ const props = defineProps({
     default: () => []
   }
 })
+
+const emit = defineEmits(['updateNonverbalData'])
 
 // 녹음 관련 상태
 const mediaRecorder = ref(null)
@@ -52,17 +54,33 @@ const expKorean = {
 // 각 면접자별 상태 관리
 const faceStates = ref([])
 
+// 비언어적 데이터 저장소
+const nonverbalData = ref({})
+
+// 1초마다 데이터 업데이트 및 전송
+let updateInterval = null
+
 // 면접자 이름이 변경될 때마다 상태 초기화
 watch(() => props.intervieweeNames, (newNames) => {
-  faceStates.value = newNames.map((name, index) => ({
-    name,
-    id: props.intervieweeIds[index],
-    speaking: false,
-    mouthClosedStartTime: null,
-    isRecording: false,  // 면접자별 녹음 상태 추가
-    expression: Object.fromEntries(expList.map(e => [e, 0])),
-    lastExpression: null
-  }))
+  faceStates.value = newNames.map((name, index) => {
+    const id = props.intervieweeIds[index]
+    nonverbalData.value[id] = {
+      posture: { upright: 0, leaning: 0, slouching: 0 },
+      facial_expression: { smile: 0, neutral: 0, frown: 0, angry: 0 },
+      gaze: 0,
+      gesture: 0,
+      timestamp: Date.now()
+    }
+    return {
+      name,
+      id,
+      speaking: false,
+      mouthClosedStartTime: null,
+      isRecording: false,
+      expression: Object.fromEntries(expList.map(e => [e, 0])),
+      lastExpression: null
+    }
+  })
 }, { immediate: true })
 
 function detectSpeaking(landmarks) {
@@ -347,6 +365,28 @@ onMounted(async () => {
     // 사용자에게 오류 알림
     alert('카메라 초기화 중 오류가 발생했습니다. 페이지를 새로고침하거나 카메라 권한을 확인해주세요.')
   }
+
+  // 1초마다 데이터 업데이트 및 전송
+  updateInterval = setInterval(() => {
+    const currentData = {}
+    faceStates.value.forEach((state, index) => {
+      const id = props.intervieweeIds[index]
+      currentData[id] = {
+        posture: { upright: 0, leaning: 0, slouching: 0 },  // 자세 데이터는 추후 추가
+        facial_expression: {
+          smile: state.expression['미소'] || 0,
+          neutral: state.expression['무표정'] || 0,
+          frown: state.expression['울상'] || 0,
+          angry: state.expression['찡그림'] || 0
+        },
+        gaze: 0,  // 시선 데이터는 추후 추가
+        gesture: 0,  // 제스처 데이터는 추후 추가
+        timestamp: Date.now()
+      }
+    })
+    nonverbalData.value = currentData
+    emit('updateNonverbalData', currentData)
+  }, 1000)
 })
 
 onBeforeUnmount(() => {
@@ -362,5 +402,9 @@ onBeforeUnmount(() => {
   })
   
   console.log('[컴포넌트 정리 완료] PoseMiniWidget 컴포넌트가 정리되었습니다.')
+
+  if (updateInterval) {
+    clearInterval(updateInterval)
+  }
 })
 </script>
