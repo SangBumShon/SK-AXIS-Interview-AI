@@ -75,7 +75,11 @@
     <div
       class="fixed bottom-4 right-4 bg-gray-900 rounded-lg overflow-hidden shadow-lg z-50 flex items-center justify-center"
       style="width:480px; aspect-ratio:4/3; pointer-events:none;">
-      <PoseMiniWidget style="width:100%; height:100%;" />
+      <PoseMiniWidget 
+        :intervieweeNames="candidates"
+        :intervieweeIds="candidateIds"
+        style="width:100%; height:100%;" 
+      />
     </div>
 
     <!-- AI 로딩 모달 -->
@@ -91,27 +95,19 @@ import { getQuestionsForCandidate as getCandidateQuestions } from '../data/quest
 import AiLoadingModal from './AiLoadingModal.vue';
 import PoseMiniWidget from './PoseMiniWidget.vue';
 
-interface Props {
+const props = defineProps<{
   roomName: string;
   timeRange: string;
   interviewers: string;
   candidates: string[];
   candidateIds: string[];
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  roomName: '',
-  timeRange: '',
-  interviewers: '',
-  candidates: () => [],
-  candidateIds: () => []
-});
+  interviewerIds: number[];
+}>();
 
 const emit = defineEmits<{
-  (e: 'close'): void;
   (e: 'startSession'): void;
   (e: 'endSession'): void;
-  (e: 'toggleWebcam'): void;
+  (e: 'close'): void;
 }>();
 
 const router = useRouter();
@@ -121,9 +117,54 @@ const getQuestionsForCandidate = (candidateId: string): Question[] => {
   return getCandidateQuestions(candidateId);
 };
 
-const startSession = () => {
-  emit('startSession');
-};
+const startSession = async () => {
+  try {
+    console.log('면접 시작...', { candidateIds: props.candidateIds, interviewerIds: props.interviewerIds })
+    isAnalyzing.value = true
+
+    // FastAPI 서버에 면접 시작 요청
+    const response = await fetch('/api/v1/interview/start', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        interviewee_ids: props.candidateIds,
+        interviewer_ids: props.interviewerIds
+      })
+    })
+
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type')
+      let errorMessage = '면접 시작 실패'
+      
+      try {
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json()
+          errorMessage = errorData.detail || errorMessage
+        } else {
+          const text = await response.text()
+          console.error('서버 응답 (JSON이 아님):', text)
+          errorMessage = `서버 오류 (${response.status}): ${text}`
+        }
+      } catch (e) {
+        console.error('에러 응답 파싱 실패:', e)
+        errorMessage = `서버 오류 (${response.status})`
+      }
+      
+      throw new Error(errorMessage)
+    }
+
+    const result = await response.json()
+    console.log('면접 시작 성공:', result)
+    emit('startSession')  // 면접 시작 이벤트 발생
+    isAnalyzing.value = false
+  } catch (error: unknown) {
+    console.error('면접 시작 중 오류:', error)
+    isAnalyzing.value = false
+    alert('면접 시작 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : String(error)))
+  }
+}
 
 const endSession = async () => {
   try {
@@ -168,8 +209,9 @@ const endSession = async () => {
         tab: '0'
       }
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('면접 분석 중 오류 발생:', error);
+    alert('면접 분석 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : String(error)));
   } finally {
     isAnalyzing.value = false;
   }

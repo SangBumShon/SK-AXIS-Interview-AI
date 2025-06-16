@@ -29,6 +29,7 @@ const router = createRouter({
         roomName: route.query.roomName as string,
         timeRange: route.query.timeRange as string,
         interviewers: route.query.interviewers as string,
+        interviewerIds: JSON.parse(route.query.interviewerIds as string || '[]'),
         candidates: JSON.parse(route.query.candidates as string || '[]'),
         candidateIds: JSON.parse(route.query.candidateIds as string || '[]')
       })
