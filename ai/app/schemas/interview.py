@@ -39,3 +39,6 @@ class MultipleIntervieweesRequest(BaseModel):
 
 class MultipleIntervieweesResponse(BaseModel):
     questions_per_interviewee: Dict[str, List[Question]]
+
+class STTUploadResponse(BaseModel):
+    result: str
