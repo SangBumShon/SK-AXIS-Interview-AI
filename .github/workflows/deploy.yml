@@ -1,0 +1,29 @@
+name: Deploy to EC2
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest  # GitHub의 강력한 서버에서 빌드
+    steps:
+      - uses: actions/checkout@v3
+      
+      # Docker 이미지 빌드 (GitHub 서버에서)
+      - name: Build Docker images
+        run: |
+          docker build -t myapp/fastapi ./ai
+          docker build -t myapp/springboot ./server/spring
+          docker build -t myapp/client ./client
+      
+      # Docker Hub에 푸시
+      - name: Push to Docker Hub
+        run: |
+          docker push myapp/fastapi
+          docker push myapp/springboot
+          docker push myapp/client
+      
+      # EC2에 배포
+      - name: Deploy to EC2
+        run: |
+          ssh ec2-user@your-ec2 'docker-compose pull && docker-compose up -d'
