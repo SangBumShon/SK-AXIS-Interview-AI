@@ -11,12 +11,16 @@ def dict_merge(a: Dict[Any, Any], b: Dict[Any, Any]) -> Dict[Any, Any]:
     return merged
 
 class InterviewState(TypedDict, total=False):
-    # 한 스텝에 여러 값을 리스트로 모아 줍니다.
-    interviewee_ids: Annotated[List[int], operator.add]
+    # 지원자 ID (단일 값)
+    interviewee_id: int
 
+    # 질문 목록 저장
+    questions: Annotated[List[Any], operator.add]
+
+    # 현재 처리 중인 오디오 파일 경로
     audio_path: str
 
-    # stt 결과 dict를 병합합니다.
+    # STT 결과 dict를 병합합니다.
     stt: Annotated[Dict[str, Any], dict_merge]
 
     # rewrite 결과 dict를 병합합니다.
@@ -31,5 +35,5 @@ class InterviewState(TypedDict, total=False):
     # decision_log는 여러 로그를 리스트로 붙여 줍니다.
     decision_log: Annotated[List[Any], operator.add]
 
-    # nonverbal_counts dict도 병합
-    nonverbal_counts: Annotated[Dict[str, int], dict_merge]
+    # nonverbal_counts는 nested 구조(딕셔너리 혹은 int)가 혼합되므로 Any
+    nonverbal_counts: Annotated[Dict[str, Any], dict_merge]

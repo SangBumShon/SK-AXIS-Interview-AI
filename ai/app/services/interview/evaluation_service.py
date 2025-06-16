@@ -17,7 +17,7 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # ──────────────── 🧠 평가 기준 사전(JSON) 생성 ────────────────
 _all_criteria = {
-    "인성/SUPEX_V_WBE": EVAL_CRITERIA_WITH_ALL_SCORES,
+    **EVAL_CRITERIA_WITH_ALL_SCORES,  # SUPEX, V, WBE 등
     "기술/직무": TECHNICAL_EVAL_CRITERIA_WITH_ALL_SCORES,
     "도메인 전문성": DOMAIN_EVAL_CRITERIA_WITH_ALL_SCORES
 }
@@ -26,27 +26,38 @@ _criteria_block = json.dumps(_all_criteria, ensure_ascii=False, indent=2)
 # ──────────────── 🧠 시스템 프롬프트 (GPT 역할 안내) ────────────────
 SYSTEM_PROMPT = f"""
 당신은 기업 면접 평가 전문가입니다. 지원자의 전체 답변을 읽고,
-아래 **평가기준 사전**을 반드시 참고하여 각 키워드에 대해 점수를 매겨주세요:
+아래 **평가기준 사전**의 모든 키워드와 모든 세부 항목에 대해 반드시 빠짐없이 점수를 매기세요.
 
-{_criteria_block}
+- 각 키워드와 세부 항목명은 아래 사전과 완전히 동일하게 사용하세요.
+- 각 항목별로 1~5점의 score, quotes(문장 인용, 1개 이상), reason(이유)를 반드시 포함하세요.
+- 반드시 올바른 JSON 형식(콤마 포함)으로만 출력하세요. 예시 외의 설명, 주석, 텍스트는 절대 포함하지 마세요.
 
-지침:
-1. 관련 키워드 판단 (SUPEX, V, WBE, 4P, 기술/직무, 도메인 전문성)
-2. 각 키워드에 대해 세부 평가 항목별 점수 (1~5점)
-3. 항목별 평가 이유와 관련 문장 인용
-
-결과는 다음 JSON 형식으로 출력하십시오:
+예시:
 {{
-  "키워드": {{
-    "항목명": {{
-      "score": int (1~5),
-      "quotes": ["...", "..."],
-      "reason": "..."
-    }},
-    ...
+  "SUPEX": {{
+    "고난도 목표에 대한 도전 의지": {{"score": 5, "quotes": ["..."], "reason": "..."}},
+    "실패 극복 및 지속적 개선 노력": {{"score": 4, "quotes": ["..."], "reason": "..."}},
+    "창의적 전략 실행을 통한 한계 극복": {{"score": 3, "quotes": ["..."], "reason": "..."}}
   }},
-  ...
+  "V": {{
+    "자기주도적 실행 의지": {{"score": 5, "quotes": ["..."], "reason": "..."}},
+    "책임감 있는 태도": {{"score": 4, "quotes": ["..."], "reason": "..."}},
+    "자율적 참여와 지속성": {{"score": 3, "quotes": ["..."], "reason": "..."}}
+  }},
+  "기술/직무": {{
+    "실무 기술/지식의 깊이": {{"score": 5, "quotes": ["..."], "reason": "..."}},
+    "문제 해결 적용력": {{"score": 4, "quotes": ["..."], "reason": "..."}},
+    "학습 및 발전 가능성": {{"score": 3, "quotes": ["..."], "reason": "..."}}
+  }},
+  "도메인 전문성": {{
+    "도메인 맥락 이해도": {{"score": 5, "quotes": ["..."], "reason": "..."}},
+    "실제 사례 기반 적용 능력": {{"score": 4, "quotes": ["..."], "reason": "..."}},
+    "전략적 사고력": {{"score": 3, "quotes": ["..."], "reason": "..."}}
+  }}
 }}
+
+평가기준 사전:
+{_criteria_block}
 """
 
 # 사용자의 전체 답변을 GPT에게 전달하기 위한 템플릿
@@ -57,19 +68,10 @@ USER_TEMPLATE = """지원자의 전체 면접 답변:
 
 
 async def evaluate_keywords_from_full_answer(full_answer: str) -> dict:
-        """
-        Evaluate keywords from a full answer using the GPT-4o model.
-        @param full_answer (str): The full answer provided by the candidate.
-        @return dict: Evaluation results including keywords, scores, reasons, and citations.
-        """
     """
-    지원자의 전체 답변을 받아 GPT-4o 모델을 통해 평가를 수행합니다.
-
-    Args:
-        full_answer (str): 지원자의 전체 답변 (문자열 형태)
-
-    Returns:
-        dict: 평가 결과 (키워드 → 항목별 점수, 이유, 인용문 등)
+    Evaluate keywords from a full answer using the GPT-4o model.
+    @param full_answer (str): The full answer provided by the candidate.
+    @return dict: Evaluation results including keywords, scores, reasons, and citations.
     """
     prompt = USER_TEMPLATE.format(answer=full_answer)
 
@@ -82,14 +84,20 @@ async def evaluate_keywords_from_full_answer(full_answer: str) -> dict:
                 {"role": "user", "content": prompt}
             ],
             temperature=0.2,
-            max_tokens=1600  # 출력 길이 제한
+            max_tokens=16000  # 출력 길이 제한 증가
         )
         elapsed = round(time.perf_counter() - start, 2)
         print(f"✅ 평가 완료 ({elapsed}초 소요)")
 
         # GPT 응답에서 본문 추출 → JSON 파싱
-        content = response.choices[0].message.content
-        return parse_llm_keyword_evaluation(content)
+        raw_result = response.choices[0].message.content.strip()
+        print(f"Raw evaluation result:\n{raw_result}\n")
+        try:
+            result = json.loads(raw_result)
+            return result
+        except json.JSONDecodeError as e:
+            print(f"⚠️ JSON 파싱 오류: {e}")
+            return {}
 
     except Exception as e:
         print(f"❌ GPT 평가 오류: {e}")
