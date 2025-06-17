@@ -190,13 +190,16 @@ const showRegistration = ref(false)
 // 로그인 처리
 const handleLogin = async () => {
   try {
-    // 데모 계정 체크
-    if (loginForm.value.username === '123' && loginForm.value.password === '123') {
-      // 로그인 성공 시 InterviewSetup으로 이동
-      router.push('/setup')
-    } else {
-      loginError.value = '아이디 또는 비밀번호가 올바르지 않습니다.'
-    }
+    fetch('http://sk-axis-springboot:8080/api/v1/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        userName: loginForm.value.username,
+        password: loginForm.value.password
+      })
+    })
   } catch (error) {
     loginError.value = '로그인 중 오류가 발생했습니다.'
   }
