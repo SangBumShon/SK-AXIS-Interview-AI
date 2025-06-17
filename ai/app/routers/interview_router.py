@@ -93,7 +93,7 @@ async def end_interview(req: EndInterviewRequest):
 
 @router.post("/stt/upload", response_model=STTUploadResponse)
 async def upload_stt(
-    interviewee_id: int = Form(...),
+    interviewee_id: str = Form(...),
     audio: UploadFile = File(...)
 ):
     """
@@ -112,7 +112,7 @@ async def upload_stt(
         if not file_path:
             raise HTTPException(status_code=500, detail="파일 저장 실패")
 
-        # 2) /start에서 초기화된 상태 가져오기
+        # 2) 상태 저장소에서 해당 면접자의 상태 찾기
         state = INTERVIEW_STATE_STORE.get(interviewee_id)
         if state is None:
             raise HTTPException(status_code=404, detail=f"Interviewee {interviewee_id} 상태 없음")

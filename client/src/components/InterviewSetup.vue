@@ -244,6 +244,7 @@ const onStartInterview = () => {
       date: selectedDate.value,
       timeRange: selectedSchedule.value.timeRange,
       interviewers: selectedSchedule.value.interviewers.join(', '),
+      interviewerIds: JSON.stringify(selectedSchedule.value.interviewerIds),
       candidates: JSON.stringify(selectedSchedule.value.interviewees),
       candidateIds: JSON.stringify(selectedSchedule.value.interviewees)
     }

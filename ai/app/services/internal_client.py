@@ -5,7 +5,7 @@ from typing import List, Dict
 
 SPRINGBOOT_BASE_URL = "http://localhost:8080/api/v1"
 
-async def fetch_interviewee_questions(interviewee_id: int) -> List[Dict]:
+async def fetch_interviewee_questions(interviewee_id: str) -> List[Dict]:
     """
     FastAPI → Spring Boot: 지원자별 면접 질문 5개 조회
     """
