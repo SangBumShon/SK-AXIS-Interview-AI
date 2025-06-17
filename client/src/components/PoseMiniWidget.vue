@@ -115,9 +115,7 @@ function detectSpeaking(landmarks) {
 }
 
 async function startRecording(personIndex) {
-  console.log('startRecording 함수 호출됨, personIndex:', personIndex)
   const state = faceStates.value[personIndex]
-  console.log('현재 faceState:', state)
   
   if (state.isRecording) {
     console.log(`[녹음 시작 실패] ${state.name}님의 녹음이 이미 진행 중입니다.`)
@@ -125,9 +123,7 @@ async function startRecording(personIndex) {
   }
   
   try {
-    console.log(`[녹음 준비] ${state.name}님의 녹음을 시작합니다...`)
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    console.log(`[녹음 준비 완료] ${state.name}님의 오디오 스트림이 준비되었습니다.`)
     
     // WebM 형식으로 녹음 설정
     const mimeType = 'audio/webm'
@@ -143,23 +139,18 @@ async function startRecording(personIndex) {
     
     recorder.ondataavailable = (event) => {
       audioChunks.push(event.data)
-      console.log(`[녹음 데이터] ${state.name}님의 녹음 데이터 청크 수신 (${audioChunks.length}개)`)
     }
     
     recorder.onstop = async () => {
-      console.log(`[녹음 종료] ${state.name}님의 녹음이 종료되었습니다. 파일 변환 중...`)
       const audioBlob = new Blob(audioChunks, { type: mimeType })
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
       const fileName = `${state.id}_${timestamp}.webm`
-      
-      console.log(`[파일 생성] ${fileName} (${(audioBlob.size / 1024 / 1024).toFixed(2)}MB)`)
       
       const formData = new FormData()
       formData.append('audio', audioBlob, fileName)
       formData.append('interviewee_id', state.id)
       
       try {
-        console.log(`[업로드 시작] ${state.name}님의 녹음 파일을 서버로 전송합니다...`)
         const response = await fetch('/api/v1/interview/stt/upload', {
           method: 'POST',
           body: formData
@@ -171,7 +162,7 @@ async function startRecording(personIndex) {
         }
         
         const result = await response.json()
-        console.log(`[업로드 성공] ${state.name}님의 녹음 파일이 성공적으로 업로드되었습니다.`, result)
+        console.log(`[업로드 성공] ${state.name}님의 녹음 파일이 성공적으로 업로드되었습니다.`)
         state.isRecording = false
       } catch (error) {
         console.error(`[업로드 실패] ${state.name}님의 녹음 파일 업로드 중 오류 발생:`, error.message)
@@ -180,7 +171,6 @@ async function startRecording(personIndex) {
         if (recorder && recorder.stream) {
           recorder.stream.getTracks().forEach(track => {
             track.stop()
-            console.log(`[리소스 정리] ${state.name}님의 오디오 스트림 트랙이 정리되었습니다.`)
           })
         }
       }
@@ -197,9 +187,7 @@ async function startRecording(personIndex) {
 }
 
 function stopRecording(personIndex) {
-  console.log('stopRecording 함수 호출됨, personIndex:', personIndex)
   const state = faceStates.value[personIndex]
-  console.log('현재 faceState:', state)
   
   if (!state.isRecording) {
     console.log(`[녹음 종료 실패] ${state.name}님의 녹음이 진행 중이 아닙니다.`)
@@ -215,7 +203,7 @@ function stopRecording(personIndex) {
     const recorder = recorderMap.value[state.id].mediaRecorder
     recorder.stop()
     state.isRecording = false
-    console.log(`[녹음 종료 요청] ${state.name}님의 녹음 종료가 요청되었습니다.`)
+    console.log(`[녹음 종료] ${state.name}님의 녹음이 종료되었습니다.`)
   } catch (error) {
     console.error(`[녹음 종료 실패] ${state.name}님의 녹음 종료 중 오류 발생:`, error.message)
   }
@@ -223,35 +211,21 @@ function stopRecording(personIndex) {
 
 onMounted(async () => {
   console.log('=== PoseMiniWidget 컴포넌트 마운트 시작 ===')
-  console.log('면접자 목록:', props.intervieweeNames)
-  console.log('현재 faceStates:', faceStates.value)
 
   try {
     console.log('face-api.js 모델 로딩 시작...')
     
     // 모델 로딩 전 상태 확인
     if (!faceapi.nets.tinyFaceDetector.isLoaded) {
-      console.log('tinyFaceDetector 모델 로드 시작')
       await faceapi.nets.tinyFaceDetector.loadFromUri('/models/tiny_face_detector')
-      console.log('tinyFaceDetector 모델 로드 완료')
-    } else {
-      console.log('tinyFaceDetector 모델이 이미 로드되어 있음')
     }
     
     if (!faceapi.nets.faceLandmark68Net.isLoaded) {
-      console.log('faceLandmark68Net 모델 로드 시작')
       await faceapi.nets.faceLandmark68Net.loadFromUri('/models/face_landmark_68')
-      console.log('faceLandmark68Net 모델 로드 완료')
-    } else {
-      console.log('faceLandmark68Net 모델이 이미 로드되어 있음')
     }
     
     if (!faceapi.nets.faceExpressionNet.isLoaded) {
-      console.log('faceExpressionNet 모델 로드 시작')
       await faceapi.nets.faceExpressionNet.loadFromUri('/models/face_expression')
-      console.log('faceExpressionNet 모델 로드 완료')
-    } else {
-      console.log('faceExpressionNet 모델이 이미 로드되어 있음')
     }
     
     console.log('모든 face-api.js 모델 로딩 완료')
@@ -259,19 +233,16 @@ onMounted(async () => {
     // 비디오 엘리먼트 초기화
     try {
       while (!video.value) {
-        console.log('비디오 엘리먼트 대기 중...')
-        await new Promise(r => setTimeout(r, 100))  // requestAnimationFrame 대신 setTimeout 사용
+        await new Promise(r => setTimeout(r, 100))
       }
-      console.log('비디오 엘리먼트 준비 완료')
 
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           width: 1280, 
           height: 720,
-          facingMode: 'user'  // 전면 카메라 우선 사용
+          facingMode: 'user'
         } 
       })
-      console.log('카메라 스트림 획득 완료')
       
       video.value.srcObject = stream
       
@@ -305,22 +276,19 @@ onMounted(async () => {
           const ctx = canvas.value.getContext('2d')
           ctx.fillStyle = 'red'
           ctx.fillRect(20, 20, 50, 50)
-          console.log('테스트용 빨간 사각형 그리기 완료')
           
           resolve()
         }
         video.value.onerror = reject
       })
-      console.log('비디오 메타데이터 로드 완료')
 
     } catch (error) {
       console.error('비디오 초기화 중 오류:', error)
-      throw error  // 상위에서 처리하도록 에러 전파
+      throw error
     }
 
     const analyze = async () => {
       if (!active) {
-        console.log('analyze 함수 비활성화됨')
         return
       }
 
@@ -344,10 +312,6 @@ onMounted(async () => {
         // 면접자 수에 따라 감지된 얼굴 수 제한
         detections = detections.slice(0, props.intervieweeNames.length)
         detections.sort((a, b) => a.detection.box.x - b.detection.box.x)
-        console.log('비디오 해상도:', video.value.videoWidth, video.value.videoHeight)
-        if (detections.length > 0) {
-          console.log(`감지된 얼굴 수: ${detections.length}`)
-        }
 
         // 얼굴 랜드마크/박스 시각화 및 상태 업데이트
         for (let k = 0; k < detections.length; k++) {
@@ -356,7 +320,6 @@ onMounted(async () => {
           
           // faceStates 안전성 체크
           if (!faceStates.value[k]) {
-            console.warn(`faceStates[${k}]가 정의되지 않았습니다. 건너뜁니다.`)
             continue
           }
           const faceState = faceStates.value[k]
@@ -379,12 +342,6 @@ onMounted(async () => {
             box.width,
             box.height
           )
-          console.log(`[디버그] 박스 좌표(${k}):`, {
-            x: box.x,
-            y: box.y,
-            width: box.width,
-            height: box.height
-          })
           
           // 면접자 이름 표시
           ctx.font = 'bold 20px sans-serif'
@@ -410,9 +367,8 @@ onMounted(async () => {
           } else if (faceState.speaking) {
             if (!faceState.mouthClosedStartTime) {
               faceState.mouthClosedStartTime = Date.now()
-              console.log(`[입벌림 종료 감지] ${faceState.name}님이 말하기를 멈췄습니다. 3초 대기 중...`)
             } else if (Date.now() - faceState.mouthClosedStartTime >= MOUTH_CLOSED_THRESHOLD) {
-              console.log(`[녹음 종료 조건 충족] ${faceState.name}님이 3초 동안 말하지 않았습니다.`)
+              console.log(`[녹음 종료] ${faceState.name}님이 3초 동안 말하지 않았습니다.`)
               faceState.speaking = false
               faceState.mouthClosedStartTime = null
               stopRecording(k)
@@ -437,7 +393,6 @@ onMounted(async () => {
       requestAnimationFrame(analyze)
     }
 
-    console.log('analyze 함수 시작')
     analyze()
     console.log('=== PoseMiniWidget 컴포넌트 마운트 완료 ===')
 
@@ -520,7 +475,6 @@ onBeforeUnmount(() => {
     if (recorderData.stream) {
       recorderData.stream.getTracks().forEach(track => {
         track.stop()
-        console.log(`[리소스 정리] 면접자 ID ${id}의 오디오 스트림 트랙이 정리되었습니다.`)
       })
     }
   })
