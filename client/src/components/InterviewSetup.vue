@@ -13,10 +13,38 @@
           <span class="text-red-600">SK</span><span class="text-orange-500">AXIS</span>
         </h1>
       </div>
-      <div class="text-center mb-6">
+      
+      <!-- 면접관 환영 문구 추가 -->
+      <div class="text-center mb-8">
         <h2 class="text-2xl font-bold mb-2 text-gray-800">AI 면접 시스템</h2>
+        <div class="mt-4 p-6 bg-gradient-to-r from-red-50 to-orange-50 rounded-xl shadow-lg border-2 border-red-100">
+          <div class="flex items-center gap-4 mb-4">
+            <div class="w-12 h-12 bg-gradient-to-br from-red-600 to-orange-500 rounded-full flex items-center justify-center shadow-md">
+              <i class="fas fa-user text-lg text-white"></i>
+            </div>
+            <div class="flex-1">
+              <h3 class="text-xl font-bold mb-1 tracking-wide">
+                <span class="bg-gradient-to-r from-red-600 to-orange-500 bg-clip-text text-transparent">
+                  면접관님 환영합니다
+                </span>
+              </h3>
+            </div>
+          </div>
+          <div class="text-center">
+            <p class="text-gray-800 text-lg font-medium tracking-wide">
+              오늘도 <span class="font-bold text-red-600">SK</span><span class="font-bold text-orange-500">AXIS</span>와 함께
+              <br class="hidden sm:block">
+              좋은 인재를 찾아보세요
+              <i class="fas fa-star text-yellow-400 ml-2 animate-pulse"></i>
+            </p>
+          </div>
+        </div>
+      </div>
+      
+      <div class="text-center mb-6">
         <p class="text-gray-600">면접 호실과 시간을 선택해주세요</p>
       </div>
+      
       <!-- 날짜 선택 부분 -->
       <div class="mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-1">면접 날짜</label>
@@ -87,22 +115,33 @@
           </table>
         </div>
       </div>
-      <button
-        class="w-full bg-red-600 text-white py-3 rounded-md font-medium hover:bg-red-700 transition-colors !rounded-button whitespace-nowrap cursor-pointer"
-        :disabled="!canProceed"
-        :class="{
-          'opacity-50 cursor-not-allowed': !canProceed,
-          'bg-gray-400': !isToday
-        }"
-        @click="onStartInterview"
-      >
-        {{ isToday ? '면접 시작하기' : '오늘 날짜의 면접만 시작할 수 있습니다' }}
-      </button>
+      <!-- 버튼 영역을 flex로 배치 -->
+      <div class="flex gap-4">
+        <button 
+          @click="logout"
+          class="px-6 py-3 text-gray-600 hover:text-gray-800 transition-colors cursor-pointer flex items-center gap-2 border border-gray-300 rounded-md hover:bg-gray-50"
+        >
+          <i class="fas fa-sign-out-alt"></i>
+          로그아웃
+        </button>
+        <button
+          class="flex-1 bg-red-600 text-white py-3 rounded-md font-medium hover:bg-red-700 transition-colors !rounded-button whitespace-nowrap cursor-pointer"
+          :disabled="!canProceed"
+          :class="{
+            'opacity-50 cursor-not-allowed': !canProceed,
+            'bg-gray-400': !isToday
+          }"
+          @click="onStartInterview"
+        >
+          {{ isToday ? '면접 시작하기' : '오늘 날짜의 면접만 시작할 수 있습니다' }}
+        </button>
+      </div>
       <div class="mt-6 text-center text-xs text-gray-500">
         <p>© 2025 SK AXIS. All rights reserved.</p>
-        <p>2025년 5월 29일 최신 기준</p>
+        <p>2025년 6월 16일 최신 기준</p>
       </div>
     </div>
+    
     <!-- Admin Login Modal -->
     <AdminLoginModal 
       v-if="showAdminLogin"
@@ -118,19 +157,6 @@ import { useRouter } from 'vue-router';
 
 import AdminLoginModal from './AdminLoginModal.vue';
 import { getInterviewSchedules } from '../services/interviewService';
-
-// Props 인터페이스와 선언 제거 (더 이상 사용하지 않음)
-// interface Props {
-//   rooms: Room[];
-//   timeSlots: TimeSlot[];
-//   people: Person[];
-// }
-
-// const props = withDefaults(defineProps<Props>(), {
-//   rooms: () => [],
-//   timeSlots: () => [],
-//   people: () => []
-// });
 
 const router = useRouter();
 
@@ -227,6 +253,12 @@ const onStartInterview = () => {
 const handleAdminLogin = () => {
   // 로그인 성공 시 관리자 대시보드로 이동
   router.push('/admin');
+};
+
+// 로그아웃 함수 추가
+const logout = () => {
+  // 메인 로그인 페이지로 이동
+  router.push('/');
 };
 
 onMounted(() => {
