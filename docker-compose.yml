@@ -1,92 +1,110 @@
 version: '3.8'
 
 services:
+  # MySQL 데이터베이스
   mysql:
     image: mysql:8.0
-    container_name: mysql
+    container_name: sk-axis-mysql
+    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: skaxis
-      MYSQL_USER: skaxis
-      MYSQL_PASSWORD: skaxispassword
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-skaxis}
+      MYSQL_USER: ${DB_USER:-skaxis}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-skaxispassword}
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - mysql-data:/var/lib/mysql
+      - ./server/spring/src/main/resources/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
-      - app-network
-    restart: unless-stopped
+      - sk-axis-network
 
+  # Redis 캐시
   redis:
-    image: redis:7-alpine
-    container_name: redis
+    image: redis:latest
+    container_name: sk-axis-redis
+    restart: always
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
-      - redis_data:/data
+      - redis-data:/data
     networks:
-      - app-network
-    restart: unless-stopped
+      - sk-axis-network
 
+  # FastAPI 서비스
   fastapi:
-    image: ${DOCKER_USERNAME}/skaxis-ai:latest
-    container_name: fastapi
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    container_name: sk-axis-fastapi
+    restart: always
     ports:
       - "${FASTAPI_PORT:-8000}:8000"
     volumes:
-      - shared_output:/shared-output
+      - ./ai:/app
+      - shared-output:/app/output
     environment:
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=mysql://skaxis:skaxispassword@mysql:3306/skaxis
-    depends_on:
-      - mysql
-      - redis
-    networks:
-      - app-network
-    restart: unless-stopped
-
-  springboot:
-    image: ${DOCKER_USERNAME}/skaxis-server:latest
-    container_name: springboot
-    ports:
-      - "${SPRINGBOOT_PORT:-8080}:8080"
-    volumes:
-      - shared_output:/shared-output
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/skaxis?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
-      - SPRING_DATASOURCE_USERNAME=skaxis
-      - SPRING_DATASOURCE_PASSWORD=skaxispassword
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      - FASTAPI_URL=http://fastapi:8000/api/v1
-      - SPRING_DATA_REDIS_HOST=redis
-      - SPRING_DATA_REDIS_PORT=6379
-    depends_on:
-      - mysql
-      - redis
-      - fastapi
-    networks:
-      - app-network
-    restart: unless-stopped
-
-  client:
-    image: ${DOCKER_USERNAME}/skaxis-client:latest
-    container_name: client
-    ports:
-      - "${CLIENT_PORT:-80}:80"
-    environment:
-      - API_URL=/api
-      - WS_URL=/ws
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - SPRING_API_URL=http://springboot:8080/api/v1
+      - OUTPUT_DIR=/app/output
     depends_on:
       - springboot
     networks:
-      - app-network
-    restart: unless-stopped
+      - sk-axis-network
+
+  # SpringBoot 서비스
+  springboot:
+    build:
+      context: ./server/spring
+      dockerfile: Dockerfile
+    container_name: sk-axis-springboot
+    restart: always
+    ports:
+      - "${SPRING_PORT:-8080}:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/${DB_NAME:-skaxis}?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-skaxis}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-skaxispassword}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - FASTAPI_URL=http://fastapi:8000/api/v1
+      - OUTPUT_DIR=/shared-output
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT:-6379}
+    volumes:
+      - shared-output:/shared-output
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - sk-axis-network
+
+  # Vue 클라이언트
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: sk-axis-vue
+    restart: always
+    ports:
+      - "${CLIENT_PORT:-80}:80"
+    depends_on:
+      - fastapi
+      - springboot
+    networks:
+      - sk-axis-network
 
 volumes:
-  mysql_data:
-  redis_data:
-  shared_output:
+  mysql-data:
+  redis-data:
+  shared-output:
 
 networks:
-  app-network:
+  sk-axis-network:
     driver: bridge
