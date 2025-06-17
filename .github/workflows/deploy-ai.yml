@@ -26,15 +26,14 @@ jobs:
       run: |
         docker build -t ${{ secrets.DOCKER_USERNAME }}/skaxis-ai:latest ./ai
         docker push ${{ secrets.DOCKER_USERNAME }}/skaxis-ai:latest
-    - name: Deploy AI to EC2
-      uses: appleboy/ssh-action@v1.0.0
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@v0.1.5
       with:
         host: ${{ secrets.EC2_HOST }}
-        username: ec2-user
+        username: ${{ secrets.EC2_USERNAME }}
         key: ${{ secrets.EC2_SSH_KEY }}
-        port: ${{ secrets.EC2_PORT }}
         script: |
-          docker stop skaxis-ai || true && docker rm skaxis-ai || true
-          docker pull ${{ secrets.DOCKER_USERNAME }}/skaxis-ai:latest
-          docker run -d --name skaxis-ai -p 8000:8000 ${{ secrets.DOCKER_USERNAME }}/skaxis-ai:latest
+          cd /home/ec2-user/sk-axis
+          docker-compose pull fastapi
+          docker-compose up -d fastapi
           docker image prune -f
