@@ -1,5 +1,5 @@
 # Multi-stage build 사용
-FROM python:3.9-slim as builder
+FROM python:3.9-slim AS builder
 
 # 빌드 의존성만 설치
 RUN apt-get update && apt-get install -y \

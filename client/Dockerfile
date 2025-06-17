@@ -1,4 +1,4 @@
-FROM node:16-alpine as build
+FROM --platform=linux/amd64 node:16-alpine as build
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ COPY . .
 RUN npm run build
 
 # 실행 이미지 생성
-FROM nginx:stable-alpine
+FROM --platform=linux/amd64 nginx:stable-alpine
 
 # Nginx 설정 복사
 COPY --from=build /app/dist /usr/share/nginx/html
