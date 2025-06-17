@@ -23,7 +23,7 @@
                 <i class="fas fa-calendar-alt w-5 text-gray-500"></i>
                 <span class="ml-3">면접 일정</span>
               </a>
-              <a href="#" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg">
+              <a href="#" @click.prevent="showStatistics" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg">
                 <i class="fas fa-chart-bar w-5 text-gray-500"></i>
                 <span class="ml-3">통계 분석</span>
               </a>
@@ -361,12 +361,55 @@
         </div>
       </div>
     </div>
+
+    <!-- 통계 분석 모달 -->
+    <div v-if="showStatisticsView" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-8 max-w-6xl w-full mx-4 relative animate-fadeIn overflow-auto max-h-[90vh]">
+        <button @click="showStatisticsView = false" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+          <i class="fas fa-times"></i>
+        </button>
+        <div class="mb-8">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-900">면접 통계 분석</h2>
+            <div class="flex items-center gap-4">
+              <div class="relative">
+                <select v-model="statisticsFilter.period" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                  <option value="all">전체 기간</option>
+                  <option value="month">이번 달</option>
+                  <option value="quarter">이번 분기</option>
+                  <option value="year">올해</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <!-- Statistics Dashboard -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 직무별 면접 현황 -->
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+              <h3 class="text-lg font-semibold mb-4 text-gray-800">직무별 면접 현황</h3>
+              <div class="h-80" ref="jobChartRef"></div>
+            </div>
+            <!-- 면접자 점수 분포 -->
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+              <h3 class="text-lg font-semibold mb-4 text-gray-800">면접자 점수 분포</h3>
+              <div class="h-80" ref="scoreDistributionChartRef"></div>
+            </div>
+            <!-- 역량별 평균 면접 점수 -->
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+              <h3 class="text-lg font-semibold mb-4 text-gray-800">역량별 평균 면접 점수</h3>
+              <div class="h-80" ref="avgScoreChartRef"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import * as echarts from 'echarts';
 
 const router = useRouter();
 
@@ -467,6 +510,18 @@ const showDeleteConfirm = ref(false);
 const showCalendarView = ref(false);
 const selectedInterview = ref<any>(null);
 const currentDate = ref(new Date());
+const showStatisticsView = ref(false);
+const statisticsFilter = ref({
+  period: 'all'
+});
+
+const jobChartRef = ref(null);
+const scoreDistributionChartRef = ref(null);
+const avgScoreChartRef = ref(null);
+
+let jobChart: echarts.ECharts | null = null;
+let scoreDistributionChart: echarts.ECharts | null = null;
+let avgScoreChart: echarts.ECharts | null = null;
 
 // 정렬된 면접 목록
 const sortedInterviews = computed(() => {
@@ -619,4 +674,127 @@ const showInterviewDetail = (interview: any) => {
   selectedInterview.value = interview;
 };
 
+// 통계 차트 초기화
+const initCharts = () => {
+  if (jobChartRef.value) {
+    jobChart = echarts.init(jobChartRef.value);
+    jobChart.setOption({
+      title: {
+        text: '직무별 면접 현황',
+        left: 'center'
+      },
+      tooltip: {
+        trigger: 'item'
+      },
+      legend: {
+        orient: 'vertical',
+        left: 'left'
+      },
+      series: [
+        {
+          type: 'pie',
+          radius: '50%',
+          data: [
+            { value: 35, name: '개발' },
+            { value: 25, name: '디자인' },
+            { value: 20, name: '마케팅' },
+            { value: 15, name: '영업' },
+            { value: 5, name: '기타' }
+          ],
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 10,
+              shadowOffsetX: 0,
+              shadowColor: 'rgba(0, 0, 0, 0.5)'
+            }
+          }
+        }
+      ]
+    });
+  }
+
+  if (scoreDistributionChartRef.value) {
+    scoreDistributionChart = echarts.init(scoreDistributionChartRef.value);
+    scoreDistributionChart.setOption({
+      title: {
+        text: '면접자 점수 분포',
+        left: 'center'
+      },
+      tooltip: {
+        trigger: 'axis'
+      },
+      xAxis: {
+        type: 'category',
+        data: ['0-20', '21-40', '41-60', '61-80', '81-100']
+      },
+      yAxis: {
+        type: 'value'
+      },
+      series: [
+        {
+          data: [5, 15, 30, 25, 10],
+          type: 'bar'
+        }
+      ]
+    });
+  }
+
+  if (avgScoreChartRef.value) {
+    avgScoreChart = echarts.init(avgScoreChartRef.value);
+    avgScoreChart.setOption({
+      title: {
+        text: '역량별 평균 면접 점수',
+        left: 'center'
+      },
+      tooltip: {
+        trigger: 'axis'
+      },
+      radar: {
+        indicator: [
+          { name: '전문성', max: 100 },
+          { name: '의사소통', max: 100 },
+          { name: '문제해결', max: 100 },
+          { name: '팀워크', max: 100 },
+          { name: '리더십', max: 100 }
+        ]
+      },
+      series: [
+        {
+          type: 'radar',
+          data: [
+            {
+              value: [85, 75, 90, 80, 70],
+              name: '평균 점수'
+            }
+          ]
+        }
+      ]
+    });
+  }
+};
+
+// 통계 필터 변경 감지
+watch(statisticsFilter, () => {
+  // 여기에 필터 변경 시 차트 업데이트 로직 추가
+  updateCharts();
+}, { deep: true });
+
+// 차트 업데이트 함수
+const updateCharts = () => {
+  // 여기에 차트 데이터 업데이트 로직 추가
+};
+
+// 사이드바 통계 분석 링크 클릭 이벤트 핸들러
+const showStatistics = () => {
+  showStatisticsView.value = true;
+  // 차트가 이미 초기화되어 있지 않은 경우에만 초기화
+  if (!jobChart) {
+    initCharts();
+  }
+};
+
+onMounted(() => {
+  // 컴포넌트 마운트 시 차트 초기화
+  initCharts();
+});
 </script>
