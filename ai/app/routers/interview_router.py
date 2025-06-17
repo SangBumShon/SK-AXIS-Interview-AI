@@ -93,7 +93,7 @@ async def end_interview(req: EndInterviewRequest):
 
 @router.post("/stt/upload", response_model=STTUploadResponse)
 async def upload_stt(
-    interviewee_id: str = Form(...),
+    interviewee_id: int = Form(...),
     audio: UploadFile = File(...)
 ):
     """

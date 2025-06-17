@@ -34,7 +34,7 @@ def transcribe_audio_file(file_path: str) -> str:
         )
     return transcript.strip()
 
-async def process_audio_file(interviewee_id: str, audio_file: UploadFile) -> Optional[str]:
+async def process_audio_file(interviewee_id: int, audio_file: UploadFile) -> Optional[str]:
     """
     업로드된 오디오 파일을 처리하고 STT 결과를 반환합니다.
     
@@ -64,7 +64,7 @@ async def process_audio_file(interviewee_id: str, audio_file: UploadFile) -> Opt
         print(f"STT 처리 중 오류 발생: {str(e)}")
         return None
 
-async def save_audio_file(interviewee_id: str, audio_file: UploadFile) -> Optional[str]:
+async def save_audio_file(interviewee_id: int, audio_file: UploadFile) -> Optional[str]:
     """
     업로드된 오디오 파일을 uploads 디렉토리에 저장합니다.
     

@@ -12,7 +12,7 @@ def dict_merge(a: Dict[Any, Any], b: Dict[Any, Any]) -> Dict[Any, Any]:
 
 class InterviewState(TypedDict, total=False):
     # 지원자 ID (단일 값)
-    interviewee_id: str
+    interviewee_id: int
 
     # 질문 목록 저장
     questions: Annotated[List[Any], operator.add]

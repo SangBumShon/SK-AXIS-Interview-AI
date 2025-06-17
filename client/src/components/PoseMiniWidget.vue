@@ -148,7 +148,7 @@ async function startRecording(personIndex) {
       
       const formData = new FormData()
       formData.append('audio', audioBlob, fileName)
-      formData.append('interviewee_id', state.id)
+      formData.append('interviewee_id', state.id.toString())
       
       try {
         const response = await fetch('/api/v1/interview/stt/upload', {

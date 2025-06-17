@@ -14,14 +14,14 @@ class FacialExpression(BaseModel):
     angry: int
 
 class NonverbalData(BaseModel):
-    interviewee_id: str
+    interviewee_id: int
     posture: Posture
     facial_expression: FacialExpression
     gaze: int
     gesture: int
 
 class NonverbalScore(BaseModel):
-    interviewee_id: str
+    interviewee_id: int
     posture_score: float
     facial_score: float
     overall_score: float

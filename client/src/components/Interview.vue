@@ -101,7 +101,7 @@ interface Props {
   timeRange: string
   interviewers: string
   candidates: string[]
-  candidateIds: string[]
+  candidateIds: number[]
   interviewerIds: number[]
 }
 
@@ -119,15 +119,20 @@ const router = useRouter()
 const isAnalyzing = ref(false)
 
 // 비언어적 데이터 저장소
-const nonverbalData = ref<Record<string, any>>({})
+const nonverbalData = ref<Record<number, any>>({})
 
-const getQuestionsForCandidate = (candidateId: string): Question[] => {
+const getQuestionsForCandidate = (candidateId: number): Question[] => {
   return getCandidateQuestions(candidateId)
 }
 
 // PoseMiniWidget으로부터 비언어적 데이터 업데이트
 const handleNonverbalData = (data: Record<string, any>) => {
-  nonverbalData.value = data
+  // string 키를 number로 변환
+  const convertedData: Record<number, any> = {}
+  Object.entries(data).forEach(([key, value]) => {
+    convertedData[Number(key)] = value
+  })
+  nonverbalData.value = convertedData
 }
 
 const startSession = async () => {

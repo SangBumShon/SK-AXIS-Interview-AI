@@ -4,7 +4,7 @@ from typing import List, Dict, Literal
 from app.schemas.nonverbal import Posture, FacialExpression
 
 class StartInterviewRequest(BaseModel):
-    interviewee_ids: List[str]
+    interviewee_ids: List[int]
     interviewer_ids: List[int] = []
 
 class Question(BaseModel):
@@ -17,7 +17,7 @@ class StartInterviewResponse(BaseModel):
     status: str
 
 class IntervieweeNonverbal(BaseModel):
-    interviewee_id: str
+    interviewee_id: int
     posture: Posture
     facial_expression: FacialExpression
     gaze: int
@@ -35,7 +35,7 @@ class QuestionsResponse(BaseModel):
     questions: List[Question]
 
 class MultipleIntervieweesRequest(BaseModel):
-    interviewee_ids: List[str]
+    interviewee_ids: List[int]
 
 class MultipleIntervieweesResponse(BaseModel):
     questions_per_interviewee: Dict[str, List[Question]]
