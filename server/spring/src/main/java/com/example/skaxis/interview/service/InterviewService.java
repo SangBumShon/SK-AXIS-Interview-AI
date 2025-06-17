@@ -33,7 +33,7 @@ public class InterviewService {
     private final InterviewRepository interviewRepository;
     private final IntervieweeRepository intervieweeRepository;
     private final UserRepository userRepository;
-
+    @Transactional(readOnly = true)
     public GetInterviewsResponseDto getAllInterviews() {
         List<Interview> interviewList = interviewRepository.findAll();
 
