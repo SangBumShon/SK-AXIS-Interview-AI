@@ -136,7 +136,7 @@ export const individualQuestions: Record<string, Question[]> = {
 };
 
 // 지원자별 전체 질문 목록을 가져오는 함수
-export const getQuestionsForCandidate = (candidateId: string): Question[] => {
-  const candidateQuestions = individualQuestions[candidateId] || [];
+export const getQuestionsForCandidate = (candidateId: number): Question[] => {
+  const candidateQuestions = individualQuestions[candidateId.toString()] || [];
   return [...commonQuestions, ...candidateQuestions];
 }; 

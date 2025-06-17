@@ -19,7 +19,7 @@ interface ScheduleResponse {
 export const getInterviewSchedules = async (date: string): Promise<ScheduleResponse> => {
   try {
     // 수정: schedule/all 엔드포인트 사용
-    const response = await fetch('http://sk-axis-springboot:8080/api/v1/schedule/all', {
+    const response = await fetch('http://sk-axis-springboot:8080/api/v1/interviews/schedule/all', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
