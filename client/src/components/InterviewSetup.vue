@@ -25,7 +25,7 @@
             <div class="flex-1">
               <h3 class="text-xl font-bold mb-1 tracking-wide">
                 <span class="bg-gradient-to-r from-red-600 to-orange-500 bg-clip-text text-transparent">
-                  면접관님 환영합니다
+                  {{ userDisplayName }}님 환영합니다
                 </span>
               </h3>
             </div>
@@ -170,11 +170,16 @@ const error = ref<string | null>(null);
 const showAdminLogin = ref(false);
 const selectedSchedule = ref<any>(null);
 
-// 지원자 정보를 저장할 변수 추가
-const intervieweeData = ref<any[]>([]);
+// 로그인한 사용자 이름을 가져오는 computed 속성
+const userDisplayName = computed(() => {
+  return localStorage.getItem('userDisplayName') || '면접관';
+});
 
 // API 데이터에서 동적으로 rooms 생성
 const rooms = computed(() => {
+  if (!schedules.value || !Array.isArray(schedules.value)) {
+    return [];
+  }
   const uniqueRooms = new Set(schedules.value.map(schedule => schedule.roomName));
   return Array.from(uniqueRooms).map((roomName, index) => ({
     id: `room${index + 1}`,
@@ -197,11 +202,14 @@ const canProceed = computed(() => {
 });
 
 // props.rooms 대신 rooms.value 사용
-const filteredSchedules = computed(() =>
-  schedules.value.filter(schedule => 
+const filteredSchedules = computed(() => {
+  if (!schedules.value || !Array.isArray(schedules.value)) {
+    return [];
+  }
+  return schedules.value.filter(schedule => 
     schedule.roomName === rooms.value.find(r => r.id === selectedRoom.value)?.name
-  )
-);
+  );
+});
 
 const toggleRoomDropdown = () => { showRoomDropdown.value = !showRoomDropdown.value; };
 const selectRoom = (roomId: string) => {
@@ -218,34 +226,20 @@ const fetchSchedules = async () => {
   
   try {
     const response = await getInterviewSchedules(selectedDate.value);
-    schedules.value = response.schedules;
+    console.log('API Response:', response);
+    schedules.value = response.schedules || [];
   } catch (err) {
     error.value = '면접 일정을 불러오는데 실패했습니다.';
     console.error(err);
+    schedules.value = []; // 에러 시 빈 배열로 초기화
   } finally {
     loading.value = false;
   }
 };
 
-// 지원자 정보를 가져오는 함수 추가
-const fetchInterviewees = async () => {
-  try {
-    const response = await fetch('/api/v1/interviews/simple', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('지원자 정보 조회 실패');
-    }
-    
-    const data = await response.json();
-    intervieweeData.value = data.data || [];
-  } catch (err) {
-    console.error('지원자 정보 조회 중 오류:', err);
-  }
+const selectTimeSlot = (schedule: any) => {
+  selectedSchedule.value = schedule;
+  selectedTimeSlot.value = schedule.timeRange;
 };
 
 // 날짜가 변경될 때마다 일정을 다시 불러옵니다
@@ -253,29 +247,33 @@ watch(selectedDate, () => {
   fetchSchedules();
 });
 
-const selectTimeSlot = (schedule: any) => {
-  selectedSchedule.value = schedule;
-  selectedTimeSlot.value = schedule.timeRange;
-};
-
 const onStartInterview = () => {
   if (!canProceed.value || !selectedSchedule.value) return;
   
-  // 지원자 이름을 ID로 매핑
+  // 면접 일정에서 지원자 정보 추출
   const candidateIds: number[] = [];
   const candidateNames: string[] = [];
   
-  selectedSchedule.value.interviewees.forEach((name: string) => {
-    const interviewee = intervieweeData.value.find(item => item.name === name);
-    if (interviewee) {
-      candidateIds.push(interviewee.id);
+  // API 응답에서 해당 스케줄의 지원자 정보 찾기
+  const scheduleData = schedules.value.find(schedule => 
+    schedule.roomName === selectedSchedule.value.roomName &&
+    schedule.timeRange === selectedSchedule.value.timeRange
+  );
+  
+  if (scheduleData && scheduleData.interviewees) {
+    scheduleData.interviewees.forEach((name: string) => {
       candidateNames.push(name);
-    } else {
-      console.warn(`지원자 정보를 찾을 수 없습니다: ${name}`);
-      // 임시로 이름을 그대로 사용
-      candidateNames.push(name);
-    }
-  });
+      // 임시 ID 생성 (실제로는 API에서 받은 intervieweeId를 사용해야 함)
+      candidateIds.push(-(candidateNames.length));
+    });
+  }
+  
+  // candidateIds가 비어있지 않은지 확인
+  if (candidateIds.length === 0) {
+    console.error('지원자 정보를 찾을 수 없습니다.');
+    alert('지원자 정보를 불러오는 중 오류가 발생했습니다. 다시 시도해주세요.');
+    return;
+  }
   
   router.push({
     name: 'interview',
@@ -284,7 +282,7 @@ const onStartInterview = () => {
       date: selectedDate.value,
       timeRange: selectedSchedule.value.timeRange,
       interviewers: selectedSchedule.value.interviewers.join(', '),
-      interviewerIds: JSON.stringify(selectedSchedule.value.interviewerIds),
+      interviewerIds: JSON.stringify(selectedSchedule.value.interviewerIds || []),
       candidates: JSON.stringify(candidateNames),
       candidateIds: JSON.stringify(candidateIds)
     }
@@ -304,7 +302,6 @@ const logout = () => {
 
 onMounted(() => {
   fetchSchedules();
-  fetchInterviewees(); // 지원자 정보도 함께 가져오기
   document.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
     if (!target.closest('.relative') && showRoomDropdown.value) {

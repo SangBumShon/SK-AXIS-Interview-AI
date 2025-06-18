@@ -213,6 +213,18 @@ const handleLogin = async () => {
         console.log('로그인 성공, 토큰 저장됨');
       }
       
+      // 응답 본문에서 사용자 정보 파싱
+      try {
+        const userData = await response.json();
+        // 사용자 정보를 localStorage에 저장
+        localStorage.setItem('userName', userData.username || '');
+        localStorage.setItem('userDisplayName', userData.name || '');
+        localStorage.setItem('userType', userData.userType || '');
+        console.log('사용자 정보 저장됨:', userData);
+      } catch (parseError) {
+        console.warn('사용자 정보 파싱 실패:', parseError);
+      }
+      
       // 로그인 성공 시 면접 설정 페이지로 이동
       router.push('/setup');
     } else {

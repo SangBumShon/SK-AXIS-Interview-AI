@@ -31,14 +31,36 @@ const router = createRouter({
       path: '/interview',
       name: 'interview',
       component: Interview,
-      props: (route) => ({
-        roomName: route.query.roomName as string,
-        timeRange: route.query.timeRange as string,
-        interviewers: route.query.interviewers as string,
-        interviewerIds: JSON.parse(route.query.interviewerIds as string || '[]'),
-        candidates: JSON.parse(route.query.candidates as string || '[]'),
-        candidateIds: JSON.parse(route.query.candidateIds as string || '[]')
-      })
+      props: (route) => {
+        try {
+          const candidateIdsStr = route.query.candidateIds as string || '[]';
+          const candidateIds = JSON.parse(candidateIdsStr);
+          
+          // candidateIds가 배열이고 모든 요소가 숫자인지 확인
+          const validCandidateIds = Array.isArray(candidateIds) 
+            ? candidateIds.filter(id => typeof id === 'number' && !isNaN(id))
+            : [];
+          
+          return {
+            roomName: route.query.roomName as string,
+            timeRange: route.query.timeRange as string,
+            interviewers: route.query.interviewers as string,
+            interviewerIds: JSON.parse(route.query.interviewerIds as string || '[]'),
+            candidates: JSON.parse(route.query.candidates as string || '[]'),
+            candidateIds: validCandidateIds
+          };
+        } catch (error) {
+          console.error('라우터 props 파싱 오류:', error);
+          return {
+            roomName: route.query.roomName as string,
+            timeRange: route.query.timeRange as string,
+            interviewers: route.query.interviewers as string,
+            interviewerIds: [],
+            candidates: [],
+            candidateIds: []
+          };
+        }
+      }
     },
     {
       path: '/result',

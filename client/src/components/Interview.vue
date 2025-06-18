@@ -31,7 +31,7 @@
               <span class="text-sm text-gray-500">지원자 {{ index + 1 }}</span>
             </div>
             <div class="space-y-4">
-              <div v-for="(question, qIndex) in getQuestionsForCandidate(candidateIds[index])" :key="question.id" class="p-4 bg-gray-50 rounded-lg">
+              <div v-for="(question, qIndex) in getQuestionsForCandidate(candidateIds[index] || 0)" :key="question.id" class="p-4 bg-gray-50 rounded-lg">
                 <div class="flex items-center gap-3 mb-2">
                   <span class="flex items-center justify-center w-6 h-6 bg-red-600 text-white rounded-full text-sm font-medium">
                     {{ qIndex + 1 }}
@@ -105,7 +105,14 @@ interface Props {
   interviewerIds: number[]
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  roomName: '',
+  timeRange: '',
+  interviewers: '',
+  candidates: () => [],
+  candidateIds: () => [],
+  interviewerIds: () => []
+})
 
 type Emits = {
   (e: 'startSession'): void
@@ -122,6 +129,11 @@ const isAnalyzing = ref(false)
 const nonverbalData = ref<Record<number, any>>({})
 
 const getQuestionsForCandidate = (candidateId: number): Question[] => {
+  // candidateId가 유효한지 확인
+  if (candidateId === undefined || candidateId === null || isNaN(candidateId)) {
+    console.warn(`유효하지 않은 candidateId: ${candidateId}`);
+    return getCandidateQuestions(0); // 기본 질문 반환
+  }
   return getCandidateQuestions(candidateId)
 }
 
