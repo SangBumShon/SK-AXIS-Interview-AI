@@ -147,7 +147,7 @@ public class InterviewService {
             .map(i -> new GetInterviewByIdResponseDto.IntervieweeDto(
                 i.getInterviewee().getIntervieweeId(),
                 i.getInterviewee().getName(),
-                i.getInterviewee().getApplicantCode(),
+//                i.getInterviewee().getApplicantCode(),
                 i.getCreatedAt().toString()))
             .toArray(GetInterviewByIdResponseDto.IntervieweeDto[]::new));
 

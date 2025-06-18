@@ -357,7 +357,6 @@ public class MediaService {
                     // 새 지원자 생성
                     Interviewee newInterviewee = Interviewee.builder()
                             .name(intervieweeName)
-                            .applicantCode(generateApplicantCode(intervieweeName))  // 추가
                             .score(0)  // 추가
                             .build();
                     return intervieweeRepository.save(newInterviewee);
