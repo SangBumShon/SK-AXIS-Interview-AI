@@ -56,7 +56,7 @@ public class IntervieweeService {
         // applicantCode 필드 추가
         Interviewee interviewee = Interviewee.builder()
                 .name(name)
-                .applicantCode(applicantCode)
+//                .applicantCode(applicantCode)
                 .createdAt(LocalDateTime.now())
                 .build();
         return intervieweeRepository.save(interviewee);
@@ -399,7 +399,7 @@ public class IntervieweeService {
         return IntervieweeResponseDto.builder()
             .intervieweeId(interviewee.getIntervieweeId())
             .applicantName(interviewee.getName())
-            .applicantId(interviewee.getApplicantCode())
+//            .applicantId(interviewee.getApplicantCode())
 //            .position("개발자") // 기본값, 추후 엔티티에 필드 추가 필요
             .interviewDate(recentInterview != null ? recentInterview.getScheduledAt().toLocalDate() : null)
             .interviewStatus(recentInterview != null ? recentInterview.getStatus().getDescription() : "미정")
