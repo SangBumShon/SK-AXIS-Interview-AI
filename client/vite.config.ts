@@ -14,7 +14,7 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://sk-axis-springboot:8080',
         changeOrigin: true,
         secure: false
       }

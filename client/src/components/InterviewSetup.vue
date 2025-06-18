@@ -170,6 +170,9 @@ const error = ref<string | null>(null);
 const showAdminLogin = ref(false);
 const selectedSchedule = ref<any>(null);
 
+// 지원자 정보를 저장할 변수 추가
+const intervieweeData = ref<any[]>([]);
+
 // API 데이터에서 동적으로 rooms 생성
 const rooms = computed(() => {
   const uniqueRooms = new Set(schedules.value.map(schedule => schedule.roomName));
@@ -224,6 +227,27 @@ const fetchSchedules = async () => {
   }
 };
 
+// 지원자 정보를 가져오는 함수 추가
+const fetchInterviewees = async () => {
+  try {
+    const response = await fetch('/api/v1/interviews/simple', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('지원자 정보 조회 실패');
+    }
+    
+    const data = await response.json();
+    intervieweeData.value = data.data || [];
+  } catch (err) {
+    console.error('지원자 정보 조회 중 오류:', err);
+  }
+};
+
 // 날짜가 변경될 때마다 일정을 다시 불러옵니다
 watch(selectedDate, () => {
   fetchSchedules();
@@ -237,6 +261,22 @@ const selectTimeSlot = (schedule: any) => {
 const onStartInterview = () => {
   if (!canProceed.value || !selectedSchedule.value) return;
   
+  // 지원자 이름을 ID로 매핑
+  const candidateIds: number[] = [];
+  const candidateNames: string[] = [];
+  
+  selectedSchedule.value.interviewees.forEach((name: string) => {
+    const interviewee = intervieweeData.value.find(item => item.name === name);
+    if (interviewee) {
+      candidateIds.push(interviewee.id);
+      candidateNames.push(name);
+    } else {
+      console.warn(`지원자 정보를 찾을 수 없습니다: ${name}`);
+      // 임시로 이름을 그대로 사용
+      candidateNames.push(name);
+    }
+  });
+  
   router.push({
     name: 'interview',
     query: {
@@ -245,8 +285,8 @@ const onStartInterview = () => {
       timeRange: selectedSchedule.value.timeRange,
       interviewers: selectedSchedule.value.interviewers.join(', '),
       interviewerIds: JSON.stringify(selectedSchedule.value.interviewerIds),
-      candidates: JSON.stringify(selectedSchedule.value.interviewees),
-      candidateIds: JSON.stringify(selectedSchedule.value.interviewees)
+      candidates: JSON.stringify(candidateNames),
+      candidateIds: JSON.stringify(candidateIds)
     }
   });
 };
@@ -264,6 +304,7 @@ const logout = () => {
 
 onMounted(() => {
   fetchSchedules();
+  fetchInterviewees(); // 지원자 정보도 함께 가져오기
   document.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
     if (!target.closest('.relative') && showRoomDropdown.value) {

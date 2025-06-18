@@ -190,7 +190,9 @@ const showRegistration = ref(false)
 // 로그인 처리
 const handleLogin = async () => {
   try {
-    fetch('http://sk-axis-springboot:8080/api/v1/auth/login', {
+    loginError.value = '';
+    
+    const response = await fetch('/api/v1/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -199,67 +201,120 @@ const handleLogin = async () => {
         userName: loginForm.value.username,
         password: loginForm.value.password
       })
-    })
+    });
+
+    if (response.ok) {
+      // JWT 토큰을 헤더에서 추출
+      const authHeader = response.headers.get('Authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        // 토큰을 localStorage에 저장
+        localStorage.setItem('accessToken', token);
+        console.log('로그인 성공, 토큰 저장됨');
+      }
+      
+      // 로그인 성공 시 면접 설정 페이지로 이동
+      router.push('/setup');
+    } else {
+      let errorMessage = '로그인에 실패했습니다.';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+      } catch (e) {
+        // JSON 파싱 실패 시 기본 메시지 사용
+      }
+      loginError.value = errorMessage;
+    }
   } catch (error) {
-    loginError.value = '로그인 중 오류가 발생했습니다.'
+    console.error('로그인 중 오류:', error);
+    loginError.value = '네트워크 오류가 발생했습니다. 서버 연결을 확인해주세요.';
   }
 }
 
 // 회원가입 처리
-const handleRegistration = () => {
+const handleRegistration = async () => {
   // 에러 메시지 초기화
-  registrationError.value = ''
+  registrationError.value = '';
   
   // 폼 검증
   if (!registrationForm.value.name.trim()) {
-    registrationError.value = '이름을 입력해주세요.'
-    return
+    registrationError.value = '이름을 입력해주세요.';
+    return;
   }
   
   if (!registrationForm.value.username.trim()) {
-    registrationError.value = '아이디를 입력해주세요.'
-    return
+    registrationError.value = '아이디를 입력해주세요.';
+    return;
   }
   
   if (registrationForm.value.username.length < 3) {
-    registrationError.value = '아이디는 3자 이상이어야 합니다.'
-    return
+    registrationError.value = '아이디는 3자 이상이어야 합니다.';
+    return;
   }
   
   if (!registrationForm.value.email.trim()) {
-    registrationError.value = '이메일을 입력해주세요.'
-    return
+    registrationError.value = '이메일을 입력해주세요.';
+    return;
   }
   
   // 이메일 형식 검증
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   if (!emailRegex.test(registrationForm.value.email)) {
-    registrationError.value = '올바른 이메일 형식을 입력해주세요.'
-    return
+    registrationError.value = '올바른 이메일 형식을 입력해주세요.';
+    return;
   }
   
   if (!registrationForm.value.password) {
-    registrationError.value = '비밀번호를 입력해주세요.'
-    return
+    registrationError.value = '비밀번호를 입력해주세요.';
+    return;
   }
   
   if (registrationForm.value.password.length < 6) {
-    registrationError.value = '비밀번호는 6자 이상이어야 합니다.'
-    return
+    registrationError.value = '비밀번호는 6자 이상이어야 합니다.';
+    return;
   }
   
   if (registrationForm.value.password !== registrationForm.value.confirmPassword) {
-    registrationError.value = '비밀번호가 일치하지 않습니다.'
-    return
+    registrationError.value = '비밀번호가 일치하지 않습니다.';
+    return;
   }
   
   if (!registrationForm.value.department) {
-    registrationError.value = '부서를 선택해주세요.'
-    return
+    registrationError.value = '부서를 선택해주세요.';
+    return;
   }
   
-  // 회원가입 성공 처리
-  showSuccessModal()
+  // 회원가입 API 호출
+  try {
+    const response = await fetch('/api/v1/auth/signup/interviewer', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        userName: registrationForm.value.username,
+        name: registrationForm.value.name,
+        password: registrationForm.value.password
+      })
+    });
+
+    if (response.ok) {
+      // 회원가입 성공 처리
+      showSuccessModal();
+    } else {
+      let errorMessage = '회원가입에 실패했습니다.';
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorMessage;
+      } catch (e) {
+        // JSON 파싱 실패 시 기본 메시지 사용
+      }
+      registrationError.value = errorMessage;
+    }
+  } catch (error) {
+    console.error('회원가입 중 오류:', error);
+    registrationError.value = '네트워크 오류가 발생했습니다. 서버 연결을 확인해주세요.';
+  }
 }
 
 // 성공 모달 표시
@@ -273,10 +328,10 @@ const showSuccessModal = () => {
           <i class="fas fa-check text-green-500 text-3xl"></i>
         </div>
         <h3 class="text-xl font-bold text-gray-900 mb-2">회원가입 완료</h3>
-        <p class="text-gray-600">회원가입이 성공적으로 완료되었습니다.<br>로그인 페이지로 이동합니다.</p>
+        <p class="text-gray-600">회원가입이 성공적으로 완료되었습니다.<br>이제 로그인하여 면접 시스템을 이용하실 수 있습니다.</p>
       </div>
       <button class="w-full bg-red-600 text-white py-2 rounded-md font-medium hover:bg-red-700 transition-colors cursor-pointer">
-        확인
+        로그인으로 이동
       </button>
     </div>
   `
