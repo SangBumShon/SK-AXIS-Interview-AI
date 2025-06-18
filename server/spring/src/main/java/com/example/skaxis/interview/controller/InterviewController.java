@@ -155,7 +155,7 @@ public class InterviewController {
         }
     }
     
-    @GetMapping("schedule/all")
+    @GetMapping("/schedule/all")
     @Transactional(readOnly = true)
     public ResponseEntity<?> getAllInterviewSchedules(
             @RequestParam(required = false) String status) {
