@@ -17,6 +17,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -194,7 +195,8 @@ public class MediaService {
     }
 
     // 통합된 Interview와 Interviewee 저장 로직
-    private void saveInterviewAndInterviewees(InterviewScheduleExcelDto scheduleDto) {
+    @Transactional
+    public void saveInterviewAndInterviewees(InterviewScheduleExcelDto scheduleDto) {
         // 1. Interview 생성 및 저장
         Interview interview = Interview.builder()
                 .roomNo(scheduleDto.getRoomName())
@@ -208,7 +210,7 @@ public class MediaService {
                 .build();
 
         interview = interviewRepository.save(interview);
-
+        log.info("면접 저장 완료: interviewId={}", interview.getInterviewId());
         // 2. Interviewee 생성/조회 및 InterviewInterviewee 관계 생성
         for (String intervieweeName : scheduleDto.getIntervieweeNames()) {
             Interviewee interviewee = getOrCreateInterviewee(intervieweeName);
@@ -220,6 +222,7 @@ public class MediaService {
                     .build();
 
             interviewIntervieweeRepository.save(interviewInterviewee);
+            log.info("관계 저장 완료: interviewId={}, intervieweeId={}", interview.getInterviewId(), interviewee.getIntervieweeId());
         }
     }
 
@@ -353,10 +356,15 @@ public class MediaService {
                 .orElseGet(() -> {
                     // 새 지원자 생성
                     Interviewee newInterviewee = Interviewee.builder()
-                            .name(intervieweeName) // 기본값으로 설정
+                            .name(intervieweeName)
+                            .applicantCode(generateApplicantCode(intervieweeName))  // 추가
+                            .score(0)  // 추가
                             .build();
                     return intervieweeRepository.save(newInterviewee);
                 });
+    }
+    private String generateApplicantCode(String name) {
+        return "APP_" + name.hashCode() + "_" + System.currentTimeMillis();
     }
 
     // 빈 행 체크 메서드 추가
