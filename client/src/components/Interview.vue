@@ -31,7 +31,7 @@
               <span class="text-sm text-gray-500">지원자 {{ index + 1 }}</span>
             </div>
             <div class="space-y-4">
-              <div v-for="(question, qIndex) in getQuestionsForCandidate(candidateIds[index] || 0)" :key="question.id" class="p-4 bg-gray-50 rounded-lg">
+              <div v-for="(question, qIndex) in questionsPerInterviewee[candidateIds[index]] || []" :key="question.questionId" class="p-4 bg-gray-50 rounded-lg">
                 <div class="flex items-center gap-3 mb-2">
                   <span class="flex items-center justify-center w-6 h-6 bg-red-600 text-white rounded-full text-sm font-medium">
                     {{ qIndex + 1 }}
@@ -91,8 +91,6 @@
 <script setup lang="ts">
 import { ref, defineProps, defineEmits } from 'vue'
 import { useRouter } from 'vue-router'
-import type { Question } from '../data/questionData'
-import { getQuestionsForCandidate as getCandidateQuestions } from '../data/questionData'
 import AiLoadingModal from './AiLoadingModal.vue'
 import PoseMiniWidget from './PoseMiniWidget.vue'
 
@@ -128,14 +126,8 @@ const isAnalyzing = ref(false)
 // 비언어적 데이터 저장소
 const nonverbalData = ref<Record<number, any>>({})
 
-const getQuestionsForCandidate = (candidateId: number): Question[] => {
-  // candidateId가 유효한지 확인
-  if (candidateId === undefined || candidateId === null || isNaN(candidateId)) {
-    console.warn(`유효하지 않은 candidateId: ${candidateId}`);
-    return getCandidateQuestions(0); // 기본 질문 반환
-  }
-  return getCandidateQuestions(candidateId)
-}
+// 질문 데이터를 저장할 상태
+const questionsPerInterviewee = ref<Record<number, any[]>>({})
 
 // PoseMiniWidget으로부터 비언어적 데이터 업데이트
 const handleNonverbalData = (data: Record<string, any>) => {
@@ -153,14 +145,16 @@ const startSession = async () => {
     isAnalyzing.value = true
 
     // FastAPI 서버에 면접 시작 요청
-    const response = await fetch('/api/v1/interview/start', {
+    const token = localStorage.getItem('accessToken');
+    const response = await fetch('http://3.38.218.18:8080/api/v1/interviews/start', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
       },
       body: JSON.stringify({
-        interviewee_ids: props.candidateIds,
-        interviewer_ids: props.interviewerIds
+        intervieweeIds: props.candidateIds,
+        interviewerIds: props.interviewerIds
       })
     })
 
@@ -187,6 +181,8 @@ const startSession = async () => {
 
     const result = await response.json()
     console.log('면접 시작 성공:', result)
+    // 질문 데이터 저장
+    questionsPerInterviewee.value = result.questionsPerInterviewee || {}
     emit('startSession')  // 면접 시작 이벤트 발생
     isAnalyzing.value = false
   } catch (error: unknown) {
@@ -202,7 +198,7 @@ const endSession = async () => {
     console.log('면접 종료...', { nonverbalData: nonverbalData.value })
 
     // FastAPI 서버에 면접 종료 요청
-    const response = await fetch('/api/v1/interview/end', {
+    const response = await fetch('http://3.38.218.18:8080/api/v1/interview/end', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

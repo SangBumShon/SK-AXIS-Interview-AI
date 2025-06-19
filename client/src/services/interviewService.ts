@@ -1,9 +1,14 @@
+interface Interviewee {
+  name: string;
+  id: number;
+}
+
 interface InterviewSchedule {
   interviewDate: number[];
   timeRange: string;
   roomName: string;
   interviewers: string[];
-  interviewees: string[];
+  interviewees: Interviewee[];
 }
 
 interface ScheduleResponse {
@@ -59,10 +64,13 @@ export const getInterviewSchedules = async (date: string): Promise<ScheduleRespo
         });
       }
       
-      // 지원자 추가
+      // 지원자 추가 (id와 name 모두 포함)
       const schedule = scheduleMap.get(key)!;
-      if (!schedule.interviewees.includes(item.applicantName)) {
-        schedule.interviewees.push(item.applicantName);
+      if (!schedule.interviewees.find(e => e.id === item.intervieweeId)) {
+        schedule.interviewees.push({
+          name: item.applicantName,
+          id: item.intervieweeId // 또는 applicantId
+        });
       }
     });
     
