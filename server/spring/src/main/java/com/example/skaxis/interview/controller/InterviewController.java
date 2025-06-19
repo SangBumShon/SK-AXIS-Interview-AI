@@ -2,6 +2,12 @@ package com.example.skaxis.interview.controller;
 
 import com.example.skaxis.interview.dto.*;
 import com.example.skaxis.interview.dto.interviewee.IntervieweeListResponseDto;
+import com.example.skaxis.question.dto.QuestionDto;
+import com.example.skaxis.question.dto.StartInterviewRequestDto;
+import com.example.skaxis.question.dto.StartInterviewResponseDto;
+import com.example.skaxis.question.model.Question;
+import com.example.skaxis.question.service.InternalQuestionService;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
@@ -11,6 +17,8 @@ import com.example.skaxis.interview.service.IntervieweeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
@@ -42,6 +50,7 @@ public class InterviewController {
 
     private final InterviewService interviewService;
     private final IntervieweeService intervieweeService;
+    private final InternalQuestionService internalQuestionService; // 추가
 
     // 기존 면접 관련 메서드들
     @GetMapping("/all")
@@ -184,5 +193,68 @@ public class InterviewController {
             log.error("Error fetching detailed interview schedule: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
         }
+    }
+
+    @PostMapping("/start")
+    @Operation(summary = "면접 시작", description = "각 지원자의 질문 목록을 로드해 반환하고, 면접 상태를 초기화합니다.")
+    public ResponseEntity<?> startInterview(@RequestBody StartInterviewRequestDto request) {
+        try {
+            log.info("면접 시작 요청: {}", request);
+    
+            if (request.getIntervieweeIds() == null || request.getIntervieweeIds().isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("message", "지원자 ID 목록이 필요합니다."));
+            }
+    
+            // Integer List를 Long List로 변환
+            List<Long> intervieweeIds = request.getIntervieweeIds().stream()
+                    .map(Integer::longValue)
+                    .toList();
+    
+            // InternalQuestionService를 사용하여 질문 조회
+            Map<String, List<Question>> questionsPerInterviewee =
+                    internalQuestionService.getQuestionsForMultipleInterviewees(intervieweeIds);
+    
+            // Question을 QuestionDto로 변환
+            Map<String, List<QuestionDto>> questionDtosPerInterviewee = new HashMap<>();
+            for (Map.Entry<String, List<Question>> entry : questionsPerInterviewee.entrySet()) {
+                List<QuestionDto> questionDtos = entry.getValue().stream()
+                        .map(question -> new QuestionDto(
+                                question.getQuestionId().intValue(),
+                                mapTypeToFrontend(question.getType()),
+                                question.getContent()
+                        ))
+                        .toList();
+                questionDtosPerInterviewee.put(entry.getKey(), questionDtos);
+            }
+    
+            StartInterviewResponseDto response = new StartInterviewResponseDto(
+                    questionDtosPerInterviewee,
+                    "success"
+            );
+            
+            return ResponseEntity.ok(response);
+    
+        } catch (IllegalArgumentException e) {
+            log.error("면접 시작 실패 - 잘못된 요청: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", e.getMessage()));
+        } catch (Exception e) {
+            log.error("면접 시작 중 오류 발생: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "면접 시작 중 오류가 발생했습니다."));
+        }
+    }
+    
+    /**
+     * 데이터베이스의 타입을 프론트엔드가 기대하는 형태로 변환
+     */
+    private String mapTypeToFrontend(String dbType) {
+        if ("공통질문".equals(dbType)) {
+            return "common";
+        } else if ("개별질문".equals(dbType)) {
+            return "individual";
+        }
+        return dbType; // 기본값
     }
 }
