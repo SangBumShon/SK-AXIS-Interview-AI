@@ -15,11 +15,13 @@ docker info | grep Username || {
 }
 
 # Docker buildx 설정 (멀티 플랫폼 빌드용)
-docker buildx create --use --name multiplatform || true
+docker buildx rm multiplatform 2>/dev/null || true
+docker buildx create --use --name multiplatform
+
 
 # Spring Boot 이미지 빌드
 echo "Spring Boot 이미지 빌드 중..."
-docker buildx build --platform linux/amd64 \
+docker buildx build --platform linux/amd64,linux/arm64 \
     -t ${DOCKER_USERNAME}/${APP_NAME}-server:${VERSION} \
     --push ./server/spring
 if [ $? -ne 0 ]; then
@@ -28,12 +30,12 @@ if [ $? -ne 0 ]; then
 fi
 
 # FastAPI 이미지 빌드
-echo "FastAPI 이미지 빌드 중..."
+# echo "FastAPI 이미지 빌드 중..."
 # docker build -t ${DOCKER_USERNAME}/${APP_NAME}-fastapi:${VERSION} ./ai
-if [ $? -ne 0 ]; then
-    echo "FastAPI 빌드 실패!"
-    exit 1
-fi
+# if [ $? -ne 0 ]; then
+#     echo "FastAPI 빌드 실패!"
+#     exit 1
+# fi
 
 # 이미지 푸시
 echo "이미지를 Docker Hub에 푸시 중..."
