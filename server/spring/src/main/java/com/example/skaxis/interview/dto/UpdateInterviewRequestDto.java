@@ -14,5 +14,4 @@ public class UpdateInterviewRequestDto {
     private Integer orderNo;
     private String status;
     private Long[] intervieweeIds;
-    private Long[] interviewerIds;
 }

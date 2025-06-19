@@ -251,9 +251,9 @@ public class InterviewController {
      */
     private String mapTypeToFrontend(String dbType) {
         if ("공통질문".equals(dbType)) {
-            return "common";
+            return "공통질문";
         } else if ("개별질문".equals(dbType)) {
-            return "individual";
+            return "개별질문";
         }
         return dbType; // 기본값
     }

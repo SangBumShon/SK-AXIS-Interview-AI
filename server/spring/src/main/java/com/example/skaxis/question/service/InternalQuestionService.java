@@ -72,4 +72,29 @@ public class InternalQuestionService {
         
         return questionsPerInterviewee;
     }
+    
+    /**
+     * 가장 간단한 방법: 기존 메서드들 조합
+     */
+    public Map<String, List<Question>> getQuestionsForMultipleIntervieweesSimple(List<Long> intervieweeIds) {
+        Map<String, List<Question>> result = new HashMap<>();
+        
+        for (Long intervieweeId : intervieweeIds) {
+            // 1. intervieweeId로 InterviewInterviewee 찾기
+            List<InterviewInterviewee> interviewInterviewees = 
+                interviewIntervieweeRepository.findByIntervieweeId(intervieweeId);
+            
+            if (!interviewInterviewees.isEmpty()) {
+                // 2. 가장 최근 면접의 interviewId 가져오기
+                Long interviewId = interviewInterviewees.get(0).getInterviewId();
+                
+                // 3. interviewId로 질문들 조회
+                List<Question> questions = questionRepository.findByInterviewId(interviewId);
+                
+                result.put(intervieweeId.toString(), questions);
+            }
+        }
+        
+        return result;
+    }
 }

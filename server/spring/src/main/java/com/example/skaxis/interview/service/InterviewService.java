@@ -89,7 +89,7 @@ public class InterviewService {
     public void updateInterview(UpdateInterviewRequestDto updateInterviewRequestDto, Long interviewId) {
         Interview interview = interviewRepository.findById(interviewId)
             .orElseThrow(() -> new RuntimeException("Interview not found"));
-
+    
         if (updateInterviewRequestDto.getRoomNo() != null) {
             interview.setRoomNo(updateInterviewRequestDto.getRoomNo());
         }
@@ -116,18 +116,9 @@ public class InterviewService {
                 //TODO: Handle score, comment, pdfPath, excelPath, sttPath if needed
             }
         }
-
-        if (updateInterviewRequestDto.getInterviewerIds() != null) {
-            // InterviewerAssignment 대신 문자열로 저장
-            List<String> interviewerNames = new ArrayList<>();
-            for (Long interviewerId : updateInterviewRequestDto.getInterviewerIds()) {
-                User interviewer = userRepository.findById(interviewerId)
-                    .orElseThrow(() -> new RuntimeException("Interviewer not found with ID: " + interviewerId));
-                interviewerNames.add(interviewer.getName());
-            }
-            interview.setInterviewers(String.join(",", interviewerNames));
-        }
-
+    
+        // interviewerIds 관련 코드 제거됨
+        
         interviewRepository.save(interview);
     }
 
