@@ -33,18 +33,18 @@ jobs:
             --push ./server/spring
 
       - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_PORT }}
           script: |
-            cd /home/ec2-user/SK-AXIS  # docker-compose.yml 파일이 있는 디렉토리로 이동
-            echo "=== SK-AXIS 업데이트 시작 ==="
+            cd /home/ec2-user/SK-AXIS
             docker pull ${{ secrets.DOCKER_USERNAME }}/skaxis-server:latest
-            docker-compose -f docker-compose.dev.yml down springboot || true
-            docker-compose -f docker-compose.dev.yml up -d springboot
+            docker-compose -f docker-compose.prod.yml down springboot || true
+            docker-compose -f docker-compose.prod.yml up -d springboot
+            docker-compose -f docker-compose.prod.yml ps
             docker image prune -f
             echo "=== 업데이트 완료! ==="
             docker-compose -f docker-compose.dev.yml ps
