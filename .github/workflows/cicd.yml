@@ -43,8 +43,8 @@ jobs:
             cd /home/ec2-user/SK-AXIS  # docker-compose.yml 파일이 있는 디렉토리로 이동
             echo "=== SK-AXIS 업데이트 시작 ==="
             docker pull ${{ secrets.DOCKER_USERNAME }}/skaxis-server:latest
-            docker-compose -f docker-compose.yml down springboot || true
-            docker-compose -f docker-compose.yml up -d springboot
+            docker-compose -f docker-compose.dev.yml down springboot || true
+            docker-compose -f docker-compose.dev.yml up -d springboot
             docker image prune -f
             echo "=== 업데이트 완료! ==="
-            docker-compose -f docker-compose.yml ps
+            docker-compose -f docker-compose.dev.yml ps
