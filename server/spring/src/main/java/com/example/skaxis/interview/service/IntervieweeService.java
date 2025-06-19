@@ -24,6 +24,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.example.skaxis.interview.model.Interview.InterviewStatus.UNDECIDED;
+
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -40,12 +42,12 @@ public class IntervieweeService {
 
     public Interviewee findById(Long id) {
         return intervieweeRepository.findById(id)
-            .orElseThrow(() -> new RuntimeException("Interviewee not found with ID: " + id));
+                .orElseThrow(() -> new RuntimeException("Interviewee not found with ID: " + id));
     }
 
     public Interviewee findByName(String name) {
         return intervieweeRepository.findByName(name)
-            .orElseThrow(() -> new RuntimeException("Interviewee not found with name: " + name));
+                .orElseThrow(() -> new RuntimeException("Interviewee not found with name: " + name));
     }
 
     public Interviewee saveInterviewee(Interviewee interviewee) {
@@ -74,49 +76,49 @@ public class IntervieweeService {
         try {
             // InterviewService를 통해 해당 날짜의 면접 일정 조회
             List<Interview> interviews = interviewService.findInterviewsByDate(date);
-            
+
             // 해당 날짜의 면접에 참여하는 면접 대상자들을 Interview를 통해 조회
             List<Interviewee> interviewees = new ArrayList<>();
             for (Interview interview : interviews) {
                 List<InterviewInterviewee> interviewInterviewees =
-                    interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
+                        interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
 
                 for (InterviewInterviewee ii : interviewInterviewees) {
                     Interviewee interviewee = intervieweeRepository.findById(ii.getIntervieweeId())
-                        .orElse(null);
+                            .orElse(null);
                     if (interviewee != null && !interviewees.contains(interviewee)) {
                         interviewees.add(interviewee);
                     }
                 }
             }
-            
+
             // 데이터베이스에서 해당 날짜의 면접실 정보 동적 생성
             // InterviewService를 통해 조회
             List<String> roomIds = interviewService.findDistinctRoomIdsByDate(date);
             List<RoomDto> rooms = roomIds.stream()
-                .map(roomId -> new RoomDto(roomId, "면접실 " + roomId))
-                .collect(Collectors.toList());
-            
+                    .map(roomId -> new RoomDto(roomId, "면접실 " + roomId))
+                    .collect(Collectors.toList());
+
             // 면접실이 없는 경우 기본 면접실 제공
             if (rooms.isEmpty()) {
                 List<String> allRoomIds = interviewService.findDistinctRoomIds();
                 rooms = allRoomIds.stream()
-                    .map(roomId -> new RoomDto(roomId, "면접실 " + roomId))
-                    .collect(Collectors.toList());
+                        .map(roomId -> new RoomDto(roomId, "면접실 " + roomId))
+                        .collect(Collectors.toList());
             }
-            
+
             // 시간대별 면접 정보 생성
             List<TimeSlotDto> timeSlots = createTimeSlots(interviews, interviewees);
-            
+
             // 사람 정보 생성 (면접관 + 지원자)
             List<PersonDto> people = createPeople(interviews, interviewees);
-            
+
             return new InterviewScheduleResponseDto(rooms, timeSlots, people, "면접 일정이 성공적으로 조회되었습니다.");
-            
+
         } catch (Exception e) {
             log.error("면접 일정 조회 중 오류 발생: {}", e.getMessage(), e);
-            return new InterviewScheduleResponseDto(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), 
-                "면접 일정 조회 중 오류가 발생했습니다: " + e.getMessage());
+            return new InterviewScheduleResponseDto(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(),
+                    "면접 일정 조회 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
 
@@ -124,30 +126,30 @@ public class IntervieweeService {
         try {
             // InterviewService를 통해 해당 날짜의 면접 일정 조회
             List<Interview> interviews = interviewService.findInterviewsByDate(date);
-            
+
             List<InterviewScheduleItemDto> schedules = new ArrayList<>();
-            
+
             for (Interview interview : interviews) {
                 // 면접관 이름들 파싱 (Interview 엔티티의 interviewers 필드에서)
                 List<String> interviewerNames = parseInterviewers(interview.getInterviewers());
-                
+
                 // 해당 면접의 지원자들 조회
                 List<InterviewInterviewee> interviewInterviewees =
-                    interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
+                        interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
                 String status = interview.getStatus().getDescription();
 
                 List<String> interviewees = new ArrayList<>();
                 for (InterviewInterviewee ii : interviewInterviewees) {
                     Interviewee interviewee = intervieweeRepository.findById(ii.getIntervieweeId())
-                        .orElse(null);
+                            .orElse(null);
                     if (interviewee != null && interviewee.getName() != null) {
                         interviewees.add(interviewee.getName());
                     }
                 }
-                
+
                 // 시간 범위 포맷팅
                 String timeRange = formatSimpleTimeRange(interview.getScheduledAt(), interview.getScheduledEndAt());
-                
+
                 InterviewScheduleItemDto scheduleItem = InterviewScheduleItemDto.builder()
                         .interviewDate(date)
                         .timeRange(timeRange)
@@ -159,67 +161,67 @@ public class IntervieweeService {
 
                 schedules.add(scheduleItem);
             }
-            
+
             return SimpleInterviewScheduleResponseDto.builder()
-                .schedules(schedules)
-                .message("면접 일정이 성공적으로 조회되었습니다.")
-                .build();
-                
+                    .schedules(schedules)
+                    .message("면접 일정이 성공적으로 조회되었습니다.")
+                    .build();
+
         } catch (Exception e) {
             log.error("면접 일정 조회 중 오류 발생: {}", e.getMessage(), e);
             return SimpleInterviewScheduleResponseDto.builder()
-                .schedules(new ArrayList<>())
-                .message("면접 일정 조회 중 오류가 발생했습니다: " + e.getMessage())
-                .build();
+                    .schedules(new ArrayList<>())
+                    .message("면접 일정 조회 중 오류가 발생했습니다: " + e.getMessage())
+                    .build();
         }
     }
 
     private List<TimeSlotDto> createTimeSlots(List<Interview> interviews, List<Interviewee> interviewees) {
         Map<String, TimeSlotDto> timeSlotMap = new HashMap<>();
-        
+
         // 면접별로 시간대 생성
         for (Interview interview : interviews) {
             String timeRange = formatTimeRange(interview.getScheduledAt());
             String timeSlotId = "ts_" + interview.getInterviewId();
-            
+
             // 해당 면접의 면접관들 (Interview 엔티티의 interviewers 필드에서 파싱)
             List<String> interviewerIds = parseInterviewers(interview.getInterviewers());
-            
+
             // 해당 면접의 지원자들
-            List<InterviewInterviewee> interviewInterviewees = 
-                interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
+            List<InterviewInterviewee> interviewInterviewees =
+                    interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
             List<String> candidateIds = new ArrayList<>();
-            
+
             for (InterviewInterviewee ii : interviewInterviewees) {
                 candidateIds.add("c" + ii.getIntervieweeId());
             }
-            
+
             TimeSlotDto timeSlot = new TimeSlotDto(
-                timeSlotId,
-                interview.getRoomNo(),
-                timeRange,
-                interviewerIds.stream().map(name -> "i_" + name.hashCode()).collect(Collectors.toList()),
-                candidateIds
+                    timeSlotId,
+                    interview.getRoomNo(),
+                    timeRange,
+                    interviewerIds.stream().map(name -> "i_" + name.hashCode()).collect(Collectors.toList()),
+                    candidateIds
             );
-            
+
             timeSlotMap.put(timeSlotId, timeSlot);
         }
-        
+
         return new ArrayList<>(timeSlotMap.values());
     }
 
     private List<PersonDto> createPeople(List<Interview> interviews, List<Interviewee> interviewees) {
         List<PersonDto> people = new ArrayList<>();
-        
+
         // 지원자 정보 추가
         for (Interviewee interviewee : interviewees) {
             people.add(new PersonDto(
-                "c" + interviewee.getIntervieweeId(),
-                interviewee.getName() != null ? interviewee.getName() : "이름 없음",
-                "candidate"
+                    "c" + interviewee.getIntervieweeId(),
+                    interviewee.getName() != null ? interviewee.getName() : "이름 없음",
+                    "candidate"
             ));
         }
-        
+
         // 면접관 정보 추가 (Interview 엔티티의 interviewers 필드에서)
         for (Interview interview : interviews) {
             List<String> interviewerNames = parseInterviewers(interview.getInterviewers());
@@ -232,7 +234,7 @@ public class IntervieweeService {
                 }
             }
         }
-        
+
         return people;
     }
 
@@ -245,7 +247,7 @@ public class IntervieweeService {
 
     private String formatTimeRange(LocalDateTime scheduledAt) {
         if (scheduledAt == null) return "시간 미정";
-        
+
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
         String startTime = scheduledAt.format(timeFormatter);
         String endTime = scheduledAt.plusHours(1).format(timeFormatter); // 1시간 후를 종료 시간으로 가정
@@ -254,10 +256,10 @@ public class IntervieweeService {
 
     private String formatSimpleTimeRange(LocalDateTime start, LocalDateTime end) {
         if (start == null) return "시간 미정";
-        
+
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
         String startTime = start.format(timeFormatter);
-        
+
         if (end != null) {
             String endTime = end.format(timeFormatter);
             return startTime + "~" + endTime;
@@ -275,56 +277,56 @@ public class IntervieweeService {
             } else {
                 interviews = interviewService.findAllOrderByScheduledAt();
             }
-            
-            
+
+
             List<InterviewScheduleItemDto> schedules = new ArrayList<>();
-            
+
             for (Interview interview : interviews) {
                 // 면접관 이름들 파싱
                 List<String> interviewerNames = parseInterviewers(interview.getInterviewers());
-                
+
                 // 해당 면접의 지원자들 조회
-                List<InterviewInterviewee> interviewInterviewees = 
-                    interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
-                
+                List<InterviewInterviewee> interviewInterviewees =
+                        interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
+
                 List<String> interviewees = new ArrayList<>();
                 for (InterviewInterviewee ii : interviewInterviewees) {
                     Interviewee interviewee = intervieweeRepository.findById(ii.getIntervieweeId())
-                        .orElse(null);
+                            .orElse(null);
                     if (interviewee != null && interviewee.getName() != null) {
                         interviewees.add(interviewee.getName());
                     }
                 }
-                
+
                 // 시간 범위 포맷팅
                 String timeRange = formatSimpleTimeRange(interview.getScheduledAt(), interview.getScheduledEndAt());
-                
+
                 // 날짜 추출 (LocalDate)
                 LocalDate interviewDate = interview.getScheduledAt().toLocalDate();
-                
+
                 InterviewScheduleItemDto scheduleItem = InterviewScheduleItemDto.builder()
-                    .interviewDate(interviewDate)
-                    .timeRange(timeRange)
-                    .roomName(interview.getRoomNo())
-                    .interviewers(interviewerNames)
-                    .interviewees(interviewees)
-                    .status(interview.getStatus().getDescription())
-                    .build();
-                
+                        .interviewDate(interviewDate)
+                        .timeRange(timeRange)
+                        .roomName(interview.getRoomNo())
+                        .interviewers(interviewerNames)
+                        .interviewees(interviewees)
+                        .status(interview.getStatus().getDescription())
+                        .build();
+
                 schedules.add(scheduleItem);
             }
-            
+
             return SimpleInterviewScheduleResponseDto.builder()
-                .schedules(schedules)
-                .message("전체 면접 일정을 성공적으로 조회했습니다.")
-                .build();
-                
+                    .schedules(schedules)
+                    .message("전체 면접 일정을 성공적으로 조회했습니다.")
+                    .build();
+
         } catch (Exception e) {
             log.error("전체 면접 일정 조회 중 오류 발생: {}", e.getMessage(), e);
             return SimpleInterviewScheduleResponseDto.builder()
-                .schedules(new ArrayList<>())
-                .message("면접 일정 조회 중 오류가 발생했습니다: " + e.getMessage())
-                .build();
+                    .schedules(new ArrayList<>())
+                    .message("면접 일정 조회 중 오류가 발생했습니다: " + e.getMessage())
+                    .build();
         }
     }
 
@@ -340,12 +342,12 @@ public class IntervieweeService {
                 for (Interview interview : interviews) {
                     // 상태 필터링
                     if (status != null && !status.isEmpty() &&
-                        !interview.getStatus().getDescription().equalsIgnoreCase(status)) {
+                            !interview.getStatus().getDescription().equalsIgnoreCase(status)) {
                         continue;
                     }
 
                     List<InterviewInterviewee> interviewInterviewees =
-                        interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
+                            interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
 
                     for (InterviewInterviewee ii : interviewInterviewees) {
                         intervieweeIds.add(ii.getIntervieweeId());
@@ -353,17 +355,17 @@ public class IntervieweeService {
                 }
 
                 interviewees = intervieweeIds.stream()
-                    .map(id -> intervieweeRepository.findById(id).orElse(null))
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
+                        .map(id -> intervieweeRepository.findById(id).orElse(null))
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
             } else {
                 // 전체 면접자 조회
                 interviewees = intervieweeRepository.findAll();
             }
 
             List<IntervieweeResponseDto> responseList = interviewees.stream()
-                .map(this::convertToResponseDto)
-                .collect(Collectors.toList());
+                    .map(this::convertToResponseDto)
+                    .collect(Collectors.toList());
 
             return new IntervieweeListResponseDto(responseList, responseList.size());
 
@@ -388,7 +390,7 @@ public class IntervieweeService {
     private IntervieweeResponseDto convertToResponseDto(Interviewee interviewee) {
         // 해당 면접자의 최근 면접 정보 조회
         List<InterviewInterviewee> interviewInterviewees =
-            interviewIntervieweeRepository.findByIntervieweeId(interviewee.getIntervieweeId());
+                interviewIntervieweeRepository.findByIntervieweeId(interviewee.getIntervieweeId());
 
         Interview recentInterview = null;
         if (!interviewInterviewees.isEmpty()) {
@@ -397,17 +399,15 @@ public class IntervieweeService {
         }
 
         return IntervieweeResponseDto.builder()
-            .intervieweeId(interviewee.getIntervieweeId())
-            .applicantName(interviewee.getName())
-//            .applicantId(interviewee.getApplicantCode())
-//            .position("개발자") // 기본값, 추후 엔티티에 필드 추가 필요
-            .interviewDate(recentInterview != null ? recentInterview.getScheduledAt().toLocalDate() : null)
-            .interviewStatus(recentInterview != null ? recentInterview.getStatus().getDescription() : "미정")
-            .score(interviewee.getScore())
-            .interviewer(recentInterview != null ? recentInterview.getInterviewers() : "미정")
-            .interviewLocation(recentInterview != null ? recentInterview.getRoomNo() : "미정")
-            .createdAt(interviewee.getCreatedAt())
-            .build();
+                .intervieweeId(interviewee.getIntervieweeId())
+                .name(interviewee.getName())
+                .scheduledAt(recentInterview != null ? recentInterview.getScheduledAt() : null)
+                .status(recentInterview != null ? recentInterview.getStatus() : UNDECIDED)
+                .score(interviewee.getScore())
+                .interviewers(recentInterview != null ? recentInterview.getInterviewers() : "미정")
+                .roomNo(recentInterview != null ? recentInterview.getRoomNo() : "미정")
+                .createdAt(interviewee.getCreatedAt())
+                .build();
     }
 
 }
