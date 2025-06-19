@@ -10,5 +10,4 @@ import java.util.List;
 @AllArgsConstructor
 public class StartInterviewRequestDto {
     private List<Integer> intervieweeIds;
-    private List<Integer> interviewerIds = List.of(); // 기본값 빈 리스트
 }
