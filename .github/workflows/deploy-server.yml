@@ -2,7 +2,7 @@ name: Deploy Server Service
 
 on:
   push:
-    branches: [ back ]  # 'back' 브랜치에 푸시할 때 실행
+    branches: [ back ]
     paths:
       - 'server/**'
 
