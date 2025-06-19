@@ -54,9 +54,18 @@ jobs:
           port: ${{ secrets.EC2_PORT }}
           script: |
             cd /home/ec2-user/SK-AXIS
+
+            # .env 존재 여부 확인
+            if [ -f ".env" ]; then
+              echo "[✓] .env 파일 존재 확인됨. 배포를 계속합니다."
+            else
+              echo "[⚠] .env 파일이 없습니다. 배포가 실패할 수 있습니다."
+            fi
+
+            echo "== Docker 이미지 풀 및 배포 시작 =="
             docker pull ${{ secrets.DOCKER_USERNAME }}/skaxis-server:latest
             docker-compose -f docker-compose.prod.yml down springboot || true
             docker-compose -f docker-compose.prod.yml up -d springboot
             docker-compose -f docker-compose.prod.yml ps
             docker image prune -f
-            docker-compose -f docker-compose.dev.yml ps
+            echo "=== 업데이트 완료! ==="
