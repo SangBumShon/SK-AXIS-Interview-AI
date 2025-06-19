@@ -16,12 +16,11 @@ docker info | grep Username || {
 
 # Docker buildx 설정 (멀티 플랫폼 빌드용)
 docker buildx rm multiplatform 2>/dev/null || true
-docker buildx create --use --name multiplatform
-
+docker buildx create --use --name multiplatform-builder 2>/dev/null || true
 
 # Spring Boot 이미지 빌드
 echo "Spring Boot 이미지 빌드 중..."
-docker buildx build --platform linux/amd64,linux/arm64 \
+docker buildx build --platform linux/amd64 \
     -t ${DOCKER_USERNAME}/${APP_NAME}-server:${VERSION} \
     --push ./server/spring
 if [ $? -ne 0 ]; then

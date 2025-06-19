@@ -16,6 +16,12 @@ public final class AuthConstants {
             "/api/v1/interviews/**",
             "/api/v1/interviewees/**",
             "/api/v1/internal/**",
+            // Swagger UI 경로 추가
+            "/swagger-ui/**",
+            "/swagger-ui.html",
+            "/v3/api-docs/**",
+            "/swagger-resources/**",
+            "/webjars/**"
     };
     //admin user만 접근 가능한 URI
     public static final String[] ADMIN_URI = {
