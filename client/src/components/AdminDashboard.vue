@@ -11,13 +11,17 @@
               </h1>
             </div>
             <nav class="space-y-1">
-              <a href="#" class="flex items-center px-4 py-3 text-gray-900 bg-gray-100 rounded-lg">
-                <i class="fas fa-tachometer-alt w-5 text-red-600"></i>
-                <span class="ml-3 font-medium">대시보드</span>
+              <a href="#" @click.prevent="setActiveView('dashboard')" 
+                 :class="activeView === 'dashboard' ? 'text-gray-900 bg-gray-100' : 'text-gray-600 hover:bg-gray-50'"
+                 class="flex items-center px-4 py-3 rounded-lg">
+                <i class="fas fa-tachometer-alt w-5" :class="activeView === 'dashboard' ? 'text-red-600' : 'text-gray-500'"></i>
+                <span class="ml-3" :class="activeView === 'dashboard' ? 'font-medium' : ''">대시보드</span>
               </a>
-              <a href="#" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg">
-                <i class="fas fa-users w-5 text-gray-500"></i>
-                <span class="ml-3">지원자 관리</span>
+              <a href="#" @click.prevent="setActiveView('candidates')"
+                 :class="activeView === 'candidates' ? 'text-gray-900 bg-gray-100' : 'text-gray-600 hover:bg-gray-50'"
+                 class="flex items-center px-4 py-3 rounded-lg">
+                <i class="fas fa-users w-5" :class="activeView === 'candidates' ? 'text-red-600' : 'text-gray-500'"></i>
+                <span class="ml-3" :class="activeView === 'candidates' ? 'font-medium' : ''">지원자 관리</span>
               </a>
               <a href="#" @click.prevent="showCalendarView = true" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg">
                 <i class="fas fa-calendar-alt w-5 text-gray-500"></i>
@@ -49,7 +53,8 @@
       
       <!-- 메인 콘텐츠 -->
       <div class="flex-1 overflow-auto">
-        <div class="container mx-auto px-6 py-8">
+        <!-- 대시보드 뷰 -->
+        <div v-if="activeView === 'dashboard'" class="container mx-auto px-6 py-8">
           <!-- 헤더 -->
           <div class="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
             <div class="flex items-center gap-6">
@@ -77,7 +82,7 @@
                 </div>
                 <div>
                   <h3 class="text-lg font-medium text-gray-700">전체 지원자</h3>
-                  <p class="text-3xl font-semibold text-gray-900">128</p>
+                  <p class="text-3xl font-semibold text-gray-900">{{ candidateList.length }}</p>
                 </div>
               </div>
               <p class="text-sm text-gray-500 flex items-center gap-1">
@@ -224,10 +229,102 @@
             </div>
           </div>
         </div>
+
+        <!-- 지원자 관리 뷰 -->
+        <div v-if="activeView === 'candidates'" class="p-8">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-900">지원자 관리</h2>
+          </div>
+
+          <!-- 필터 및 검색 -->
+          <div class="bg-white rounded-lg p-6 mb-6 border border-gray-200">
+            <div class="grid grid-cols-4 gap-6">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">상태</label>
+                <select v-model="candidateFilters.status" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+                  <option value="all">전체</option>
+                  <option value="면접 예정">면접 예정</option>
+                  <option value="면접 완료">면접 완료</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">면접 일정</label>
+                <input type="date" v-model="candidateFilters.interviewDate" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">검색</label>
+                <div class="relative">
+                  <input type="text" v-model="candidateFilters.search" placeholder="이름 또는 직무 검색" class="w-full px-3 py-2 border border-gray-300 rounded-md text-sm pr-10">
+                  <i class="fas fa-search absolute right-3 top-2.5 text-gray-400"></i>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 지원자 목록 테이블 -->
+          <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div class="p-4 border-b border-gray-100 flex justify-between items-center">
+              <h2 class="text-lg font-medium text-gray-700">지원자 목록</h2>
+              <div class="flex items-center gap-3">
+                <button @click="addNewCandidate" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2">
+                  <i class="fas fa-plus"></i>
+                  추가
+                </button>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">이름</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">지원 직무</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">면접 일정</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">면접 시간</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">면접관</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">면접실</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">상태</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">최종 점수</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">관리</th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  <tr v-for="candidate in filteredCandidates" :key="candidate.id" class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">{{ candidate.name }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ candidate.position }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ candidate.interviewDate }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ candidate.interviewTime || '-' }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ candidate.interviewers ? candidate.interviewers.join(', ') : '-' }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ candidate.room || '-' }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <span :class="{
+                        'px-2 py-1 text-xs font-medium rounded-full': true,
+                        'bg-yellow-100 text-yellow-800': candidate.status === '서류 합격',
+                        'bg-blue-100 text-blue-800': candidate.status === '면접 예정',
+                        'bg-green-100 text-green-800': candidate.status === '최종 합격',
+                        'bg-gray-100 text-gray-800': candidate.status === '면접 완료'
+                      }">{{ candidate.status || '-' }}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">{{ candidate.score ?? '-' }}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="flex items-center gap-2">
+                        <button class="text-blue-600 hover:text-blue-800" @click="editCandidate(candidate)">
+                          <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="text-red-600 hover:text-red-800" @click="deleteCandidate(candidate)">
+                          <i class="fas fa-trash-alt"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- 삭제 확인 모달 -->
+    <!-- Delete Confirmation Modal -->
     <div v-if="showDeleteConfirm" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
         <h3 class="text-xl font-bold text-gray-900 mb-4">전체 삭제 확인</h3>
@@ -238,6 +335,100 @@
           </button>
           <button @click="deleteAllInterviews" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
             삭제
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 지원자 삭제 확인 모달 -->
+    <div v-if="showCandidateDeleteModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 max-w-sm w-full mx-4 relative animate-fadeIn">
+        <h3 class="text-xl font-bold text-gray-900 mb-4">지원자 삭제</h3>
+        <p class="text-gray-700 mb-6">정말로 {{ deletingCandidate?.name }} 지원자를 삭제하시겠습니까?</p>
+        <div class="flex justify-end gap-3">
+          <button
+            @click="showCandidateDeleteModal = false; deletingCandidate = null"
+            class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors whitespace-nowrap"
+          >
+            취소
+          </button>
+          <button
+            @click="confirmDeleteCandidate"
+            class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors whitespace-nowrap"
+          >
+            삭제
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 지원자 추가/수정 모달 -->
+    <div v-if="showCandidateModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 max-w-lg w-full mx-4 relative animate-fadeIn">
+        <h3 class="text-xl font-bold text-gray-900 mb-6">
+          {{ isEditingCandidate ? '지원자 정보 수정' : '새 지원자 추가' }}
+        </h3>
+        <div class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">이름</label>
+            <input type="text" v-model="candidateForm.name" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">지원 직무</label>
+            <input type="text" v-model="candidateForm.position" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">상태</label>
+            <select v-model="candidateForm.status" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+              <option value="">상태 선택</option>
+              <option value="서류 합격">서류 합격</option>
+              <option value="면접 예정">면접 예정</option>
+              <option value="면접 완료">면접 완료</option>
+              <option value="최종 합격">최종 합격</option>
+            </select>
+            <div v-if="candidateForm.status" class="mt-1">
+              <span :class="{
+                'px-2 py-1 text-xs font-medium rounded-full': true,
+                'bg-yellow-100 text-yellow-800': candidateForm.status === '서류 합격',
+                'bg-blue-100 text-blue-800': candidateForm.status === '면접 예정',
+                'bg-green-100 text-green-800': candidateForm.status === '최종 합격',
+                'bg-gray-100 text-gray-800': candidateForm.status === '면접 완료'
+              }">{{ candidateForm.status }}</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">면접 일정</label>
+            <input type="date" v-model="candidateForm.interviewDate" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">면접 시간</label>
+            <input type="text" v-model="candidateForm.interviewTime" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">면접관 (쉼표로 구분)</label>
+            <input type="text" v-model="candidateForm.interviewersString" placeholder="예: 김민수, 이지원" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">면접실</label>
+            <input type="text" v-model="candidateForm.room" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+          </div>
+          <div v-if="isEditingCandidate">
+            <label class="block text-sm font-medium text-gray-700 mb-1">점수</label>
+            <input type="number" v-model="candidateForm.score" min="0" max="100" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
+          </div>
+        </div>
+        <div class="flex justify-end gap-3 mt-6">
+          <button
+            @click="closeCandidateModal"
+            class="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors whitespace-nowrap"
+          >
+            취소
+          </button>
+          <button
+            @click="saveCandidateForm"
+            class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors whitespace-nowrap"
+          >
+            저장
           </button>
         </div>
       </div>
@@ -403,6 +594,11 @@
         </div>
       </div>
     </div>
+
+    <!-- 고정 위치 버튼 -->
+    <div v-if="activeView === 'candidates'" class="fixed bottom-8 right-8 z-50">
+      <button class="px-6 py-3 bg-orange-500 text-white rounded-lg shadow-lg hover:bg-orange-600 transition-colors">적용</button>
+    </div>
   </div>
 </template>
 
@@ -413,11 +609,21 @@ import * as echarts from 'echarts';
 
 const router = useRouter();
 
+// 활성 뷰 상태
+const activeView = ref('dashboard');
+
 // 필터 상태
 const filters = ref({
   period: 'all',
   room: 'all',
   status: 'all',
+  search: ''
+});
+
+// 지원자 필터 상태
+const candidateFilters = ref({
+  status: 'all',
+  interviewDate: '',
   search: ''
 });
 
@@ -505,6 +711,15 @@ const interviews = ref([
   }
 ]);
 
+// 지원자 목록 데이터
+const candidateList = ref<Array<{ id: number; name: string; position: string; interviewers: string[]; status: string; interviewDate: string; score: number | null; interviewTime: string; room: string }>>([
+  { id: 1, name: '홍길동', position: '소프트웨어 엔지니어', interviewers: ['김민수', '이지원'], status: '서류 합격', interviewDate: '2025-06-20', score: null, interviewTime: '09:00 ~ 10:00', room: '1호실' },
+  { id: 2, name: '김철수', position: '프론트엔드 개발자', interviewers: ['박성훈'], status: '면접 예정', interviewDate: '2025-06-21', score: null, interviewTime: '', room: '2호실' },
+  { id: 3, name: '이영희', position: '백엔드 개발자', interviewers: ['최영희', '정태우'], status: '최종 합격', interviewDate: '2025-06-15', score: 92, interviewTime: '', room: '1호실' },
+  { id: 4, name: '박지민', position: 'UI/UX 디자이너', interviewers: ['강미란'], status: '면접 완료', interviewDate: '2025-06-16', score: 88, interviewTime: '', room: '3호실' },
+  { id: 5, name: '최수진', position: '데이터 엔지니어', interviewers: ['김민수'], status: '서류 합격', interviewDate: '2025-06-22', score: null, interviewTime: '', room: '2호실' }
+]);
+
 // 모달 상태
 const showDeleteConfirm = ref(false);
 const showCalendarView = ref(false);
@@ -515,6 +730,24 @@ const statisticsFilter = ref({
   period: 'all'
 });
 
+// 지원자 관리 모달 상태
+const showCandidateDeleteModal = ref(false);
+const showCandidateModal = ref(false);
+const deletingCandidate = ref<any>(null);
+const isEditingCandidate = ref(false);
+const candidateForm = ref<{ id: number; name: string; position: string; interviewersString: string; status: string; interviewDate: string; score: number | null; interviewTime: string; room: string; interviewers?: string[] }>({
+  id: 0,
+  name: '',
+  position: '',
+  interviewersString: '',
+  status: '',
+  interviewDate: '',
+  score: null,
+  interviewTime: '',
+  room: ''
+});
+
+// 차트 참조
 const jobChartRef = ref(null);
 const scoreDistributionChartRef = ref(null);
 const avgScoreChartRef = ref(null);
@@ -522,6 +755,11 @@ const avgScoreChartRef = ref(null);
 let jobChart: echarts.ECharts | null = null;
 let scoreDistributionChart: echarts.ECharts | null = null;
 let avgScoreChart: echarts.ECharts | null = null;
+
+// 뷰 변경 함수
+const setActiveView = (view: string) => {
+  activeView.value = view;
+};
 
 // 정렬된 면접 목록
 const sortedInterviews = computed(() => {
@@ -551,6 +789,27 @@ const sortedInterviews = computed(() => {
     if (aVal > bVal) return sortConfig.value.direction === 'asc' ? 1 : -1;
     return 0;
   });
+});
+
+// 필터된 지원자 목록
+const filteredCandidates = computed(() => {
+  let filtered = [...candidateList.value];
+
+  if (candidateFilters.value.status !== 'all') {
+    filtered = filtered.filter(c => c.status === candidateFilters.value.status);
+  }
+  if (candidateFilters.value.interviewDate) {
+    filtered = filtered.filter(c => c.interviewDate === candidateFilters.value.interviewDate);
+  }
+  if (candidateFilters.value.search) {
+    const search = candidateFilters.value.search.toLowerCase();
+    filtered = filtered.filter(c =>
+      c.name.toLowerCase().includes(search) ||
+      c.position.toLowerCase().includes(search)
+    );
+  }
+
+  return filtered;
 });
 
 // 현재 월/년 표시
@@ -672,6 +931,82 @@ const getInterviewClass = (interview: any) => {
 // 캘린더에서 면접 일정 클릭 시 상세 정보 표시 함수
 const showInterviewDetail = (interview: any) => {
   selectedInterview.value = interview;
+};
+
+// 지원자 관리 함수들
+const addNewCandidate = () => {
+  isEditingCandidate.value = false;
+  candidateForm.value = {
+    id: 0,
+    name: '',
+    position: '',
+    interviewersString: '',
+    status: '',
+    interviewDate: '',
+    score: null,
+    interviewTime: '',
+    room: ''
+  };
+  showCandidateModal.value = true;
+};
+
+const editCandidate = (candidate: any) => {
+  isEditingCandidate.value = true;
+  candidateForm.value = { ...candidate };
+  showCandidateModal.value = true;
+};
+
+const deleteCandidate = (candidate: any) => {
+  deletingCandidate.value = candidate;
+  showCandidateDeleteModal.value = true;
+};
+
+const confirmDeleteCandidate = () => {
+  if (deletingCandidate.value) {
+    candidateList.value = candidateList.value.filter(c => c.id !== deletingCandidate.value.id);
+    deletingCandidate.value = null;
+    showCandidateDeleteModal.value = false;
+  }
+};
+
+const closeCandidateModal = () => {
+  showCandidateModal.value = false;
+  candidateForm.value = {
+    id: 0,
+    name: '',
+    position: '',
+    interviewersString: '',
+    status: '',
+    interviewDate: '',
+    score: null,
+    interviewTime: '',
+    room: ''
+  };
+};
+
+const saveCandidateForm = () => {
+  const interviewersArr = candidateForm.value.interviewersString
+    ? candidateForm.value.interviewersString.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+  if (isEditingCandidate.value) {
+    // 수정
+    const index = candidateList.value.findIndex(c => c.id === candidateForm.value.id);
+    if (index !== -1) {
+      candidateList.value[index] = {
+        ...candidateForm.value,
+        interviewers: interviewersArr
+      };
+    }
+  } else {
+    // 추가
+    const newId = Math.max(...candidateList.value.map(c => c.id)) + 1;
+    candidateList.value.push({
+      ...candidateForm.value,
+      id: newId,
+      interviewers: interviewersArr
+    });
+  }
+  closeCandidateModal();
 };
 
 // 통계 차트 초기화
@@ -798,3 +1133,14 @@ onMounted(() => {
   initCharts();
 });
 </script>
+
+<style scoped>
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
+}
+</style>
