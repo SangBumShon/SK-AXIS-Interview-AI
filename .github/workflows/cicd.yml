@@ -46,7 +46,7 @@ jobs:
             --push ./server/spring
 
       - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
@@ -55,7 +55,8 @@ jobs:
           script: |
             cd /home/ec2-user/SK-AXIS
             docker pull ${{ secrets.DOCKER_USERNAME }}/skaxis-server:latest
-            docker-compose -f docker-compose.dev.yml down springboot || true
-            docker-compose -f docker-compose.dev.yml up -d springboot
+            docker-compose -f docker-compose.prod.yml down springboot || true
+            docker-compose -f docker-compose.prod.yml up -d springboot
+            docker-compose -f docker-compose.prod.yml ps
             docker image prune -f
             docker-compose -f docker-compose.dev.yml ps

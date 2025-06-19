@@ -332,40 +332,25 @@ public class IntervieweeService {
 
     public IntervieweeListResponseDto getInterviewees(LocalDate date, String status, String position) {
         try {
-            List<Interviewee> interviewees;
+            List<InterviewInterviewee> interviewInterviewees;
 
+            // Specification을 사용하거나 Repository 메서드를 수정하여 동적 쿼리를 만드는 것이 더 좋습니다.
+            // 여기서는 간단하게 로직을 수정합니다.
             if (date != null) {
-                // 특정 날짜의 면접에 참여하는 면접자들 조회
                 List<Interview> interviews = interviewService.findInterviewsByDate(date);
-                Set<Long> intervieweeIds = new HashSet<>();
-
-                for (Interview interview : interviews) {
-                    // 상태 필터링
-                    if (status != null && !status.isEmpty() &&
-                            !interview.getStatus().getDescription().equalsIgnoreCase(status)) {
-                        continue;
-                    }
-
-                    List<InterviewInterviewee> interviewInterviewees =
-                            interviewIntervieweeRepository.findByInterviewId(interview.getInterviewId());
-
-                    for (InterviewInterviewee ii : interviewInterviewees) {
-                        intervieweeIds.add(ii.getIntervieweeId());
-                    }
-                }
-
-                interviewees = intervieweeIds.stream()
-                        .map(id -> intervieweeRepository.findById(id).orElse(null))
-                        .filter(Objects::nonNull)
+                List<Long> interviewIds = interviews.stream()
+                        .filter(interview -> status == null || status.isEmpty() || interview.getStatus().name().equalsIgnoreCase(status))
+                        .map(Interview::getInterviewId)
                         .collect(Collectors.toList());
+                interviewInterviewees = interviewIntervieweeRepository.findByInterviewIdIn(interviewIds);
             } else {
-                // 전체 면접자 조회
-                interviewees = intervieweeRepository.findAll();
+                // 날짜가 지정되지 않은 경우, 모든 Interview-Interviewee 관계를 가져옵니다.
+                // 필요에 따라 status나 position으로 추가 필터링이 필요할 수 있습니다.
+                interviewInterviewees = interviewIntervieweeRepository.findAll();
             }
 
-            List<IntervieweeResponseDto> responseList = interviewees.stream()
-                    .map(this::convertToResponseDto)
-                    .collect(Collectors.toList());
+            // IntervieweeResponseDto.fromList를 사용하여 변환
+            List<IntervieweeResponseDto> responseList = IntervieweeResponseDto.fromList(interviewInterviewees);
 
             return new IntervieweeListResponseDto(responseList, responseList.size());
 
@@ -387,6 +372,8 @@ public class IntervieweeService {
         return getInterviewScheduleByDate(date);
     }
 
+    // 이 메서드는 더 이상 사용되지 않으므로 삭제하거나 주석 처리할 수 있습니다.
+    /*
     private IntervieweeResponseDto convertToResponseDto(Interviewee interviewee) {
         // 해당 면접자의 최근 면접 정보 조회
         List<InterviewInterviewee> interviewInterviewees =
@@ -409,5 +396,6 @@ public class IntervieweeService {
                 .createdAt(interviewee.getCreatedAt())
                 .build();
     }
+    */
 
 }
