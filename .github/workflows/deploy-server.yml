@@ -4,7 +4,8 @@ on:
   push:
     branches:
       - back
-      - main  # main 브랜치도 추가
+      - 'back/**'
+      - main
     paths:
       - 'server/**'
 
