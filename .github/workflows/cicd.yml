@@ -3,15 +3,28 @@ name: Deploy Server Service
 on:
   push:
     branches:
-      - back
-      - 'back/**'
-      - main
+      - '**'  # 모든 브랜치에 대해 CI는 실행 가능하게
     paths:
       - 'server/**'
 
 jobs:
-  build-and-deploy-server:
+  ci:
+    name: Build & Test Only (no deploy)
     runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main'  # main이 아닐 때만 실행
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build only
+        run: |
+          echo "🧪 This is a CI check only. No deploy will happen."
+          docker build ./server/spring
+
+  cd:
+    name: Build & Deploy on main
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'  # main일 때만 배포
     environment: deploy
     steps:
       - name: Checkout code
@@ -40,11 +53,9 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_PORT }}
           script: |
-            cd /home/ec2-user/SK-AXIS  # docker-compose.yml 파일이 있는 디렉토리로 이동
-            echo "=== SK-AXIS 업데이트 시작 ==="
+            cd /home/ec2-user/SK-AXIS
             docker pull ${{ secrets.DOCKER_USERNAME }}/skaxis-server:latest
             docker-compose -f docker-compose.dev.yml down springboot || true
             docker-compose -f docker-compose.dev.yml up -d springboot
             docker image prune -f
-            echo "=== 업데이트 완료! ==="
             docker-compose -f docker-compose.dev.yml ps
