@@ -261,10 +261,9 @@ const onStartInterview = () => {
   );
   
   if (scheduleData && scheduleData.interviewees) {
-    scheduleData.interviewees.forEach((name: string) => {
-      candidateNames.push(name);
-      // 임시 ID 생성 (실제로는 API에서 받은 intervieweeId를 사용해야 함)
-      candidateIds.push(-(candidateNames.length));
+    scheduleData.interviewees.forEach((interviewee: { name: string; id: number }) => {
+      candidateNames.push(interviewee.name);
+      candidateIds.push(interviewee.id);
     });
   }
   
