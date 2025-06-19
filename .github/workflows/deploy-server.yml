@@ -12,10 +12,9 @@ on:
 jobs:
   build-and-deploy-server:
     runs-on: ubuntu-latest
-    # environment: deploy  # 일시적으로 제거
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -33,7 +32,7 @@ jobs:
             --push ./server/spring
 
       - name: Deploy to EC2
-        uses: appleboy/ssh-action@v1.0.0
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
@@ -41,7 +40,7 @@ jobs:
           port: ${{ secrets.EC2_PORT }}
           script: |
             echo "=== SK-AXIS 업데이트 시작 ==="
-            docker pull --platform linux/amd64 ${{ secrets.DOCKER_USERNAME }}/skaxis-server:latest
+            docker pull ${{ secrets.DOCKER_USERNAME }}/skaxis-server:latest
             docker-compose down springboot || true
             docker-compose up -d springboot
             docker image prune -f
