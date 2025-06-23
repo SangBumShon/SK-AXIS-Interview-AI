@@ -61,9 +61,5 @@ ENV PYTHONUNBUFFERED=1
 # 포트 노출
 EXPOSE 8000
 
-<<<<<<< HEAD
 # 실행 커맨드
-=======
-# 애플리케이션 실행 (개발 모드 비활성화)
->>>>>>> origin/front-ai-face
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
