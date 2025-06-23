@@ -3,6 +3,10 @@ import openai
 import os
 from dotenv import load_dotenv
 from fastapi import UploadFile
+<<<<<<< HEAD
+=======
+import whisper
+>>>>>>> origin/front-ai-face
 from typing import Optional
 from datetime import datetime
 
@@ -17,6 +21,7 @@ if not openai_key:
     raise ValueError("❌ OPENAI_API_KEY가 .env에 정의되지 않았습니다.")
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+<<<<<<< HEAD
 # Whisper 모델 초기화 (Windows 환경 대응)
 try:
     import whisper
@@ -26,6 +31,10 @@ except Exception as e:
     print(f"⚠️ 로컬 whisper 모델 로딩 실패: {e}")
     print("📝 OpenAI Whisper API만 사용합니다.")
     WHISPER_AVAILABLE = False
+=======
+# Whisper 모델 초기화
+model = whisper.load_model("base")
+>>>>>>> origin/front-ai-face
 
 #🧠 OpenAI Whisper API를 통한 STT 수행
 def transcribe_audio_file(file_path: str) -> str:
@@ -58,13 +67,22 @@ async def process_audio_file(interviewee_id: int, audio_file: UploadFile) -> Opt
             content = await audio_file.read()
             buffer.write(content)
         
+<<<<<<< HEAD
         # OpenAI Whisper API 사용 (Windows 환경에서 안정적)
         result = transcribe_audio_file(temp_path)
+=======
+        # Whisper로 STT 처리
+        result = model.transcribe(temp_path)
+>>>>>>> origin/front-ai-face
         
         # 임시 파일 삭제
         os.remove(temp_path)
         
+<<<<<<< HEAD
         return result
+=======
+        return result["text"]
+>>>>>>> origin/front-ai-face
         
     except Exception as e:
         print(f"STT 처리 중 오류 발생: {str(e)}")

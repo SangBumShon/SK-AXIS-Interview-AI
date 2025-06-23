@@ -51,16 +51,26 @@
   const password = ref('');
   const error = ref('');
   
-  const handleLogin = () => {
-    // 데모 로그인 (실제로는 API 호출로 대체)
-    if (username.value === 'admin' && password.value === 'admin123') {
-      emit('login');
-      emit('close');
-      router.push('/admin'); // AdminDashboard로 이동
-    } else {
-      error.value = '아이디 또는 비밀번호가 올바르지 않습니다.';
-    }
-  };
+  const handleLogin = async () => {
+  try {
+    fetch('http://sk-axis-springboot:8080/api/v1/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        userName: username.value,
+        password: password.value
+      })
+    })
+    router.push('/admin');
+    emit('login');
+  } catch (error) {
+    console.error('로그인 중 오류 발생:', error);
+    error = '로그인에 실패했습니다. 다시 시도해주세요.';
+    return;
+  }
+}
   function emitClose() {
     emit('close');
     username.value = '';

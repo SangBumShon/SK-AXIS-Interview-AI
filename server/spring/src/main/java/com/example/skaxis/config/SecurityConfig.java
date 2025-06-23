@@ -79,6 +79,9 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(List.of(
+            "http://localhost:3000",
+            "http://localhost:",
+            "http://localhost",
             "http://localhost:*",
             "http://127.0.0.1:*",
             "http://192.168.*.*:*",  // 로컬 네트워크 허용

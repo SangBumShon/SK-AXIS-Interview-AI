@@ -33,7 +33,11 @@ public class InterviewService {
     private final InterviewRepository interviewRepository;
     private final IntervieweeRepository intervieweeRepository;
     private final UserRepository userRepository;
+<<<<<<< HEAD
     @Transactional(readOnly = true)
+=======
+
+>>>>>>> origin/front-ai-face
     public GetInterviewsResponseDto getAllInterviews() {
         List<Interview> interviewList = interviewRepository.findAll();
 
@@ -89,7 +93,11 @@ public class InterviewService {
     public void updateInterview(UpdateInterviewRequestDto updateInterviewRequestDto, Long interviewId) {
         Interview interview = interviewRepository.findById(interviewId)
             .orElseThrow(() -> new RuntimeException("Interview not found"));
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> origin/front-ai-face
         if (updateInterviewRequestDto.getRoomNo() != null) {
             interview.setRoomNo(updateInterviewRequestDto.getRoomNo());
         }
@@ -116,9 +124,24 @@ public class InterviewService {
                 //TODO: Handle score, comment, pdfPath, excelPath, sttPath if needed
             }
         }
+<<<<<<< HEAD
     
         // interviewerIds 관련 코드 제거됨
         
+=======
+
+        if (updateInterviewRequestDto.getInterviewerIds() != null) {
+            // InterviewerAssignment 대신 문자열로 저장
+            List<String> interviewerNames = new ArrayList<>();
+            for (Long interviewerId : updateInterviewRequestDto.getInterviewerIds()) {
+                User interviewer = userRepository.findById(interviewerId)
+                    .orElseThrow(() -> new RuntimeException("Interviewer not found with ID: " + interviewerId));
+                interviewerNames.add(interviewer.getName());
+            }
+            interview.setInterviewers(String.join(",", interviewerNames));
+        }
+
+>>>>>>> origin/front-ai-face
         interviewRepository.save(interview);
     }
 
@@ -138,7 +161,11 @@ public class InterviewService {
             .map(i -> new GetInterviewByIdResponseDto.IntervieweeDto(
                 i.getInterviewee().getIntervieweeId(),
                 i.getInterviewee().getName(),
+<<<<<<< HEAD
 //                i.getInterviewee().getApplicantCode(),
+=======
+                i.getInterviewee().getApplicantCode(),
+>>>>>>> origin/front-ai-face
                 i.getCreatedAt().toString()))
             .toArray(GetInterviewByIdResponseDto.IntervieweeDto[]::new));
 

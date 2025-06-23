@@ -1,6 +1,7 @@
 # app/services/internal_client.py
 
 import httpx
+<<<<<<< HEAD
 import os
 from typing import List, Dict
 
@@ -11,6 +12,15 @@ SPRINGBOOT_BASE_URL = os.environ.get("SPRING_API_URL", "http://sk-axis-springboo
 async def fetch_interviewee_questions(interviewee_id: int) -> List[Dict]:
     """
     FastAPI → Spring Boot: 지원자별 면접 질문 5개 조회 (단일 지원자)
+=======
+from typing import List, Dict
+
+SPRINGBOOT_BASE_URL = "http://localhost:8080/api/v1"
+
+async def fetch_interviewee_questions(interviewee_id: int) -> List[Dict]:
+    """
+    FastAPI → Spring Boot: 지원자별 면접 질문 5개 조회
+>>>>>>> origin/front-ai-face
     """
     url = f"{SPRINGBOOT_BASE_URL}/internal/interviewee/{interviewee_id}/questions"
     async with httpx.AsyncClient() as client:
@@ -20,6 +30,7 @@ async def fetch_interviewee_questions(interviewee_id: int) -> List[Dict]:
         elif response.status_code == 404:
             return []
         else:
+<<<<<<< HEAD
             response.raise_for_status()
 
 
@@ -37,4 +48,6 @@ async def fetch_multiple_interviewee_questions(interviewee_ids: List[int]) -> Di
         elif response.status_code == 404:
             return {}
         else:
+=======
+>>>>>>> origin/front-ai-face
             response.raise_for_status()

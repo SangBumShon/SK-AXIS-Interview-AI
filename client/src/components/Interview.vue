@@ -31,7 +31,7 @@
               <span class="text-sm text-gray-500">지원자 {{ index + 1 }}</span>
             </div>
             <div class="space-y-4">
-              <div v-for="(question, qIndex) in getQuestionsForCandidate(candidateIds[index])" :key="question.id" class="p-4 bg-gray-50 rounded-lg">
+              <div v-for="(question, qIndex) in questionsPerInterviewee[candidateIds[index]] || []" :key="question.questionId" class="p-4 bg-gray-50 rounded-lg">
                 <div class="flex items-center gap-3 mb-2">
                   <span class="flex items-center justify-center w-6 h-6 bg-red-600 text-white rounded-full text-sm font-medium">
                     {{ qIndex + 1 }}
@@ -75,7 +75,12 @@
     <div
       class="fixed bottom-4 right-4 bg-gray-900 rounded-lg overflow-hidden shadow-lg z-50 flex items-center justify-center"
       style="width:480px; aspect-ratio:4/3; pointer-events:none;">
-      <PoseMiniWidget style="width:100%; height:100%;" />
+      <PoseMiniWidget 
+        :intervieweeNames="candidates"
+        :intervieweeIds="candidateIds"
+        @updateNonverbalData="handleNonverbalData"
+        style="width:100%; height:100%;" 
+      />
     </div>
 
     <!-- AI 로딩 모달 -->
@@ -84,19 +89,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
-import type { Question } from '../data/questionData';
-import { getQuestionsForCandidate as getCandidateQuestions } from '../data/questionData';
-import AiLoadingModal from './AiLoadingModal.vue';
-import PoseMiniWidget from './PoseMiniWidget.vue';
+import { ref, defineProps, defineEmits } from 'vue'
+import { useRouter } from 'vue-router'
+import AiLoadingModal from './AiLoadingModal.vue'
+import PoseMiniWidget from './PoseMiniWidget.vue'
 
 interface Props {
-  roomName: string;
-  timeRange: string;
-  interviewers: string;
-  candidates: string[];
-  candidateIds: string[];
+  roomName: string
+  timeRange: string
+  interviewers: string
+  candidates: string[]
+  candidateIds: number[]
+  interviewerIds: number[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -104,78 +108,164 @@ const props = withDefaults(defineProps<Props>(), {
   timeRange: '',
   interviewers: '',
   candidates: () => [],
-  candidateIds: () => []
-});
+  candidateIds: () => [],
+  interviewerIds: () => []
+})
 
-const emit = defineEmits<{
-  (e: 'close'): void;
-  (e: 'startSession'): void;
-  (e: 'endSession'): void;
-  (e: 'toggleWebcam'): void;
-}>();
+type Emits = {
+  (e: 'startSession'): void
+  (e: 'endSession'): void
+  (e: 'close'): void
+}
 
-const router = useRouter();
-const isAnalyzing = ref(false);
+const emit = defineEmits<Emits>()
 
-const getQuestionsForCandidate = (candidateId: string): Question[] => {
-  return getCandidateQuestions(candidateId);
-};
+const router = useRouter()
+const isAnalyzing = ref(false)
 
-const startSession = () => {
-  emit('startSession');
-};
+// 비언어적 데이터 저장소
+const nonverbalData = ref<Record<number, any>>({})
+
+// 질문 데이터를 저장할 상태
+const questionsPerInterviewee = ref<Record<number, any[]>>({})
+
+// PoseMiniWidget으로부터 비언어적 데이터 업데이트
+const handleNonverbalData = (data: Record<string, any>) => {
+  // string 키를 number로 변환
+  const convertedData: Record<number, any> = {}
+  Object.entries(data).forEach(([key, value]) => {
+    convertedData[Number(key)] = value
+  })
+  nonverbalData.value = convertedData
+}
+
+const startSession = async () => {
+  try {
+    console.log('면접 시작...', { candidateIds: props.candidateIds, interviewerIds: props.interviewerIds })
+    isAnalyzing.value = true
+
+    // FastAPI 서버에 면접 시작 요청
+    const token = localStorage.getItem('accessToken');
+    const response = await fetch('http://3.38.218.18:8080/api/v1/interviews/start', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({
+        intervieweeIds: props.candidateIds,
+        interviewerIds: props.interviewerIds
+      })
+    })
+
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type')
+      let errorMessage = '면접 시작 실패'
+      
+      try {
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json()
+          errorMessage = errorData.detail || errorMessage
+        } else {
+          const text = await response.text()
+          console.error('서버 응답 (JSON이 아님):', text)
+          errorMessage = `서버 오류 (${response.status}): ${text}`
+        }
+      } catch (e) {
+        console.error('에러 응답 파싱 실패:', e)
+        errorMessage = `서버 오류 (${response.status})`
+      }
+      
+      throw new Error(errorMessage)
+    }
+
+    const result = await response.json()
+    console.log('면접 시작 성공:', result)
+    // 질문 데이터 저장
+    questionsPerInterviewee.value = result.questionsPerInterviewee || {}
+    emit('startSession')  // 면접 시작 이벤트 발생
+    isAnalyzing.value = false
+  } catch (error: unknown) {
+    console.error('면접 시작 중 오류:', error)
+    isAnalyzing.value = false
+    alert('면접 시작 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : String(error)))
+  }
+}
 
 const endSession = async () => {
   try {
-    isAnalyzing.value = true;
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    const interviewResults = props.candidates.map((candidate, index) => ({
-      candidateInfo: {
-        name: candidate,
-        position: '개발자',
-        department: 'IT',
-        interviewDate: new Date().toLocaleDateString(),
-        interviewTime: props.timeRange
-      },
-      score: Math.floor(Math.random() * 30) + 70,
-      evaluationKeywords: [
-        {
-          category: '기술 역량',
-          score: Math.floor(Math.random() * 30) + 70,
-          reason: '기술적 이해도가 높고 실무 경험이 풍부합니다.'
-        },
-        {
-          category: '의사소통 능력',
-          score: Math.floor(Math.random() * 30) + 70,
-          reason: '명확한 의사 전달과 적극적인 커뮤니케이션이 돋보입니다.'
-        },
-        {
-          category: '문제해결 능력',
-          score: Math.floor(Math.random() * 30) + 70,
-          reason: '논리적 사고와 창의적인 해결책 제시가 뛰어납니다.'
-        }
-      ],
-      questions: getQuestionsForCandidate(props.candidateIds[index]).map(q => q.content),
-      answers: getQuestionsForCandidate(props.candidateIds[index]).map(() => '지원자의 답변 내용...'),
-      feedback: '전반적으로 우수한 역량을 보여주었습니다. 특히 기술적 이해도와 문제해결 능력이 돋보였습니다.'
-    }));
+    isAnalyzing.value = true
+    console.log('면접 종료...', { nonverbalData: nonverbalData.value })
 
+    // FastAPI 서버에 면접 종료 요청
+    const response = await fetch('http://3.38.218.18:8080/api/v1/interview/end', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        interview_id: 1,  // 임시 ID
+        interviewees: props.candidates.map((_, index) => {  // name 파라미터를 _로 변경
+          const id = props.candidateIds[index]
+          const data = nonverbalData.value[id] || {
+            posture: { upright: 0, leaning: 0, slouching: 0 },
+            facial_expression: { smile: 0, neutral: 0, frown: 0, angry: 0 },
+            gaze: 0,
+            gesture: 0
+          }
+          return {
+            interviewee_id: id,
+            posture: data.posture,
+            facial_expression: data.facial_expression,
+            gaze: data.gaze,
+            gesture: data.gesture
+          }
+        })
+      })
+    })
+
+    if (!response.ok) {
+      const contentType = response.headers.get('content-type')
+      let errorMessage = '면접 종료 실패'
+      
+      try {
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json()
+          errorMessage = errorData.detail || errorMessage
+        } else {
+          const text = await response.text()
+          console.error('서버 응답 (JSON이 아님):', text)
+          errorMessage = `서버 오류 (${response.status}): ${text}`
+        }
+      } catch (e) {
+        console.error('에러 응답 파싱 실패:', e)
+        errorMessage = `서버 오류 (${response.status})`
+      }
+      
+      throw new Error(errorMessage)
+    }
+
+    const result = await response.json()
+    console.log('면접 종료 성공:', result)
+    emit('endSession')  // 면접 종료 이벤트 발생
+
+    // 결과 페이지로 이동
     router.push({
       name: 'result',
       query: {
-        results: JSON.stringify(interviewResults),
         candidates: JSON.stringify(props.candidates),
         tab: '0'
       }
-    });
-  } catch (error) {
-    console.error('면접 분석 중 오류 발생:', error);
+    })
+  } catch (error: unknown) {
+    console.error('면접 종료 중 오류:', error)
+    alert('면접 종료 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : String(error)))
   } finally {
-    isAnalyzing.value = false;
+    isAnalyzing.value = false
   }
-};
+}
 
 const close = () => {
-  router.push('/');
-};
+  router.push('/')
+}
 </script>

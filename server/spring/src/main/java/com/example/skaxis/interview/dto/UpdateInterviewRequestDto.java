@@ -14,4 +14,8 @@ public class UpdateInterviewRequestDto {
     private Integer orderNo;
     private String status;
     private Long[] intervieweeIds;
+<<<<<<< HEAD
+=======
+    private Long[] interviewerIds;
+>>>>>>> origin/front-ai-face
 }
