@@ -1,20 +1,31 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import Dict
 
-class NonverbalCounts(BaseModel):
-    posture: int
+class Posture(BaseModel):
+    upright: int
+    leaning: int
+    slouching: int
+
+class FacialExpression(BaseModel):
+    smile: int
+    neutral: int
+    frown: int
+    angry: int
+
+class NonverbalData(BaseModel):
+    interviewee_id: int
+    posture: Posture
+    facial_expression: FacialExpression
     gaze: int
-    expression: int
     gesture: int
 
-class IntervieweeCounts(BaseModel):
+class NonverbalScore(BaseModel):
     interviewee_id: int
-    counts: NonverbalCounts
-
-class EndInterviewRequest(BaseModel):
-    interview_id: int
-    interviewees: List[IntervieweeCounts]
-
-class EndInterviewResponse(BaseModel):
-    result: str
-    report_ready: bool
+    posture_score: float
+    facial_score: float
+    overall_score: float
+    feedback: Dict[str, str]
+    detailed_analysis: str
+    posture_raw_llm_response: str
+    facial_raw_llm_response: str
+    overall_raw_llm_response: str
