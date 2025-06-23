@@ -13,8 +13,8 @@
     <div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
       <h3 class="text-lg font-bold text-gray-900 mb-4">면접 평가 기준 설정</h3>
       <p class="text-gray-600 mb-6">각 평가 항목의 가중치를 설정합니다. 모든 항목의 합은 100%여야 합니다.</p>
-      <div class="space-y-6">
-        <div v-for="(criterion, index) in evaluationCriteria" :key="index" class="bg-gray-50 rounded-lg p-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div v-for="(criterion, index) in evaluationCriteria" :key="index" class="bg-gray-50 rounded-lg p-6 col-span-1">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-full flex items-center justify-center" :class="criterion.bgColor">
