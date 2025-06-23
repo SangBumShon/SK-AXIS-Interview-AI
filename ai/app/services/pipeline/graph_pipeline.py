@@ -333,11 +333,7 @@ async def pdf_node(state: InterviewState) -> InterviewState:
     }
 
     # 일반키워드 vs 도메인·직무 분리
-<<<<<<< HEAD
     general_categories_list = ["SUPEX", "VWBE", "Passionate", "Proactive", "Professional", "People"]
-=======
-    general_categories_list = ["SUPEX", "V", "WBE", "Passionate", "Proactive", "Professional", "People"]
->>>>>>> origin/front-ai-face
     job_domain_categories_list = ["기술/직무", "도메인 전문성"]
 
     sum_gen = 0

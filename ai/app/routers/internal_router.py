@@ -12,7 +12,7 @@ router = APIRouter(tags=["Internal"])
 @router.post(
     "/internal/interviewees/questions",
     response_model=MultipleIntervieweesResponse,
-    summary="다중 지원자 질문 5개 조회 (FastAPI → Spring Boot)",
+    summary="다중 지원자 질문 5개 조회 (FastAPI to Spring Boot)",
 )
 async def get_multiple_interviewee_questions(req: MultipleIntervieweesRequest):
     """
