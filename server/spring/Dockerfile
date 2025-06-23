@@ -1,15 +1,19 @@
 # 빌드 스테이지
-FROM --platform=linux/amd64 gradle:8.7-jdk17 AS build
+# 빌드 스테이지
+FROM gradle:8.7-jdk17 AS build
 WORKDIR /app
 
 # Gradle Wrapper 및 프로젝트 파일 복사
 COPY . .
 
+RUN apt-get update && apt-get install -y dos2unix
+RUN dos2unix gradlew
+
 # Gradle 빌드 (테스트 생략)
 RUN ./gradlew build -x test
 
 # 실행 이미지 생성
-FROM --platform=linux/amd64 openjdk:17-slim
+FROM openjdk:17-slim
 WORKDIR /app
 
 # 빌드 결과 JAR 복사

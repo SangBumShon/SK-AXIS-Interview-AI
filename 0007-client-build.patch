@@ -1,0 +1,59 @@
+From 0cdbbe6817c1992c5c885b9183037e23a2fa7a87 Mon Sep 17 00:00:00 2001
+From: Jeonghyeon Park <jpark634@wisc.edu>
+Date: Mon, 9 Jun 2025 09:52:58 +0900
+Subject: [PATCH 07/33] =?UTF-8?q?client=20build=20=EC=97=90=EB=9F=AC=20?=
+ =?UTF-8?q?=ED=95=B4=EA=B2=B0?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ client/Dockerfile                         | 2 +-
+ client/src/components/AdminDashboard.vue  | 4 ++--
+ client/src/components/InterviewResult.vue | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/client/Dockerfile b/client/Dockerfile
+index eb6c752..cf5ff64 100644
+--- a/client/Dockerfile
++++ b/client/Dockerfile
+@@ -8,7 +8,7 @@ RUN npm install
+ 
+ # Tailwind CSS 및 추가 패키지 설치
+ RUN npm install -D tailwindcss@latest postcss@latest autoprefixer@latest
+-RUN npm install @mediapipe/pose @mediapipe/camera_utils @mediapipe/drawing_utils
++RUN npm install @mediapipe/pose @mediapipe/camera_utils @mediapipe/drawing_utils @mediapipe/tasks-vision
+ RUN npm install axios vue-router@4 pinia@latest chart.js vue-chartjs
+ 
+ # 소스 코드 복사 및 빌드
+diff --git a/client/src/components/AdminDashboard.vue b/client/src/components/AdminDashboard.vue
+index a874f46..7221ce2 100644
+--- a/client/src/components/AdminDashboard.vue
++++ b/client/src/components/AdminDashboard.vue
+@@ -315,8 +315,8 @@
+     }
+     // Apply sorting
+     return filtered.sort((a, b) => {
+-      const aVal = a[sortConfig.value.key as keyof typeof a];
+-      const bVal = b[sortConfig.value.key as keyof typeof b];
++      const aVal = a[sortConfig.value.key as keyof typeof a] || '';
++      const bVal = b[sortConfig.value.key as keyof typeof b] || '';
+       if (aVal < bVal) return sortConfig.value.direction === 'asc' ? -1 : 1;
+       if (aVal > bVal) return sortConfig.value.direction === 'asc' ? 1 : -1;
+       return 0;
+diff --git a/client/src/components/InterviewResult.vue b/client/src/components/InterviewResult.vue
+index 536e235..7f50a8b 100644
+--- a/client/src/components/InterviewResult.vue
++++ b/client/src/components/InterviewResult.vue
+@@ -199,7 +199,7 @@ const fixedKeywordList = computed(() => {
+   const evalArr = result.value?.evaluationKeywords || [];
+   // 5개 고정 카테고리 loop
+   return competencyConfig.map(conf => {
+-    const found = evalArr.find(e => e.category === conf.category);
++    const found = evalArr.find((e: { category: string; score?: number; reason?: string }) => e.category === conf.category);
+     return {
+       ...conf,
+       score: found?.score ?? null,
+-- 
+2.39.5 (Apple Git-154)
+

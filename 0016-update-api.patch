@@ -1,0 +1,323 @@
+From 429caf7357f16cae63c11fd7abe105721f93d839 Mon Sep 17 00:00:00 2001
+From: starwarrior77 <kkk792100@naver.com>
+Date: Mon, 16 Jun 2025 17:36:49 +0900
+Subject: [PATCH 16/33] =?UTF-8?q?update:=20=EB=B2=84=ED=8A=BC&api=EC=97=B0?=
+ =?UTF-8?q?=EA=B2=B0?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ client/src/components/Interview.vue      | 163 ++++++++++++++---------
+ client/src/components/PoseMiniWidget.vue |  64 +++++++--
+ 2 files changed, 153 insertions(+), 74 deletions(-)
+
+diff --git a/client/src/components/Interview.vue b/client/src/components/Interview.vue
+index e3a9b16..7ccc4d6 100644
+--- a/client/src/components/Interview.vue
++++ b/client/src/components/Interview.vue
+@@ -78,6 +78,7 @@
+       <PoseMiniWidget 
+         :intervieweeNames="candidates"
+         :intervieweeIds="candidateIds"
++        @updateNonverbalData="handleNonverbalData"
+         style="width:100%; height:100%;" 
+       />
+     </div>
+@@ -88,34 +89,46 @@
+ </template>
+ 
+ <script setup lang="ts">
+-import { ref } from 'vue';
+-import { useRouter } from 'vue-router';
+-import type { Question } from '../data/questionData';
+-import { getQuestionsForCandidate as getCandidateQuestions } from '../data/questionData';
+-import AiLoadingModal from './AiLoadingModal.vue';
+-import PoseMiniWidget from './PoseMiniWidget.vue';
+-
+-const props = defineProps<{
+-  roomName: string;
+-  timeRange: string;
+-  interviewers: string;
+-  candidates: string[];
+-  candidateIds: string[];
+-  interviewerIds: number[];
+-}>();
+-
+-const emit = defineEmits<{
+-  (e: 'startSession'): void;
+-  (e: 'endSession'): void;
+-  (e: 'close'): void;
+-}>();
+-
+-const router = useRouter();
+-const isAnalyzing = ref(false);
++import { ref, defineProps, defineEmits } from 'vue'
++import { useRouter } from 'vue-router'
++import type { Question } from '../data/questionData'
++import { getQuestionsForCandidate as getCandidateQuestions } from '../data/questionData'
++import AiLoadingModal from './AiLoadingModal.vue'
++import PoseMiniWidget from './PoseMiniWidget.vue'
++
++interface Props {
++  roomName: string
++  timeRange: string
++  interviewers: string
++  candidates: string[]
++  candidateIds: string[]
++  interviewerIds: number[]
++}
++
++const props = defineProps<Props>()
++
++type Emits = {
++  (e: 'startSession'): void
++  (e: 'endSession'): void
++  (e: 'close'): void
++}
++
++const emit = defineEmits<Emits>()
++
++const router = useRouter()
++const isAnalyzing = ref(false)
++
++// 비언어적 데이터 저장소
++const nonverbalData = ref<Record<string, any>>({})
+ 
+ const getQuestionsForCandidate = (candidateId: string): Question[] => {
+-  return getCandidateQuestions(candidateId);
+-};
++  return getCandidateQuestions(candidateId)
++}
++
++// PoseMiniWidget으로부터 비언어적 데이터 업데이트
++const handleNonverbalData = (data: Record<string, any>) => {
++  nonverbalData.value = data
++}
+ 
+ const startSession = async () => {
+   try {
+@@ -168,56 +181,78 @@ const startSession = async () => {
+ 
+ const endSession = async () => {
+   try {
+-    isAnalyzing.value = true;
+-    await new Promise(resolve => setTimeout(resolve, 3000));
+-    const interviewResults = props.candidates.map((candidate, index) => ({
+-      candidateInfo: {
+-        name: candidate,
+-        position: '개발자',
+-        department: 'IT',
+-        interviewDate: new Date().toLocaleDateString(),
+-        interviewTime: props.timeRange
++    isAnalyzing.value = true
++    console.log('면접 종료...', { nonverbalData: nonverbalData.value })
++
++    // FastAPI 서버에 면접 종료 요청
++    const response = await fetch('/api/v1/interview/end', {
++      method: 'POST',
++      headers: {
++        'Content-Type': 'application/json',
+       },
+-      score: Math.floor(Math.random() * 30) + 70,
+-      evaluationKeywords: [
+-        {
+-          category: '기술 역량',
+-          score: Math.floor(Math.random() * 30) + 70,
+-          reason: '기술적 이해도가 높고 실무 경험이 풍부합니다.'
+-        },
+-        {
+-          category: '의사소통 능력',
+-          score: Math.floor(Math.random() * 30) + 70,
+-          reason: '명확한 의사 전달과 적극적인 커뮤니케이션이 돋보입니다.'
+-        },
+-        {
+-          category: '문제해결 능력',
+-          score: Math.floor(Math.random() * 30) + 70,
+-          reason: '논리적 사고와 창의적인 해결책 제시가 뛰어납니다.'
++      body: JSON.stringify({
++        interview_id: 1,  // 임시 ID
++        interviewees: props.candidates.map((_, index) => {  // name 파라미터를 _로 변경
++          const id = props.candidateIds[index]
++          const data = nonverbalData.value[id] || {
++            posture: { upright: 0, leaning: 0, slouching: 0 },
++            facial_expression: { smile: 0, neutral: 0, frown: 0, angry: 0 },
++            gaze: 0,
++            gesture: 0
++          }
++          return {
++            interviewee_id: id,
++            posture: data.posture,
++            facial_expression: data.facial_expression,
++            gaze: data.gaze,
++            gesture: data.gesture
++          }
++        })
++      })
++    })
++
++    if (!response.ok) {
++      const contentType = response.headers.get('content-type')
++      let errorMessage = '면접 종료 실패'
++      
++      try {
++        if (contentType && contentType.includes('application/json')) {
++          const errorData = await response.json()
++          errorMessage = errorData.detail || errorMessage
++        } else {
++          const text = await response.text()
++          console.error('서버 응답 (JSON이 아님):', text)
++          errorMessage = `서버 오류 (${response.status}): ${text}`
+         }
+-      ],
+-      questions: getQuestionsForCandidate(props.candidateIds[index]).map(q => q.content),
+-      answers: getQuestionsForCandidate(props.candidateIds[index]).map(() => '지원자의 답변 내용...'),
+-      feedback: '전반적으로 우수한 역량을 보여주었습니다. 특히 기술적 이해도와 문제해결 능력이 돋보였습니다.'
+-    }));
++      } catch (e) {
++        console.error('에러 응답 파싱 실패:', e)
++        errorMessage = `서버 오류 (${response.status})`
++      }
++      
++      throw new Error(errorMessage)
++    }
+ 
++    const result = await response.json()
++    console.log('면접 종료 성공:', result)
++    emit('endSession')  // 면접 종료 이벤트 발생
++
++    // 결과 페이지로 이동
+     router.push({
+       name: 'result',
+       query: {
+-        results: JSON.stringify(interviewResults),
+         candidates: JSON.stringify(props.candidates),
+         tab: '0'
+       }
+-    });
++    })
+   } catch (error: unknown) {
+-    console.error('면접 분석 중 오류 발생:', error);
+-    alert('면접 분석 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : String(error)));
++    console.error('면접 종료 중 오류:', error)
++    alert('면접 종료 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : String(error)))
+   } finally {
+-    isAnalyzing.value = false;
++    isAnalyzing.value = false
+   }
+-};
++}
+ 
+ const close = () => {
+-  router.push('/');
+-};
++  router.push('/')
++}
+ </script>
+diff --git a/client/src/components/PoseMiniWidget.vue b/client/src/components/PoseMiniWidget.vue
+index 136de77..6c15099 100644
+--- a/client/src/components/PoseMiniWidget.vue
++++ b/client/src/components/PoseMiniWidget.vue
+@@ -17,7 +17,7 @@
+ </template>
+ 
+ <script setup>
+-import { ref, onMounted, onBeforeUnmount, defineProps, watch } from 'vue'
++import { ref, onMounted, onBeforeUnmount, defineProps, watch, defineEmits } from 'vue'
+ import * as faceapi from 'face-api.js'
+ 
+ const props = defineProps({
+@@ -33,6 +33,8 @@ const props = defineProps({
+   }
+ })
+ 
++const emit = defineEmits(['updateNonverbalData'])
++
+ // 녹음 관련 상태
+ const mediaRecorder = ref(null)
+ const audioChunks = ref([])
+@@ -52,17 +54,33 @@ const expKorean = {
+ // 각 면접자별 상태 관리
+ const faceStates = ref([])
+ 
++// 비언어적 데이터 저장소
++const nonverbalData = ref({})
++
++// 1초마다 데이터 업데이트 및 전송
++let updateInterval = null
++
+ // 면접자 이름이 변경될 때마다 상태 초기화
+ watch(() => props.intervieweeNames, (newNames) => {
+-  faceStates.value = newNames.map((name, index) => ({
+-    name,
+-    id: props.intervieweeIds[index],
+-    speaking: false,
+-    mouthClosedStartTime: null,
+-    isRecording: false,  // 면접자별 녹음 상태 추가
+-    expression: Object.fromEntries(expList.map(e => [e, 0])),
+-    lastExpression: null
+-  }))
++  faceStates.value = newNames.map((name, index) => {
++    const id = props.intervieweeIds[index]
++    nonverbalData.value[id] = {
++      posture: { upright: 0, leaning: 0, slouching: 0 },
++      facial_expression: { smile: 0, neutral: 0, frown: 0, angry: 0 },
++      gaze: 0,
++      gesture: 0,
++      timestamp: Date.now()
++    }
++    return {
++      name,
++      id,
++      speaking: false,
++      mouthClosedStartTime: null,
++      isRecording: false,
++      expression: Object.fromEntries(expList.map(e => [e, 0])),
++      lastExpression: null
++    }
++  })
+ }, { immediate: true })
+ 
+ function detectSpeaking(landmarks) {
+@@ -347,6 +365,28 @@ onMounted(async () => {
+     // 사용자에게 오류 알림
+     alert('카메라 초기화 중 오류가 발생했습니다. 페이지를 새로고침하거나 카메라 권한을 확인해주세요.')
+   }
++
++  // 1초마다 데이터 업데이트 및 전송
++  updateInterval = setInterval(() => {
++    const currentData = {}
++    faceStates.value.forEach((state, index) => {
++      const id = props.intervieweeIds[index]
++      currentData[id] = {
++        posture: { upright: 0, leaning: 0, slouching: 0 },  // 자세 데이터는 추후 추가
++        facial_expression: {
++          smile: state.expression['미소'] || 0,
++          neutral: state.expression['무표정'] || 0,
++          frown: state.expression['울상'] || 0,
++          angry: state.expression['찡그림'] || 0
++        },
++        gaze: 0,  // 시선 데이터는 추후 추가
++        gesture: 0,  // 제스처 데이터는 추후 추가
++        timestamp: Date.now()
++      }
++    })
++    nonverbalData.value = currentData
++    emit('updateNonverbalData', currentData)
++  }, 1000)
+ })
+ 
+ onBeforeUnmount(() => {
+@@ -362,5 +402,9 @@ onBeforeUnmount(() => {
+   })
+   
+   console.log('[컴포넌트 정리 완료] PoseMiniWidget 컴포넌트가 정리되었습니다.')
++
++  if (updateInterval) {
++    clearInterval(updateInterval)
++  }
+ })
+ </script>
+-- 
+2.39.5 (Apple Git-154)
+

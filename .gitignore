@@ -81,6 +81,16 @@ ai/temp/
 !server/temp/.gitkeep
 !ai/temp/.gitkeep
 
+# Large model files
+server/spring/src/main/resources/static/ai/weights/pose_landmarker.task
+server/spring/src/main/resources/static/ai/weights/*.task
+
+# Large zip files
+ai/ai_test*.zip
+*.zip
+
+# Client public directory
+client/public/
 
 ### Java ###
 # Compiled class file
@@ -99,7 +109,6 @@ ai/temp/
 *.war
 *.nar
 *.ear
-*.zip
 *.tar.gz
 *.rar
 
@@ -362,3 +371,8 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnkserver/spring/src/main/resources/application.yml
+
+# Version and documentation files
+version
+introduction.mdx
+*.code-workspace

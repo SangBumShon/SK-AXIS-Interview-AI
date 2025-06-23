@@ -1,53 +1,42 @@
 package com.example.skaxis.interview.dto.interviewee;
 
-import com.example.skaxis.interview.model.Interview;
-import com.example.skaxis.interview.model.InterviewInterviewee;
-import com.example.skaxis.interview.model.Interviewee;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import com.example.skaxis.interview.model.Interviewee;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class IntervieweeResponseDto {
-    private Long interviewId;
     private Long intervieweeId;
-    private String name;
-    private LocalDateTime scheduledAt;
-    private Interview.InterviewStatus status;
+    private String applicantName;
+    private String applicantId;
+    private LocalDate interviewDate;
+    private String interviewStatus;
     private Integer score;
-    private String interviewers;
-    private String roomNo;
-    private String comment;
+    private String interviewer;
+    private String interviewLocation;
     private LocalDateTime createdAt;
-
-    public static IntervieweeResponseDto from(InterviewInterviewee interviewInterviewee) {
-        Interview interview = interviewInterviewee.getInterview();
-        Interviewee interviewee = interviewInterviewee.getInterviewee();
-
+    
+    public static IntervieweeResponseDto from(Interviewee interviewee) {
         return IntervieweeResponseDto.builder()
-                .interviewId(interview.getInterviewId())
                 .intervieweeId(interviewee.getIntervieweeId())
-                .name(interviewee.getName())
-                .scheduledAt(interview.getScheduledAt())
-                .status(interview.getStatus())
-                .score(interviewInterviewee.getScore())
-                .interviewers(interview.getInterviewers())
-                .roomNo(interview.getRoomNo())
-                .comment(interviewInterviewee.getComment())
-                .createdAt(interviewInterviewee.getCreatedAt())
+                .score(interviewee.getScore())
+                .createdAt(interviewee.getCreatedAt())
                 .build();
     }
-
-    public static List<IntervieweeResponseDto> fromList(List<InterviewInterviewee> interviewInterviewees) {
-        return interviewInterviewees.stream()
+    
+    public static List<IntervieweeResponseDto> fromList(List<Interviewee> interviewees) {
+        return interviewees.stream()
                 .map(IntervieweeResponseDto::from)
                 .collect(Collectors.toList());
     }

@@ -26,7 +26,7 @@ public class GetInterviewByIdResponseDto {
     public static class IntervieweeDto {
         private Long intervieweeId;
         private String name;
-//        private String applicantCode;
+        private String applicantCode;
         private String createdAt;
     }
 

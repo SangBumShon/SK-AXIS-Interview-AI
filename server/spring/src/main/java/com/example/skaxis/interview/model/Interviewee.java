@@ -27,6 +27,9 @@ public class Interviewee {
     @Column(name = "name", nullable = false, length = 50)
     private String name;
 
+    @Column(name = "applicant_code", unique = true, length = 20)
+    private String applicantCode;
+
     @Column(name = "score")
     private Integer score;
     

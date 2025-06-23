@@ -11,8 +11,8 @@ import os
 import json
 from typing import Dict, Tuple, List
 from dotenv import load_dotenv
-from langchain_core.prompts import PromptTemplate
-from langchain_openai import ChatOpenAI
+from langchain.prompts import PromptTemplate
+from langchain.chat_models import ChatOpenAI
 
 from app.schemas.nonverbal import Posture, FacialExpression, NonverbalData, NonverbalScore
 
@@ -23,7 +23,7 @@ if not _openai_key:
     raise ValueError("OPENAI_API_KEY가 설정되어 있지 않습니다.")
 
 _llm = ChatOpenAI(
-    model_name="gpt-4o",
+    model_name="gpt-4-turbo-preview",
     temperature=0.7,
     openai_api_key=_openai_key
 )

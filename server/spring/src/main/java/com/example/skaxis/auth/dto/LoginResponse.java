@@ -7,10 +7,12 @@ import lombok.Getter;
 @Getter
 public class LoginResponse {
     private final String username;
+    private final String name;
     private final Role userType;
 
     public LoginResponse(User user) {
         this.username = user.getUserName();
+        this.name = user.getName();
         this.userType = user.getUserType();
     }
 }
