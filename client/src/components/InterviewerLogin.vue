@@ -192,7 +192,9 @@ const handleLogin = async () => {
   try {
     loginError.value = '';
     
+
     const response = await fetch('http://3.38.218.18:8080/api/v1/auth/login', {
+
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -298,7 +300,9 @@ const handleRegistration = async () => {
   
   // 회원가입 API 호출
   try {
+
     const response = await fetch('http://3.38.218.18:8080/api/v1/auth/signup/interviewer', {
+
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
