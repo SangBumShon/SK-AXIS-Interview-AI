@@ -15,11 +15,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     portaudio19-dev \
     python3-dev \
-<<<<<<< HEAD
     && apt-get clean && rm -rf /var/lib/apt/lists/*
-=======
-    && rm -rf /var/lib/apt/lists/*
->>>>>>> origin/front-ai-face
 
 # Python 의존성 설치 (한 RUN으로 pip install 묶기)
 COPY requirements.txt .
