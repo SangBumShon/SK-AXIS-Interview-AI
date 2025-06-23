@@ -334,29 +334,30 @@ public class IntervieweeService {
         try {
             List<InterviewInterviewee> interviewInterviewees;
 
-            // Specification을 사용하거나 Repository 메서드를 수정하여 동적 쿼리를 만드는 것이 더 좋습니다.
-            // 여기서는 간단하게 로직을 수정합니다.
-            if (date != null) {
+            if (date == null) {
+                // 날짜가 지정되지 않은 경우, 모든 면접-면접자 정보를 가져옵니다.
+                // LazyInitializationException을 해결하기 위해 JOIN FETCH를 사용합니다.
+                interviewInterviewees = interviewIntervieweeRepository.findAllWithInterviewAndInterviewee();
+            } else {
+                // 날짜가 지정된 경우, 해당 날짜의 면접 정보를 기반으로 필터링합니다.
+                LocalDateTime startOfDay = date.atStartOfDay();
                 List<Interview> interviews = interviewService.findInterviewsByDate(date);
                 List<Long> interviewIds = interviews.stream()
                         .filter(interview -> status == null || status.isEmpty() || interview.getStatus().name().equalsIgnoreCase(status))
                         .map(Interview::getInterviewId)
                         .collect(Collectors.toList());
+                // TODO: N+1 문제가 발생할 수 있으므로 fetch join을 사용하는 것이 좋습니다.
                 interviewInterviewees = interviewIntervieweeRepository.findByInterviewIdIn(interviewIds);
-            } else {
-                // 날짜가 지정되지 않은 경우, 모든 Interview-Interviewee 관계를 가져옵니다.
-                // 필요에 따라 status나 position으로 추가 필터링이 필요할 수 있습니다.
-                interviewInterviewees = interviewIntervieweeRepository.findAll();
             }
 
-            // IntervieweeResponseDto.fromList를 사용하여 변환
-            List<IntervieweeResponseDto> responseList = IntervieweeResponseDto.fromList(interviewInterviewees);
-
-            return new IntervieweeListResponseDto(responseList, responseList.size());
-
+            // 필터링된 InterviewInterviewee 목록을 DTO로 변환
+            List<IntervieweeResponseDto> dtos = IntervieweeResponseDto.fromList(interviewInterviewees);
+        
+            return new IntervieweeListResponseDto(dtos, dtos.size());
         } catch (Exception e) {
-            log.error("면접자 목록 조회 중 오류 발생: {}", e.getMessage(), e);
-            return new IntervieweeListResponseDto(new ArrayList<>(), 0);
+            log.error("Error fetching interviewees: {}", e.getMessage());
+            // 예외 상황에 맞는 적절한 응답을 반환하거나, 더 구체적인 예외 처리를 수행할 수 있습니다.
+            return new IntervieweeListResponseDto(Collections.emptyList(), 0); // 또는 예외를 던짐
         }
     }
 
