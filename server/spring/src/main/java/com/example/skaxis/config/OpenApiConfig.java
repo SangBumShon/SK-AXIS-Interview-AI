@@ -23,7 +23,8 @@ public class OpenApiConfig {
                                 .name("SK-AXIS Team")
                                 .email("support@sk-axis.com")))
                 .servers(List.of(
-                        new Server().url("http://localhost:8080").description("개발 서버"),
+                        new Server().url("http://localhost:8080").description("로컬 개발 서버"),
+                        new Server().url("http://3.38.218.18:8080").description("EC2 원격 서버"),
                         new Server().url("https://api.sk-axis.com").description("운영 서버")
                 ));
     }

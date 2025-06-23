@@ -1,0 +1,1867 @@
+From 01e7aab42d2219c6e6682f4b23ee0559b68d8f6f Mon Sep 17 00:00:00 2001
+From: starwarrior77 <kkk792100@naver.com>
+Date: Thu, 5 Jun 2025 16:52:12 +0900
+Subject: [PATCH 04/33] =?UTF-8?q?Front=20=EB=B8=8C=EB=9E=9C=EC=B9=98?=
+ =?UTF-8?q?=EC=97=90=EC=84=9C=20=EC=9E=91=EC=97=85=ED=95=9C=20=EC=B5=9C?=
+ =?UTF-8?q?=EC=8B=A0=20client=20=ED=8F=B4=EB=8D=94=EB=A1=9C=20=EA=B5=90?=
+ =?UTF-8?q?=EC=B2=B4?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ client/.gitignore                             |  14 +-
+ client/Dockerfile                             |  37 --
+ client/nginx.conf                             |  61 ---
+ client/package.json                           |   3 +-
+ client/src/components/Interview.vue           |   3 +-
+ .../components/InterviewAdminDashboard.vue    | 339 -------------
+ client/src/components/InterviewSetup.vue      | 109 ++---
+ client/src/components/InterviewView.vue       | 460 ------------------
+ client/src/components/PoseMiniWidget.vue      | 411 +++++++---------
+ client/src/data/interviewData.ts              |  20 +-
+ client/src/services/interviewService.ts       |  26 -
+ client/websocket_test.py                      |  23 +
+ 12 files changed, 255 insertions(+), 1251 deletions(-)
+ delete mode 100644 client/Dockerfile
+ delete mode 100644 client/nginx.conf
+ delete mode 100644 client/src/components/InterviewAdminDashboard.vue
+ delete mode 100644 client/src/components/InterviewView.vue
+ delete mode 100644 client/src/services/interviewService.ts
+ create mode 100644 client/websocket_test.py
+
+diff --git a/client/.gitignore b/client/.gitignore
+index 9095693..4b388b9 100644
+--- a/client/.gitignore
++++ b/client/.gitignore
+@@ -7,11 +7,10 @@ yarn-error.log*
+ pnpm-debug.log*
+ lerna-debug.log*
+ 
+-package-lock.json
++# Dependency directories
+ node_modules
+ dist
+ dist-ssr
+-*.local
+ 
+ # Editor directories and files
+ .vscode/*
+@@ -27,4 +26,13 @@ dist-ssr
+ # Environment variables
+ .env
+ .env.*
+-!.env.example 
+\ No newline at end of file
++!.env.example
++
++# Package lock files
++package-lock.json
++
++# Model files
++public/models/
++
++# Misc
++*.local
+diff --git a/client/Dockerfile b/client/Dockerfile
+deleted file mode 100644
+index 6239982..0000000
+--- a/client/Dockerfile
++++ /dev/null
+@@ -1,37 +0,0 @@
+-FROM node:16-alpine as build
+-
+-WORKDIR /app
+-
+-# 의존성 파일 복사 및 설치
+-COPY package*.json ./
+-RUN npm install
+-
+-# Tailwind CSS 및 추가 패키지 설치
+-RUN npm install -D tailwindcss@latest postcss@latest autoprefixer@latest
+-RUN npm install @mediapipe/pose @mediapipe/camera_utils @mediapipe/drawing_utils
+-RUN npm install axios vue-router@4 pinia@latest chart.js vue-chartjs
+-
+-# 소스 코드 복사 및 빌드
+-COPY . .
+-RUN npm run build
+-
+-# 실행 이미지 생성
+-FROM nginx:stable-alpine
+-
+-# Nginx 설정 복사
+-COPY --from=build /app/dist /usr/share/nginx/html
+-COPY nginx.conf /etc/nginx/conf.d/default.conf
+-
+-# 추가 파일 디렉토리 생성
+-RUN mkdir -p /usr/share/nginx/html/assets
+-RUN mkdir -p /usr/share/nginx/html/downloads
+-
+-# 환경 변수 설정
+-ENV API_URL="/api"
+-ENV WS_URL="/ws"
+-
+-# 포트 노출
+-EXPOSE 80
+-
+-# Nginx 실행
+-CMD ["nginx", "-g", "daemon off;"]
+diff --git a/client/nginx.conf b/client/nginx.conf
+deleted file mode 100644
+index 0cd43f5..0000000
+--- a/client/nginx.conf
++++ /dev/null
+@@ -1,61 +0,0 @@
+-server {
+-    listen 80;
+-    server_name localhost;
+-    client_max_body_size 100M;
+-    
+-    # 기본 설정
+-    location / {
+-        root /usr/share/nginx/html;
+-        index index.html;
+-        try_files $uri $uri/ /index.html;
+-    }
+-
+-    # FastAPI 서비스 프록시
+-    location /api/v1/ {
+-        proxy_pass http://fastapi:8000/api/v1/;
+-        proxy_set_header Host $host;
+-        proxy_set_header X-Real-IP $remote_addr;
+-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+-        proxy_set_header X-Forwarded-Proto $scheme;
+-        proxy_read_timeout 300s;
+-        proxy_connect_timeout 75s;
+-        proxy_send_timeout 300s;
+-    }
+-
+-    # SpringBoot 서비스 프록시
+-    location /api/spring/ {
+-        proxy_pass http://springboot:8080/api/v1/;
+-        proxy_set_header Host $host;
+-        proxy_set_header X-Real-IP $remote_addr;
+-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+-        proxy_set_header X-Forwarded-Proto $scheme;
+-        proxy_read_timeout 300s;
+-        proxy_connect_timeout 75s;
+-        proxy_send_timeout 300s;
+-    }
+-
+-    # WebSocket 연결 프록시 - 비언어적 요소 분석용
+-    location /ws/ {
+-        proxy_pass http://fastapi:8000/ws/;
+-        proxy_http_version 1.1;
+-        proxy_set_header Upgrade $http_upgrade;
+-        proxy_set_header Connection "upgrade";
+-        proxy_set_header Host $host;
+-        proxy_set_header X-Real-IP $remote_addr;
+-        proxy_read_timeout 3600s;
+-        proxy_send_timeout 3600s;
+-    }
+-    
+-    # 파일 다운로드 경로
+-    location /downloads/ {
+-        alias /usr/share/nginx/html/downloads/;
+-        add_header Content-disposition "attachment";
+-    }
+-    
+-    # 정적 파일 캐싱 설정
+-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+-        root /usr/share/nginx/html;
+-        expires 30d;
+-        add_header Cache-Control "public, no-transform";
+-    }
+-}
+diff --git a/client/package.json b/client/package.json
+index b0619a0..2cf6959 100644
+--- a/client/package.json
++++ b/client/package.json
+@@ -11,10 +11,9 @@
+   },
+   "dependencies": {
+     "@fortawesome/fontawesome-free": "^6.4.2",
+-    "@mediapipe/tasks-vision": "^0.10.22-rc.20250304",
+     "autoprefixer": "^10.4.15",
+-    "axios": "^1.9.0",
+     "echarts": "^5.4.3",
++    "face-api.js": "^0.22.2",
+     "postcss": "^8.4.28",
+     "tailwindcss": "^3.3.3",
+     "vue": "^3.3.4",
+diff --git a/client/src/components/Interview.vue b/client/src/components/Interview.vue
+index 088cdd6..fbcc9df 100644
+--- a/client/src/components/Interview.vue
++++ b/client/src/components/Interview.vue
+@@ -74,8 +74,7 @@
+     <!-- 우측 하단 실시간 캠/분석 오버레이 (480x270픽셀 고정) -->
+     <div
+       class="fixed bottom-4 right-4 bg-gray-900 rounded-lg overflow-hidden shadow-lg z-50 flex items-center justify-center"
+-      style="width:480px; height:270px; pointer-events:none;"
+-    >
++      style="width:480px; aspect-ratio:4/3; pointer-events:none;">
+       <PoseMiniWidget style="width:100%; height:100%;" />
+     </div>
+ 
+diff --git a/client/src/components/InterviewAdminDashboard.vue b/client/src/components/InterviewAdminDashboard.vue
+deleted file mode 100644
+index 2bb9d8d..0000000
+--- a/client/src/components/InterviewAdminDashboard.vue
++++ /dev/null
+@@ -1,339 +0,0 @@
+-<template>
+-  <div class="min-h-screen flex bg-white">
+-    <!-- Sidebar -->
+-    <aside class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg">
+-      <div class="flex flex-col h-full">
+-        <!-- Logo -->
+-        <div class="p-4 border-b border-gray-200">
+-          <h1 class="text-2xl font-bold">
+-            <span class="text-[#E60012]">SK</span>
+-            <span class="text-[#FF7A00]">AXIS</span>
+-          </h1>
+-        </div>
+-
+-        <!-- Navigation -->
+-        <nav class="flex-1 p-4 space-y-1">
+-          <router-link to="/admin" class="flex items-center px-4 py-2 text-[#FF7A00] bg-orange-50 rounded-lg">
+-            <i class="fas fa-chart-line w-5"></i>
+-            <span class="ml-3">대시보드</span>
+-          </router-link>
+-          <router-link to="/admin/interviews" class="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+-            <i class="fas fa-video w-5"></i>
+-            <span class="ml-3">면접 관리</span>
+-          </router-link>
+-          <router-link to="/admin/candidates" class="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+-            <i class="fas fa-users w-5"></i>
+-            <span class="ml-3">지원자 관리</span>
+-          </router-link>
+-          <router-link to="/admin/schedule" class="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+-            <i class="fas fa-calendar-alt w-5"></i>
+-            <span class="ml-3">일정 관리</span>
+-          </router-link>
+-          <router-link to="/admin/interviewers" class="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+-            <i class="fas fa-user-tie w-5"></i>
+-            <span class="ml-3">면접관 관리</span>
+-          </router-link>
+-          <router-link to="/admin/reports" class="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+-            <i class="fas fa-file-alt w-5"></i>
+-            <span class="ml-3">보고서</span>
+-          </router-link>
+-          <router-link to="/admin/settings" class="flex items-center px-4 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+-            <i class="fas fa-cog w-5"></i>
+-            <span class="ml-3">설정</span>
+-          </router-link>
+-        </nav>
+-
+-        <!-- User Info -->
+-        <div class="p-4 border-t border-gray-200">
+-          <div class="flex items-center">
+-            <div class="w-8 h-8 rounded-full bg-[#FF7A00] text-white flex items-center justify-center">
+-              <i class="fas fa-user"></i>
+-            </div>
+-            <div class="ml-3">
+-              <p class="text-sm font-medium text-gray-900">관리자</p>
+-              <p class="text-xs text-gray-500">admin@skaxis.com</p>
+-            </div>
+-          </div>
+-        </div>
+-      </div>
+-    </aside>
+-
+-    <!-- Main Content -->
+-    <main class="ml-64 p-8 flex-1 bg-white">
+-      <!-- Header -->
+-      <div class="flex justify-between items-center mb-8">
+-        <div>
+-          <h1 class="text-2xl font-bold text-gray-900">면접 관리 대시보드</h1>
+-          <p class="text-gray-600 mt-1">면접 현황 및 통계</p>
+-        </div>
+-        <div class="flex space-x-4">
+-          <button class="!rounded-button whitespace-nowrap px-4 py-2 bg-[#FF7A00] text-white hover:bg-[#e66e00]">
+-            <i class="fas fa-plus mr-2"></i>새 면접 등록
+-          </button>
+-          <button class="!rounded-button whitespace-nowrap px-4 py-2 border border-gray-300 text-gray-700 hover:bg-gray-50">
+-            <i class="fas fa-download mr-2"></i>엑셀 다운로드
+-          </button>
+-        </div>
+-      </div>
+-
+-      <!-- Stats Cards -->
+-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+-        <div class="bg-white rounded-lg shadow-sm p-6">
+-          <div class="flex items-center">
+-            <div class="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center">
+-              <i class="fas fa-video text-blue-500 text-xl"></i>
+-            </div>
+-            <div class="ml-4">
+-              <p class="text-sm text-gray-600">오늘의 면접</p>
+-              <p class="text-2xl font-semibold text-gray-900">12</p>
+-            </div>
+-          </div>
+-        </div>
+-        <div class="bg-white rounded-lg shadow-sm p-6">
+-          <div class="flex items-center">
+-            <div class="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center">
+-              <i class="fas fa-check-circle text-green-500 text-xl"></i>
+-            </div>
+-            <div class="ml-4">
+-              <p class="text-sm text-gray-600">완료된 면접</p>
+-              <p class="text-2xl font-semibold text-gray-900">45</p>
+-            </div>
+-          </div>
+-        </div>
+-        <div class="bg-white rounded-lg shadow-sm p-6">
+-          <div class="flex items-center">
+-            <div class="w-12 h-12 rounded-full bg-yellow-50 flex items-center justify-center">
+-              <i class="fas fa-clock text-yellow-500 text-xl"></i>
+-            </div>
+-            <div class="ml-4">
+-              <p class="text-sm text-gray-600">대기 중</p>
+-              <p class="text-2xl font-semibold text-gray-900">8</p>
+-            </div>
+-          </div>
+-        </div>
+-        <div class="bg-white rounded-lg shadow-sm p-6">
+-          <div class="flex items-center">
+-            <div class="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center">
+-              <i class="fas fa-user-tie text-purple-500 text-xl"></i>
+-            </div>
+-            <div class="ml-4">
+-              <p class="text-sm text-gray-600">활동 면접관</p>
+-              <p class="text-2xl font-semibold text-gray-900">6</p>
+-            </div>
+-          </div>
+-        </div>
+-      </div>
+-
+-      <!-- Interview List -->
+-      <div class="bg-white rounded-lg shadow-sm">
+-        <!-- Filters -->
+-        <div class="p-6 border-b border-gray-200">
+-          <div class="flex flex-wrap gap-4">
+-            <div class="flex-1 min-w-[200px]">
+-              <label class="block text-sm font-medium text-gray-700 mb-1">상태</label>
+-              <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF7A00]">
+-                <option value="">전체</option>
+-                <option value="scheduled">예정</option>
+-                <option value="in-progress">진행 중</option>
+-                <option value="completed">완료</option>
+-                <option value="cancelled">취소</option>
+-              </select>
+-            </div>
+-            <div class="flex-1 min-w-[200px]">
+-              <label class="block text-sm font-medium text-gray-700 mb-1">직무</label>
+-              <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF7A00]">
+-                <option value="">전체</option>
+-                <option value="developer">개발자</option>
+-                <option value="designer">디자이너</option>
+-                <option value="pm">PM</option>
+-                <option value="marketing">마케팅</option>
+-              </select>
+-            </div>
+-            <div class="flex-1 min-w-[200px]">
+-              <label class="block text-sm font-medium text-gray-700 mb-1">날짜</label>
+-              <input type="date" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF7A00]">
+-            </div>
+-            <div class="flex-1 min-w-[200px]">
+-              <label class="block text-sm font-medium text-gray-700 mb-1">면접관</label>
+-              <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF7A00]">
+-                <option value="">전체</option>
+-                <option value="1">김면접</option>
+-                <option value="2">이평가</option>
+-                <option value="3">박관리</option>
+-              </select>
+-            </div>
+-          </div>
+-        </div>
+-
+-        <!-- Table -->
+-        <div class="overflow-x-auto">
+-          <table class="w-full">
+-            <thead class="bg-gray-50">
+-              <tr>
+-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">지원자</th>
+-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">직무</th>
+-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">날짜</th>
+-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">상태</th>
+-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">점수</th>
+-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">면접관</th>
+-                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">작업</th>
+-              </tr>
+-            </thead>
+-            <tbody class="bg-white divide-y divide-gray-200">
+-              <tr v-for="interview in interviews" :key="interview.id">
+-                <td class="px-6 py-4 whitespace-nowrap">
+-                  <div class="flex items-center">
+-                    <div class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+-                      <i class="fas fa-user text-gray-500"></i>
+-                    </div>
+-                    <div class="ml-3">
+-                      <p class="text-sm font-medium text-gray-900">{{ interview.candidate }}</p>
+-                      <p class="text-xs text-gray-500">{{ interview.applicationNumber }}</p>
+-                    </div>
+-                  </div>
+-                </td>
+-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ interview.position }}</td>
+-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ interview.date }}</td>
+-                <td class="px-6 py-4 whitespace-nowrap">
+-                  <span :class="getStatusClass(interview.status)" class="px-2 py-1 text-xs font-medium rounded-full">
+-                    {{ getStatusText(interview.status) }}
+-                  </span>
+-                </td>
+-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ interview.score || '-' }}</td>
+-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ interview.interviewer }}</td>
+-                <td class="px-6 py-4 whitespace-nowrap text-right text-sm">
+-                  <button class="text-[#FF7A00] hover:text-[#E60012] mr-3">
+-                    <i class="fas fa-eye"></i>
+-                  </button>
+-                  <button class="text-gray-600 hover:text-gray-900">
+-                    <i class="fas fa-ellipsis-v"></i>
+-                  </button>
+-                </td>
+-              </tr>
+-            </tbody>
+-          </table>
+-        </div>
+-
+-        <!-- Pagination -->
+-        <div class="px-6 py-4 border-t border-gray-200">
+-          <div class="flex items-center justify-between">
+-            <div class="text-sm text-gray-700">
+-              총 <span class="font-medium">120</span>건 중 <span class="font-medium">1</span> - <span class="font-medium">10</span>건 표시
+-            </div>
+-            <div class="flex space-x-2">
+-              <button class="!rounded-button whitespace-nowrap px-3 py-1 border border-gray-300 text-gray-700 hover:bg-gray-50">
+-                이전
+-              </button>
+-              <button class="!rounded-button whitespace-nowrap px-3 py-1 bg-[#FF7A00] text-white">
+-                1
+-              </button>
+-              <button class="!rounded-button whitespace-nowrap px-3 py-1 border border-gray-300 text-gray-700 hover:bg-gray-50">
+-                2
+-              </button>
+-              <button class="!rounded-button whitespace-nowrap px-3 py-1 border border-gray-300 text-gray-700 hover:bg-gray-50">
+-                3
+-              </button>
+-              <button class="!rounded-button whitespace-nowrap px-3 py-1 border border-gray-300 text-gray-700 hover:bg-gray-50">
+-                다음
+-              </button>
+-            </div>
+-          </div>
+-        </div>
+-      </div>
+-    </main>
+-  </div>
+-</template>
+-
+-<script lang="ts" setup>
+-import { ref } from 'vue';
+-
+-// Sample data
+-const interviews = ref([
+-  {
+-    id: 1,
+-    candidate: '홍길동',
+-    applicationNumber: 'APP-001',
+-    position: '시니어 개발자',
+-    date: '2024-03-15 14:00',
+-    status: 'completed',
+-    score: 85,
+-    interviewer: '김면접'
+-  },
+-  {
+-    id: 2,
+-    candidate: '김철수',
+-    applicationNumber: 'APP-002',
+-    position: 'UX 디자이너',
+-    date: '2024-03-15 15:30',
+-    status: 'in-progress',
+-    score: null,
+-    interviewer: '이평가'
+-  },
+-  {
+-    id: 3,
+-    candidate: '이영희',
+-    applicationNumber: 'APP-003',
+-    position: '프로젝트 매니저',
+-    date: '2024-03-16 10:00',
+-    status: 'scheduled',
+-    score: null,
+-    interviewer: '박관리'
+-  }
+-]);
+-
+-// Helper functions
+-const getStatusClass = (status: string) => {
+-  const classes = {
+-    'scheduled': 'bg-blue-100 text-blue-800',
+-    'in-progress': 'bg-yellow-100 text-yellow-800',
+-    'completed': 'bg-green-100 text-green-800',
+-    'cancelled': 'bg-red-100 text-red-800'
+-  };
+-  return classes[status as keyof typeof classes] || 'bg-gray-100 text-gray-800';
+-};
+-
+-const getStatusText = (status: string) => {
+-  const texts = {
+-    'scheduled': '예정',
+-    'in-progress': '진행 중',
+-    'completed': '완료',
+-    'cancelled': '취소'
+-  };
+-  return texts[status as keyof typeof texts] || status;
+-};
+-</script>
+-
+-<style scoped>
+-/* Pretendard 폰트 적용 */
+-:root {
+-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+-  background-color: white;
+-}
+-
+-/* 전체 배경색 하얀색으로 설정 */
+-body {
+-  background-color: white;
+-}
+-
+-/* 전체 텍스트에 Pretendard 폰트 적용 */
+-* {
+-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+-}
+-
+-/* Custom styles for select elements */
+-select {
+-  appearance: none;
+-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+-  background-position: right 0.5rem center;
+-  background-repeat: no-repeat;
+-  background-size: 1.5em 1.5em;
+-  padding-right: 2.5rem;
+-}
+-
+-/* Hide number input arrows */
+-input[type="number"]::-webkit-inner-spin-button,
+-input[type="number"]::-webkit-outer-spin-button {
+-  -webkit-appearance: none;
+-  margin: 0;
+-}
+-</style> 
+\ No newline at end of file
+diff --git a/client/src/components/InterviewSetup.vue b/client/src/components/InterviewSetup.vue
+index 346f5be..82c6fd6 100644
+--- a/client/src/components/InterviewSetup.vue
++++ b/client/src/components/InterviewSetup.vue
+@@ -52,14 +52,7 @@
+         </div>
+         <div class="mb-6" v-if="selectedRoom">
+           <label class="block text-sm font-medium text-gray-700 mb-2">면접 일정</label>
+-          <div v-if="loading" class="text-center py-4">
+-            <i class="fas fa-spinner fa-spin text-gray-500"></i>
+-            <span class="ml-2 text-gray-500">일정을 불러오는 중...</span>
+-          </div>
+-          <div v-else-if="error" class="text-center py-4 text-red-500">
+-            {{ error }}
+-          </div>
+-          <div v-else class="overflow-x-auto">
++          <div class="overflow-x-auto">
+             <table class="min-w-full bg-white border border-gray-200">
+               <thead>
+                 <tr class="bg-gray-50">
+@@ -69,18 +62,32 @@
+                   <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b w-20">선택</th>
+                 </tr>
+               </thead>
+-              <tbody>
+-                <tr v-for="schedule in filteredSchedules" :key="schedule.timeRange" class="hover:bg-gray-50">
+-                  <td class="px-4 py-3 text-center text-sm text-gray-700 border-b">{{ schedule.timeRange }}</td>
+-                  <td class="px-4 py-3 text-center text-sm text-gray-700 border-b">{{ schedule.interviewers.join(', ') }}</td>
+-                  <td class="px-4 py-3 text-center text-sm text-gray-700 border-b">{{ schedule.interviewees.join(', ') }}</td>
+-                  <td class="px-4 py-3 text-center border-b">
+-                    <button
+-                      @click="selectTimeSlot(schedule)"
+-                      class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+-                    >
+-                      선택
+-                    </button>
++              <tbody class="divide-y divide-gray-200">
++                <tr v-for="timeSlot in availableTimeSlots"
++                    :key="timeSlot.id"
++                    class="hover:bg-gray-50 cursor-pointer transition-colors"
++                    :class="{'bg-red-50': selectedTimeSlot === timeSlot.id}"
++                    @click="selectedTimeSlot = timeSlot.id">
++                  <td class="px-4 py-3 text-sm text-gray-900 whitespace-nowrap text-center">{{ timeSlot.timeRange }}</td>
++                  <td class="px-4 py-3 text-sm text-gray-600">
++                    <div class="flex flex-col items-center space-y-1">
++                      <div v-for="interviewerId in timeSlot.interviewerIds" :key="interviewerId" class="text-center">
++                        {{ getPersonById(interviewerId)?.name }}
++                      </div>
++                    </div>
++                  </td>
++                  <td class="px-4 py-3 text-sm text-gray-600">
++                    <div class="flex flex-col items-center space-y-1">
++                      <div v-for="candidateId in timeSlot.candidateIds" :key="candidateId" class="text-center">
++                        {{ getPersonById(candidateId)?.name }}
++                      </div>
++                    </div>
++                  </td>
++                  <td class="px-4 py-3 text-center">
++                    <div class="w-5 h-5 rounded-full border inline-flex items-center justify-center mx-auto"
++                         :class="selectedTimeSlot === timeSlot.id ? 'border-red-500 bg-red-500' : 'border-gray-300'">
++                      <i v-if="selectedTimeSlot === timeSlot.id" class="fas fa-check text-white text-xs"></i>
++                    </div>
+                   </td>
+                 </tr>
+               </tbody>
+@@ -113,12 +120,11 @@
+   </template>
+   
+   <script setup lang="ts">
+-  import { ref, computed, onMounted, watch } from 'vue';
++  import { ref, computed, onMounted } from 'vue';
+   import { useRouter } from 'vue-router';
+   import type { Room, TimeSlot, Person } from '../data/interviewData';
+   import { getPersonById } from '../data/interviewData';
+   import AdminLoginModal from './AdminLoginModal.vue';
+-  import { getInterviewSchedules } from '../services/interviewService';
+   
+   interface Props {
+     rooms: Room[];
+@@ -137,12 +143,8 @@
+   const selectedRoom = ref<string>('');
+   const selectedTimeSlot = ref<string>('');
+   const showRoomDropdown = ref(false);
+-  const selectedDate = ref<string>(new Date().toISOString().split('T')[0]);
+-  const schedules = ref<any[]>([]);
+-  const loading = ref(false);
+-  const error = ref<string | null>(null);
++  const selectedDate = ref<string>(new Date().toISOString().split('T')[0]); // 오늘 날짜를 기본값으로
+   const showAdminLogin = ref(false);
+-  const selectedSchedule = ref<any>(null);
+   
+   // 오늘 날짜와 선택된 날짜가 일치하는지 확인하는 computed 속성 추가
+   const isToday = computed(() => {
+@@ -162,16 +164,9 @@
+   const canProceed = computed(() => {
+     return selectedRoom.value && 
+            selectedTimeSlot.value && 
+-           isToday.value && 
+-           selectedSchedule.value; // 선택된 일정이 있는 경우에만 true
++           isToday.value; // 오늘 날짜와 일치하는 경우에만 true
+   });
+   
+-  const filteredSchedules = computed(() =>
+-    schedules.value.filter(schedule => 
+-      schedule.roomName === props.rooms.find(r => r.id === selectedRoom.value)?.name
+-    )
+-  );
+-  
+   const toggleRoomDropdown = () => { showRoomDropdown.value = !showRoomDropdown.value; };
+   const selectRoom = (roomId: string) => {
+     selectedRoom.value = roomId;
+@@ -179,45 +174,22 @@
+     showRoomDropdown.value = false;
+   };
+   
+-  const fetchSchedules = async () => {
+-    if (!selectedDate.value) return;
+-    
+-    loading.value = true;
+-    error.value = null;
+-    
+-    try {
+-      const response = await getInterviewSchedules(selectedDate.value);
+-      schedules.value = response.schedules;
+-    } catch (err) {
+-      error.value = '면접 일정을 불러오는데 실패했습니다.';
+-      console.error(err);
+-    } finally {
+-      loading.value = false;
+-    }
+-  };
+-  
+-  // 날짜가 변경될 때마다 일정을 다시 불러옵니다
+-  watch(selectedDate, () => {
+-    fetchSchedules();
+-  });
+-  
+-  const selectTimeSlot = (schedule: any) => {
+-    selectedSchedule.value = schedule;
+-    selectedTimeSlot.value = schedule.timeRange;
+-  };
+-  
+   const onStartInterview = () => {
+-    if (!canProceed.value || !selectedSchedule.value) return;
++    if (!canProceed.value) return;
++    const timeSlot = availableTimeSlots.value.find(t => t.id === selectedTimeSlot.value);
++    if (!timeSlot) return;
++    
++    const roomName = props.rooms.find(r => r.id === selectedRoom.value)?.name || '';
+     
+     router.push({
+       name: 'interview',
+       query: {
+-        roomName: selectedSchedule.value.roomName,
++        roomName,
+         date: selectedDate.value,
+-        timeRange: selectedSchedule.value.timeRange,
+-        interviewers: selectedSchedule.value.interviewers.join(', '),
+-        candidates: JSON.stringify(selectedSchedule.value.interviewees),
+-        candidateIds: JSON.stringify(selectedSchedule.value.interviewees)
++        timeRange: timeSlot.timeRange,
++        interviewers: timeSlot.interviewerIds.map(id => getPersonById(id)?.name).join(', '),
++        candidates: JSON.stringify(timeSlot.candidateIds.map(id => getPersonById(id)?.name)),
++        candidateIds: JSON.stringify(timeSlot.candidateIds)
+       }
+     });
+   };
+@@ -228,7 +200,6 @@
+   };
+   
+   onMounted(() => {
+-    fetchSchedules();
+     document.addEventListener('click', (event) => {
+       const target = event.target as HTMLElement;
+       if (!target.closest('.relative') && showRoomDropdown.value) {
+diff --git a/client/src/components/InterviewView.vue b/client/src/components/InterviewView.vue
+deleted file mode 100644
+index 43bcffa..0000000
+--- a/client/src/components/InterviewView.vue
++++ /dev/null
+@@ -1,460 +0,0 @@
+-<!-- 제공된 템플릿 코드를 그대로 사용 -->
+-<template>
+-  <div class="min-h-screen flex flex-col items-center justify-center bg-white py-12 px-4 sm:px-6 lg:px-8 relative">
+-    <!-- Admin Settings Button - 면접 시작 전에만 표시 -->
+-    <div v-if="!hasStarted" class="absolute top-8 right-8">
+-      <router-link
+-        to="/admin"
+-        class="!rounded-button whitespace-nowrap text-gray-600 hover:text-gray-800 transition-duration-200 p-3 bg-white rounded-full shadow-md hover:shadow-lg"
+-        title="관리자 설정"
+-      >
+-        <i class="fas fa-cog text-xl"></i>
+-      </router-link>
+-    </div>
+-
+-    <div v-if="!hasStarted" class="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-lg">
+-      <!-- Logo -->
+-      <div class="flex justify-center">
+-        <div class="w-64 h-32 relative">
+-          <div class="absolute inset-0 flex items-center justify-center">
+-            <h1 class="text-4xl font-bold">
+-              <span class="text-[#E60012]">SK</span>
+-              <span class="text-[#FF7A00]">AXIS</span>
+-            </h1>
+-          </div>
+-        </div>
+-      </div>
+-
+-      <!-- Title -->
+-      <div class="text-center">
+-        <h2 class="mt-6 text-3xl font-extrabold text-gray-900">AI 면접 시스템</h2>
+-        <p class="mt-2 text-sm text-gray-600">
+-          지원자 정보를 입력하고 면접을 시작하세요
+-        </p>
+-      </div>
+-
+-      <!-- Form -->
+-      <form class="mt-8 space-y-6" @submit.prevent="startInterview">
+-        <div class="rounded-md shadow-sm space-y-4">
+-          <div>
+-            <label for="candidateName" class="block text-sm font-medium text-gray-700 mb-1">지원자 이름</label>
+-            <input
+-              id="candidateName"
+-              v-model="candidateName"
+-              name="candidateName"
+-              type="text"
+-              required
+-              class="appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF7A00] focus:border-[#FF7A00] focus:z-10 sm:text-sm"
+-              placeholder="이름을 입력해주세요"
+-              :disabled="interviewStarted"
+-            />
+-          </div>
+-          <div>
+-            <label for="applicationNumber" class="block text-sm font-medium text-gray-700 mb-1">지원 번호</label>
+-            <input
+-              id="applicationNumber"
+-              v-model="applicationNumber"
+-              name="applicationNumber"
+-              type="text"
+-              required
+-              class="appearance-none relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF7A00] focus:border-[#FF7A00] focus:z-10 sm:text-sm"
+-              placeholder="지원번호를 입력해주세요"
+-              :disabled="interviewStarted"
+-            />
+-          </div>
+-        </div>
+-        <div>
+-          <button
+-            type="submit"
+-            class="!rounded-button whitespace-nowrap group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#E60012] hover:bg-[#cc0010] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#E60012] transition-all duration-200 cursor-pointer"
+-            :disabled="!candidateName.trim() || !applicationNumber.trim() || isLoading"
+-          >
+-            <span v-if="isLoading" class="absolute left-0 inset-y-0 flex items-center pl-3">
+-              <i class="fas fa-circle-notch fa-spin"></i>
+-            </span>
+-            {{ isLoading ? '처리 중...' : '면접 시작하기' }}
+-          </button>
+-        </div>
+-      </form>
+-
+-      <!-- Footer -->
+-      <div class="mt-6 text-center text-xs text-gray-500">
+-        <p>© {{ currentYear }} SK AXIS. All rights reserved.</p>
+-        <p class="mt-1">{{ todayDate }} 기준</p>
+-      </div>
+-    </div>
+-
+-    <!-- Interview in Progress -->
+-    <div v-else class="flex-1 flex flex-col w-full bg-white">
+-      <!-- Candidate Info Bar -->
+-      <div class="flex justify-between items-center mb-8">
+-        <div class="flex items-center space-x-4">
+-          <img 
+-            src="/src/assets/skaxis_logo.png" 
+-            alt="SK AXIS 로고" 
+-            class="h-12 w-auto"
+-          />
+-          <div>
+-            <h2 class="text-2xl font-bold text-gray-800">{{ candidateName }}님과의 면접</h2>
+-            <p class="text-gray-600">시작 시간: {{ startTime }}</p>
+-          </div>
+-        </div>
+-        <div class="flex items-center space-x-2">
+-          <span class="flex items-center">
+-            <span class="h-2 w-2 rounded-full bg-green-500 mr-2"></span>
+-            <span class="text-sm text-gray-600">연결됨</span>
+-          </span>
+-          <span v-if="isRecording" class="flex items-center">
+-            <span class="h-2 w-2 rounded-full bg-[#E60012] mr-2 animate-pulse"></span>
+-            <span class="text-sm text-gray-600">녹화 중</span>
+-          </span>
+-        </div>
+-      </div>
+-
+-      <!-- Questions Section -->
+-      <div class="flex-1 mb-8">
+-        <h3 class="text-xl font-semibold mb-4 text-gray-800">면접 질문</h3>
+-        <div class="space-y-4">
+-          <div 
+-            v-for="(question, index) in questions" 
+-            :key="index"
+-            class="bg-gray-100/80 p-5 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-300"
+-          >
+-            <div class="flex">
+-              <div class="w-8 h-8 rounded-full bg-[#FF7A00] text-white flex items-center justify-center mr-4">
+-                {{ index + 1 }}
+-              </div>
+-              <div class="flex-1">
+-                <p class="text-lg text-gray-800">{{ question }}</p>
+-              </div>
+-            </div>
+-          </div>
+-        </div>
+-      </div>
+-
+-      <!-- Controls -->
+-      <div class="flex justify-center space-x-6 mb-8">
+-        <button 
+-          v-if="currentQuestionIndex < questions.length"
+-          @click="nextQuestion" 
+-          class="!rounded-button whitespace-nowrap bg-[#FF7A00] text-white px-8 py-3 font-semibold cursor-pointer hover:bg-[#e66e00] transition-colors duration-300"
+-        >
+-          <i class="fas fa-play-circle mr-2"></i> 면접 시작
+-        </button>
+-        <button 
+-          @click="endInterview" 
+-          class="!rounded-button whitespace-nowrap border-2 border-[#E60012] text-[#E60012] px-8 py-3 font-semibold cursor-pointer hover:bg-red-50 transition-colors duration-300"
+-        >
+-          <i class="fas fa-stop-circle mr-2"></i> 면접 종료
+-        </button>
+-      </div>
+-    </div>
+-
+-    <!-- Video Feed - 면접 화면에서만 표시 -->
+-    <div 
+-      v-if="hasStarted"
+-      class="fixed bottom-8 right-8 w-80 shadow-lg rounded-lg overflow-hidden border-2 border-[#FF7A00] bg-gray-100"
+-    >
+-      <div class="relative">
+-        <!-- Video Feed or Placeholder -->
+-        <div v-if="cameraOn" class="relative w-full aspect-video bg-black">
+-          <img 
+-            :src="webcamPlaceholder" 
+-            alt="웹캠 화면" 
+-            class="w-full h-full object-cover object-top"
+-          />
+-          <div class="absolute top-2 right-2 flex items-center space-x-2">
+-            <span class="flex items-center px-2 py-1 bg-black/50 rounded-full text-white text-xs">
+-              <i class="fas fa-signal mr-1"></i> 실시간
+-            </span>
+-          </div>
+-        </div>
+-        <div v-else class="w-full aspect-video bg-gray-200 flex items-center justify-center">
+-          <i class="fas fa-video-slash text-gray-400 text-4xl"></i>
+-        </div>
+-
+-        <!-- Video Controls -->
+-        <div class="flex justify-between items-center p-3 bg-white">
+-          <div class="text-sm font-medium">{{ candidateName || '지원자' }}</div>
+-          <div class="flex space-x-3">
+-            <button 
+-              @click="toggleMicrophone" 
+-              class="!rounded-button whitespace-nowrap w-8 h-8 rounded-full flex items-center justify-center cursor-pointer hover:bg-gray-100"
+-              :class="micOn ? 'text-[#FF7A00]' : 'text-gray-400'"
+-              :title="micOn ? '마이크 끄기' : '마이크 켜기'"
+-            >
+-              <i :class="micOn ? 'fas fa-microphone' : 'fas fa-microphone-slash'"></i>
+-            </button>
+-            <button 
+-              @click="toggleCamera" 
+-              class="!rounded-button whitespace-nowrap w-8 h-8 rounded-full flex items-center justify-center cursor-pointer hover:bg-gray-100"
+-              :class="cameraOn ? 'text-[#FF7A00]' : 'text-gray-400'"
+-              :title="cameraOn ? '카메라 끄기' : '카메라 켜기'"
+-            >
+-              <i :class="cameraOn ? 'fas fa-video' : 'fas fa-video-slash'"></i>
+-            </button>
+-          </div>
+-        </div>
+-      </div>
+-    </div>
+-
+-    <!-- 면접 종료 확인 모달 -->
+-    <div v-if="showEndConfirmation" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+-      <div class="bg-white rounded-lg p-8 max-w-md w-full shadow-2xl">
+-        <!-- 첫 번째 단계: 종료 확인 -->
+-        <div v-if="!isEnding">
+-          <h3 class="text-xl font-bold mb-4 text-gray-800">면접을 종료하시겠습니까?</h3>
+-          <p class="text-gray-600 mb-6">
+-            면접 세션을 종료하시겠습니까? 모든 녹화 내용이 저장됩니다.
+-          </p>
+-          <div class="flex justify-end space-x-4">
+-            <button 
+-              @click="showEndConfirmation = false" 
+-              class="!rounded-button whitespace-nowrap px-6 py-2 border border-gray-300 text-gray-700 cursor-pointer hover:bg-gray-50"
+-            >
+-              취소
+-            </button>
+-            <button 
+-              @click="startEndingProcess" 
+-              class="!rounded-button whitespace-nowrap px-6 py-2 bg-[#E60012] text-white cursor-pointer hover:bg-[#cc0010]"
+-            >
+-              면접 종료
+-            </button>
+-          </div>
+-        </div>
+-        <!-- 두 번째 단계: 평가 중 -->
+-        <div v-else>
+-          <h3 class="text-xl font-bold mb-4 text-gray-800">SKAXIS가 평가 중...</h3>
+-          <p class="text-gray-600 mb-6">
+-            면접 세션이 종료 중입니다. 모든 녹화 내용이 저장되는 중입니다.
+-          </p>
+-          <div class="mb-6">
+-            <div class="flex justify-between items-center mb-2">
+-              <span class="text-sm text-gray-600">면접 종료 처리 중...</span>
+-              <span class="text-sm font-medium text-[#FF7A00]">{{ countdown }}초</span>
+-            </div>
+-            <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+-              <div 
+-                class="h-full bg-[#FF7A00] rounded-full transition-all duration-1000"
+-                :style="{ width: `${(10 - countdown) * 10}%` }"
+-              ></div>
+-            </div>
+-          </div>
+-        </div>
+-      </div>
+-    </div>
+-  </div>
+-</template>
+-
+-<script lang="ts" setup>
+-import { ref, computed, onMounted, onUnmounted } from 'vue';
+-import { useRouter } from 'vue-router';
+-
+-const router = useRouter();
+-
+-// State
+-const candidateName = ref('');
+-const applicationNumber = ref('');
+-const interviewStarted = ref(false);
+-const hasStarted = ref(false);
+-const isRecording = ref(false);
+-const currentQuestionIndex = ref(0);
+-const showEndConfirmation = ref(false);
+-const cameraOn = ref(true);
+-const micOn = ref(true);
+-const sessionId = ref('');
+-const startTime = ref('');
+-const isLoading = ref(false);
+-const isEnding = ref(false);
+-const countdown = ref(10);
+-let countdownInterval: number | null = null;
+-
+-// Computed properties
+-const currentYear = computed(() => new Date().getFullYear());
+-const todayDate = computed(() => {
+-  const now = new Date();
+-  return now.toLocaleDateString('ko-KR', {
+-    year: 'numeric',
+-    month: 'long',
+-    day: 'numeric',
+-    weekday: 'long'
+-  });
+-});
+-
+-// Generate a random session ID
+-const generateSessionId = () => {
+-  return 'SK-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+-};
+-
+-// Format current date
+-const currentDate = computed(() => {
+-  const now = new Date();
+-  return now.toLocaleDateString('en-US', { 
+-    weekday: 'long', 
+-    year: 'numeric', 
+-    month: 'long', 
+-    day: 'numeric' 
+-  });
+-});
+-
+-// Format time
+-const formatTime = (date: Date) => {
+-  return date.toLocaleTimeString('en-US', { 
+-    hour: '2-digit', 
+-    minute: '2-digit',
+-    hour12: true 
+-  });
+-};
+-
+-// Sample interview questions
+-const questions = ref([
+-  "귀하의 전문 분야와 이 직무와의 연관성에 대해 말씀해 주세요.",
+-  "SK 그룹에 지원하게 된 동기와 회사에 대해 알고 계신 점을 말씀해 주세요.",
+-  "이전에 진행했던 도전적인 프로젝트와 그 과정에서 극복한 어려움에 대해 설명해 주세요.",
+-  "귀하의 전문 분야에서 최신 트렌드와 발전 동향을 어떻게 파악하고 계신가요?",
+-  "앞으로 3-5년 후의 커리어 목표와 이 직무가 그 목표와 어떻게 연관되는지 말씀해 주세요."
+-]);
+-
+-// Webcam placeholder image
+-const webcamPlaceholder = 'https://readdy.ai/api/search-image?query=professional%20looking%20person%20in%20business%20attire%20sitting%20in%20front%20of%20a%20computer%20for%20a%20video%20interview%2C%20neutral%20expression%2C%20well-lit%20home%20office%20environment%2C%20clean%20background%2C%20professional%20appearance%2C%20high%20quality%20realistic%20photo%2C%20not%20cartoon%20or%20illustration&width=320&height=180&seq=1&orientation=landscape';
+-
+-// Methods
+-const startInterview = async () => {
+-  if (!candidateName.value.trim() || !applicationNumber.value.trim()) return;
+-  
+-  try {
+-    isLoading.value = true;
+-    
+-    // TODO: 실제 API 호출 구현
+-    await new Promise(resolve => setTimeout(resolve, 1000));
+-    
+-    interviewStarted.value = true;
+-    hasStarted.value = true;
+-    isRecording.value = true;
+-    sessionId.value = generateSessionId();
+-    startTime.value = formatTime(new Date());
+-  } catch (error) {
+-    console.error('면접 시작 중 오류 발생:', error);
+-  } finally {
+-    isLoading.value = false;
+-  }
+-};
+-
+-// Move to next question
+-const nextQuestion = () => {
+-  if (currentQuestionIndex.value < questions.value.length - 1) {
+-    currentQuestionIndex.value++;
+-  }
+-};
+-
+-// End interview confirmation
+-const endInterview = () => {
+-  showEndConfirmation.value = true;
+-};
+-
+-// 면접 종료 프로세스 시작
+-const startEndingProcess = () => {
+-  isEnding.value = true;
+-  countdown.value = 10;
+-  
+-  countdownInterval = window.setInterval(() => {
+-    countdown.value--;
+-    
+-    if (countdown.value <= 0) {
+-      if (countdownInterval) {
+-        clearInterval(countdownInterval);
+-      }
+-      confirmEndInterview();
+-    }
+-  }, 1000);
+-};
+-
+-// 면접 종료 확인 메서드 수정
+-const confirmEndInterview = () => {
+-  isEnding.value = false;
+-  if (countdownInterval) {
+-    clearInterval(countdownInterval);
+-  }
+-  interviewStarted.value = false;
+-  hasStarted.value = false;
+-  isRecording.value = false;
+-  showEndConfirmation.value = false;
+-  
+-  // Navigate to result page with candidate name
+-  router.push({
+-    name: 'result',
+-    query: {
+-      candidateName: candidateName.value
+-    }
+-  });
+-  
+-  // Reset form
+-  candidateName.value = '';
+-  applicationNumber.value = '';
+-  currentQuestionIndex.value = 0;
+-};
+-
+-// Toggle camera
+-const toggleCamera = () => {
+-  cameraOn.value = !cameraOn.value;
+-};
+-
+-// Toggle microphone
+-const toggleMicrophone = () => {
+-  micOn.value = !micOn.value;
+-};
+-
+-// Initialize
+-onMounted(() => {
+-  // Set initial session ID
+-  sessionId.value = generateSessionId();
+-});
+-
+-// 컴포넌트가 언마운트될 때 인터벌 정리
+-onUnmounted(() => {
+-  if (countdownInterval) {
+-    clearInterval(countdownInterval);
+-  }
+-});
+-</script>
+-
+-<style scoped>
+-/* Pretendard 폰트 적용 */
+-:root {
+-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+-  background-color: white;
+-}
+-
+-/* 전체 배경색 하얀색으로 설정 */
+-body {
+-  background-color: white;
+-}
+-
+-/* Custom styles for input focus state */
+-input:focus {
+-  outline: none;
+-  box-shadow: 0 0 0 2px rgba(255, 122, 0, 0.2);
+-}
+-
+-/* Animation for questions */
+-@keyframes fadeIn {
+-  from { opacity: 0; transform: translateY(10px); }
+-  to { opacity: 1; transform: translateY(0); }
+-}
+-
+-.question-enter-active {
+-  animation: fadeIn 0.5s ease-out;
+-}
+-
+-/* Remove number input arrows */
+-input[type="number"]::-webkit-inner-spin-button,
+-input[type="number"]::-webkit-outer-spin-button {
+-  -webkit-appearance: none;
+-  margin: 0;
+-}
+-
+-/* 전체 텍스트에 Pretendard 폰트 적용 */
+-* {
+-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+-}
+-</style> 
+\ No newline at end of file
+diff --git a/client/src/components/PoseMiniWidget.vue b/client/src/components/PoseMiniWidget.vue
+index 0a3a0f0..0c3e3a7 100644
+--- a/client/src/components/PoseMiniWidget.vue
++++ b/client/src/components/PoseMiniWidget.vue
+@@ -6,7 +6,7 @@
+       autoplay
+       muted
+       playsinline
+-      style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:1; background:#111;"
++      style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain; z-index:1; background:#111;"
+     ></video>
+     <canvas
+       ref="canvas"
+@@ -18,160 +18,93 @@
+ 
+ <script setup>
+ import { ref, onMounted, onBeforeUnmount } from 'vue'
++import * as faceapi from 'face-api.js'
+ import {
+   FilesetResolver,
+-  PoseLandmarker,
+-  FaceLandmarker,
++  PoseLandmarker
+ } from '@mediapipe/tasks-vision'
+ 
++// 1. WebSocket 연결
++const wsUrl = 'ws://localhost:9000'   // 서버 주소에 맞게 수정
++let ws = null
++function connectWebSocket() {
++  ws = new WebSocket(wsUrl)
++  ws.onopen = () => console.log('WebSocket 연결됨')
++  ws.onerror = err => console.error('WebSocket 에러:', err)
++  ws.onclose = () => console.log('WebSocket 연결 종료')
++}
++connectWebSocket()
++
+ const video = ref(null)
+ const canvas = ref(null)
+-let poseLandmarker, faceLandmarker
++let poseLandmarker
+ let active = true
+ 
+-const LEFT_ANKLE = 27, RIGHT_ANKLE = 28
+ const LEFT_KNEE = 25, RIGHT_KNEE = 26
+ const NOSE = 0, LEFT_SHOULDER = 11, RIGHT_SHOULDER = 12
+ const POSE_FACE_LANDMARKS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+-
+-// ★ 최종 표정 평가 항목(5종)
+-const FINAL_EXP_TYPES = [
+-  '무표정', '미소', '울상', '당황', '찡그림'
+-]
+-
+-// 원래의 분류 (추론용)
+-const EXP_TYPES = [
+-  '입벌림', '무표정', '미소',
+-  '울상', '당황', '찡그림', '놀람', '찡그림+입', '눈웃음'
+-]
+-
+-// 평가 항목별 카운트
+ let spreadCount = [0, 0]
+ let shakeCount = [0, 0]
+ let headDownCount = [0, 0]
+-let faceExpCount = [
+-  Object.fromEntries(FINAL_EXP_TYPES.map(e => [e, 0])),
+-  Object.fromEntries(FINAL_EXP_TYPES.map(e => [e, 0])),
++let prevKneeY = [
++  { left: null, right: null, max: null, min: null },
++  { left: null, right: null, max: null, min: null }
+ ]
+-let prevAnkleY = [null, null]
+ let lastCountedTime = 0
+ 
+-// 표정 mapping 함수
+-function mapExpression(exp) {
+-  if (exp === '눈웃음' || exp === '미소') return '미소'
+-  if (exp === '찡그림+입' || exp === '찡그림') return '찡그림'
+-  if (exp === '놀람' || exp === '당황') return '당황'
+-  if (exp === '울상') return '울상'
+-  // 입벌림은 무표정으로 처리
+-  return '무표정'
++const expList = ['미소', '무표정', '당황', '울상', '찡그림']
++const expKorean = {
++  happy: '미소', sad: '울상', angry: '찡그림', surprised: '당황',
++  neutral: '무표정', fearful: '불안', disgusted: '불쾌'
+ }
++let faceExpCount = [
++  Object.fromEntries(expList.map(e => [e, 0])),
++  Object.fromEntries(expList.map(e => [e, 0]))
++]
+ 
+-// --- 표정 분석 정규화 버전 ---
+-function analyzeFaceExpression(faceLandmarks) {
+-  const LEFT_MOUTH = 61, RIGHT_MOUTH = 291, TOP_LIP = 13, BOTTOM_LIP = 14
+-  const LEFT_CORNER = 78, RIGHT_CORNER = 308
+-  const LEFT_EYE_TOP = 159, RIGHT_EYE_TOP = 386, LEFT_EYE_BOTTOM = 145, RIGHT_EYE_BOTTOM = 374
+-  const LEFT_BROW = 70, RIGHT_BROW = 300
+-  const NOSE_TIP = 1
+-  const CHIN = 152
+-  const FOREHEAD = 10
+-
+-  const leftMouth = faceLandmarks[LEFT_MOUTH]
+-  const rightMouth = faceLandmarks[RIGHT_MOUTH]
+-  const topLip = faceLandmarks[TOP_LIP]
+-  const bottomLip = faceLandmarks[BOTTOM_LIP]
+-  const leftCorner = faceLandmarks[LEFT_CORNER]
+-  const rightCorner = faceLandmarks[RIGHT_CORNER]
+-  const leftEyeTop = faceLandmarks[LEFT_EYE_TOP]
+-  const leftEyeBottom = faceLandmarks[LEFT_EYE_BOTTOM]
+-  const rightEyeTop = faceLandmarks[RIGHT_EYE_TOP]
+-  const rightEyeBottom = faceLandmarks[RIGHT_EYE_BOTTOM]
+-  const leftBrow = faceLandmarks[LEFT_BROW]
+-  const rightBrow = faceLandmarks[RIGHT_BROW]
+-  const noseTip = faceLandmarks[NOSE_TIP]
+-  const chin = faceLandmarks[CHIN]
+-  const forehead = faceLandmarks[FOREHEAD]
+-
+-  const faceHeight = Math.max(0.001, Math.abs(chin.y - forehead.y))
+-  const mouthOpen = Math.abs(topLip.y - bottomLip.y) / faceHeight
+-  const mouthWidth = Math.abs(leftMouth.x - rightMouth.x) / faceHeight
+-  const mouthCornerSlope = (leftCorner.y - rightCorner.y) / ((leftCorner.x - rightCorner.x) + 1e-6)
+-  const isSadMouth = mouthCornerSlope > 0.05
+-  const isSmile = mouthCornerSlope < -0.07
+-  const leftEyeHeight = Math.abs(leftEyeTop.y - leftEyeBottom.y) / faceHeight
+-  const rightEyeHeight = Math.abs(rightEyeTop.y - rightEyeBottom.y) / faceHeight
+-  const leftBrowDist = Math.abs(leftEyeTop.y - leftBrow.y) / faceHeight
+-  const rightBrowDist = Math.abs(rightEyeTop.y - rightBrow.y) / faceHeight
+-  const avgBrowDist = (leftBrowDist + rightBrowDist) / 2
+-  const chinLipDist = Math.abs(chin.y - bottomLip.y) / faceHeight
+-
+-  if (mouthOpen > 0.25 && leftEyeHeight > 0.11 && rightEyeHeight > 0.11 && avgBrowDist > 0.035) {
+-    return '당황'
+-  }
+-  if (isSadMouth && avgBrowDist < 0.018 && mouthWidth < 0.18) {
+-    return '울상'
+-  }
+-  if (avgBrowDist < 0.012 && isSadMouth) {
+-    return '찡그림'
+-  }
+-  if (mouthOpen > 0.34 && chinLipDist > 0.31 && avgBrowDist > 0.034) {
+-    return '놀람'
+-  }
+-  if (isSmile && mouthWidth > 0.22) {
+-    if (leftEyeHeight < 0.053 && rightEyeHeight < 0.053) {
+-      return '눈웃음'
+-    }
+-    return '미소'
+-  }
+-  if (mouthOpen > 0.15 && mouthWidth > 0.15) {
+-    return '입벌림'
+-  }
+-  if (
+-    mouthOpen < 0.07 &&
+-    Math.abs(mouthCornerSlope) < 0.035 &&
+-    leftEyeHeight > 0.038 &&
+-    rightEyeHeight > 0.038
+-  ) {
+-    return '무표정'
+-  }
+-  if (avgBrowDist < 0.013 && mouthOpen > 0.13) {
+-    return '찡그림+입'
+-  }
+-  return '무표정'
++function detectSpeaking(landmarks) {
++  if (!landmarks || !landmarks.positions) return false
++  const topLip = landmarks.positions[62]
++  const bottomLip = landmarks.positions[66]
++  const leftMouth = landmarks.positions[60]
++  const rightMouth = landmarks.positions[64]
++  if (!topLip || !bottomLip || !leftMouth || !rightMouth) return false
++  const mouthOpen = Math.abs(topLip.y - bottomLip.y)
++  const mouthWidth = Math.abs(leftMouth.x - rightMouth.x)
++  return mouthOpen > 20 && mouthWidth > 25
+ }
+ 
+ function isValidKeypoint(lm) {
+   return (
+     lm &&
+     ((typeof lm.visibility === "number" && lm.visibility > 0.5) ||
+-     (typeof lm.presence === "number" && lm.presence > 0.5) ||
+-     (lm.visibility === undefined && lm.presence === undefined)) &&
++      (typeof lm.presence === "number" && lm.presence > 0.5) ||
++      (lm.visibility === undefined && lm.presence === undefined)) &&
+     lm.x >= 0.0 && lm.x <= 1.0 &&
+     lm.y >= 0.0 && lm.y <= 1.0
+   )
+ }
+-function analyzeLegSpread(poseLandmarks) {
+-  if (
+-    !isValidKeypoint(poseLandmarks[LEFT_ANKLE]) ||
+-    !isValidKeypoint(poseLandmarks[RIGHT_ANKLE]) ||
+-    !isValidKeypoint(poseLandmarks[LEFT_KNEE]) ||
+-    !isValidKeypoint(poseLandmarks[RIGHT_KNEE])
+-  ) return { ankleSpread: 0, kneeSpread: 0, valid: false }
+-  const ankleSpread = Math.abs(poseLandmarks[LEFT_ANKLE].x - poseLandmarks[RIGHT_ANKLE].x)
++
++function analyzeLegByKnee(poseLandmarks, k) {
++  if (!isValidKeypoint(poseLandmarks[LEFT_KNEE]) || !isValidKeypoint(poseLandmarks[RIGHT_KNEE]))
++    return { kneeSpread: 0, kneeShakeAmp: 0, valid: false }
++
+   const kneeSpread = Math.abs(poseLandmarks[LEFT_KNEE].x - poseLandmarks[RIGHT_KNEE].x)
+-  return { ankleSpread, kneeSpread, valid: true }
+-}
++  const avgKneeY = (poseLandmarks[LEFT_KNEE].y + poseLandmarks[RIGHT_KNEE].y) / 2
+ 
+-const SIMPLE_POSE_CONNECTIONS = [
+-  [11, 13], [13, 15], [12, 14], [14, 16],
+-  [11, 12], [23, 24],
+-  [23, 25], [25, 27], [24, 26], [26, 28],
+-  [27, 31], [28, 32]
+-]
+-const poseColors = ['red', 'blue']
+-const faceColors = ['lime', 'yellow']
++  if (prevKneeY[k].min === null || prevKneeY[k].max === null) {
++    prevKneeY[k].min = avgKneeY
++    prevKneeY[k].max = avgKneeY
++  } else {
++    prevKneeY[k].min = Math.min(prevKneeY[k].min, avgKneeY)
++    prevKneeY[k].max = Math.max(prevKneeY[k].max, avgKneeY)
++  }
++
++  const kneeShakeAmp = prevKneeY[k].max - prevKneeY[k].min
++  return { kneeSpread, kneeShakeAmp, valid: true }
++}
+ 
+-function getPersonIndexes(landmarksArr) {
++function getSortedPersonIndexes(landmarksArr) {
+   if (!landmarksArr || landmarksArr.length === 0) return []
+   if (landmarksArr.length === 1) return [0]
+   let centers = []
+@@ -179,37 +112,23 @@ function getPersonIndexes(landmarksArr) {
+     const lmArr = landmarksArr[i]
+     if (!lmArr || lmArr.length === 0) continue
+     const avgX = lmArr.reduce((acc, l) => acc + l.x, 0) / lmArr.length
+-    const avgY = lmArr.reduce((acc, l) => acc + l.y, 0) / lmArr.length
+-    centers.push({ i, dist: Math.hypot(avgX - 0.5, avgY - 0.5) })
+-  }
+-  centers.sort((a, b) => a.dist - b.dist)
+-  if (centers.length >= 2) {
+-    const first = centers[0]
+-    const second = centers[1]
+-    const dist = Math.abs(first.dist - second.dist)
+-    if (dist < 0.08) return [first.i]
+-    return [first.i, second.i]
++    centers.push({ i, avgX })
+   }
+-  return [centers[0].i]
++  centers.sort((a, b) => a.avgX - b.avgX)
++  return centers.map(c => c.i)
+ }
+ 
+ onMounted(async () => {
+-  while (!video.value) {
+-    await new Promise(r => requestAnimationFrame(r))
+-  }
++  await faceapi.nets.tinyFaceDetector.loadFromUri('/models/tiny_face_detector')
++  await faceapi.nets.faceLandmark68Net.loadFromUri('/models/face_landmark_68')
++  await faceapi.nets.faceExpressionNet.loadFromUri('/models/face_expression')
+ 
+-  const stream = await navigator.mediaDevices.getUserMedia({
+-    video: { width: 1280, height: 720 }
+-  })
++  while (!video.value) await new Promise(r => requestAnimationFrame(r))
++  const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
+   video.value.srcObject = stream
+-  await new Promise(resolve => {
+-    video.value.onloadedmetadata = resolve
+-  })
+-
+-  const vision = await FilesetResolver.forVisionTasks(
+-    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm'
+-  )
++  await new Promise(resolve => { video.value.onloadedmetadata = resolve })
+ 
++  const vision = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm')
+   poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+     baseOptions: {
+       modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task'
+@@ -219,127 +138,134 @@ onMounted(async () => {
+     outputSegmentationMasks: false
+   })
+ 
+-  faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+-    baseOptions: {
+-      modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
+-    },
+-    runningMode: 'VIDEO',
+-    numFaces: 2,
+-    minDetectionConfidence: 0.8,
+-    minTrackingConfidence: 0.8,
+-    outputFaceBlendshapes: false,
+-    outputFacialTransformationMatrixes: false
+-  })
+-
+-  const analyze = () => {
++  const analyze = async () => {
+     if (!active) return
+     const ctx = canvas.value.getContext('2d')
+     ctx.clearRect(0, 0, 1280, 720)
+     ctx.drawImage(video.value, 0, 0, 1280, 720)
+ 
+-    const poses = poseLandmarker.detectForVideo(
+-      video.value,
+-      performance.now()
+-    )
+-    const faces = faceLandmarker.detectForVideo(
+-      video.value,
+-      performance.now()
+-    )
++    const poses = poseLandmarker.detectForVideo(video.value, performance.now())
++    let poseIndexes = getSortedPersonIndexes(poses.landmarks)
++    if (poseIndexes.length > 2) poseIndexes = poseIndexes.slice(0, 2)
+ 
+-    const poseIndexes = getPersonIndexes(poses.landmarks)
+-    const faceIndexes = getPersonIndexes(faces.faceLandmarks)
+-    const validCount = Math.max(poseIndexes.length, faceIndexes.length)
+-    const now = Date.now()
+-    const shouldCount = (now - lastCountedTime > 1000)
+-    if (shouldCount) lastCountedTime = now
++    let detections = await faceapi.detectAllFaces(video.value, new faceapi.TinyFaceDetectorOptions())
++      .withFaceLandmarks()
++      .withFaceExpressions()
++    detections.sort((a, b) => a.detection.box.x - b.detection.box.x)
++    if (detections.length > 2) detections = detections.slice(0, 2)
+ 
+-    let isSpreadArr = []
+-    let isShakeArr = []
+-    let isHeadDownArr = []
+-    let expArr = []
+-
+-    // ----- POSE -----
+-    for (let k = 0; k < poseIndexes.length; k++) {
+-      const i = poseIndexes[k]
+-      const landmarks = poses.landmarks[i]
+-      if (!landmarks || landmarks.length < 20) continue
+-      const color = poseColors[k % 2]
++    const numPersons = Math.max(poseIndexes.length, detections.length)
++    if (numPersons === 0) {
++      requestAnimationFrame(analyze)
++      return
++    }
+ 
+-      for (let j = 0; j < landmarks.length; j++) {
+-        if (POSE_FACE_LANDMARKS.includes(j)) continue
+-        const pt = landmarks[j]
++    // 얼굴 랜드마크/박스 시각화
++    if (detections.length === 1) {
++      const color = 'lime'
++      const det = detections[0]
++      for (const pt of det.landmarks.positions) {
+         ctx.beginPath()
+-        ctx.arc(pt.x * 1280, pt.y * 720, 4, 0, 2 * Math.PI)
++        ctx.arc(pt.x, pt.y, 2.2, 0, 2 * Math.PI)
+         ctx.fillStyle = color
+         ctx.fill()
+       }
++      const box = det.detection.box
+       ctx.strokeStyle = color
+       ctx.lineWidth = 2
+-      for (const [start, end] of SIMPLE_POSE_CONNECTIONS) {
+-        if (POSE_FACE_LANDMARKS.includes(start) || POSE_FACE_LANDMARKS.includes(end)) continue
+-        const s = landmarks[start], e = landmarks[end]
+-        if (s && e) {
++      ctx.strokeRect(box.x, box.y, box.width, box.height)
++      ctx.font = 'bold 20px sans-serif'
++      ctx.fillStyle = color
++      ctx.fillText(`person1`, box.x, box.y - 8)
++    } else if (detections.length === 2) {
++      for (let k = 0; k < 2; k++) {
++        const color = k === 0 ? 'lime' : 'yellow'
++        const det = detections[k]
++        for (const pt of det.landmarks.positions) {
+           ctx.beginPath()
+-          ctx.moveTo(s.x * 1280, s.y * 720)
+-          ctx.lineTo(e.x * 1280, e.y * 720)
+-          ctx.stroke()
++          ctx.arc(pt.x, pt.y, 2.2, 0, 2 * Math.PI)
++          ctx.fillStyle = color
++          ctx.fill()
+         }
+-      }
+-      const { ankleSpread, kneeSpread, valid } = analyzeLegSpread(landmarks)
+-      isSpreadArr[k] = valid && (ankleSpread > 0.3 || kneeSpread > 0.3)
+-      if (valid && prevAnkleY[k] !== null) {
+-        const dy = Math.abs(landmarks[RIGHT_ANKLE].y - prevAnkleY[k])
+-        isShakeArr[k] = (dy > 0.012)
+-      } else {
+-        isShakeArr[k] = false
+-      }
+-      prevAnkleY[k] = valid ? landmarks[RIGHT_ANKLE].y : null
+-      const nose = landmarks[NOSE]
+-      const avgShoulderY = (landmarks[LEFT_SHOULDER].y + landmarks[RIGHT_SHOULDER].y) / 2
+-      isHeadDownArr[k] = (nose && nose.y > avgShoulderY + 0.04)
+-      const lmk = landmarks[LEFT_SHOULDER]
+-      if (lmk) {
+-        ctx.font = 'bold 13px sans-serif'
++        const box = det.detection.box
++        ctx.strokeStyle = color
++        ctx.lineWidth = 2
++        ctx.strokeRect(box.x, box.y, box.width, box.height)
++        ctx.font = 'bold 20px sans-serif'
+         ctx.fillStyle = color
+-        ctx.fillText(`Person${k+1}: 다리벌림${isSpreadArr[k] ? '▲' : ''}`, lmk.x * 1280, lmk.y * 720 - 10)
++        ctx.fillText(`person${k + 1}`, box.x, box.y - 8)
+       }
+     }
+ 
+-    // ----- FACE -----
+-    for (let k = 0; k < faceIndexes.length; k++) {
+-      const i = faceIndexes[k]
+-      const color = faceColors[k % 2]
+-      const faceLandmarks = faces.faceLandmarks[i]
+-      for (let j = 0; j < faceLandmarks.length; j++) {
+-        const pt = faceLandmarks[j]
++    // 포즈 랜드마크 시각화
++    for (let k = 0; k < poseIndexes.length; k++) {
++      const i = poseIndexes[k]
++      const landmarks = poses.landmarks[i]
++      if (!landmarks || landmarks.length < 20) continue
++      const color = k === 0 ? 'aqua' : 'orange'
++      for (let j = 0; j < landmarks.length; j++) {
+         ctx.beginPath()
+-        ctx.arc(pt.x * 1280, pt.y * 720, 1.8, 0, 2 * Math.PI)
++        ctx.arc(landmarks[j].x * 1280, landmarks[j].y * 720, 3, 0, 2 * Math.PI)
+         ctx.fillStyle = color
+         ctx.fill()
+       }
+-      // ★ 표정은 mapExpression()으로 매핑하여 최종 평가 항목에 귀속
+-      const rawExp = analyzeFaceExpression(faceLandmarks)
+-      const finalExp = mapExpression(rawExp)
+-      expArr[k] = finalExp
+-      const nose = faceLandmarks[1]
+-      if (nose) {
+-        ctx.font = 'bold 13px sans-serif'
+-        ctx.fillStyle = color
+-        ctx.fillText(`표정: ${finalExp}`, nose.x * 1280, nose.y * 720 - 10)
+-      }
+     }
+ 
+-    if (shouldCount) {
+-      for (let k = 0; k < validCount; k++) {
+-        if (isSpreadArr[k]) spreadCount[k] += 1
+-        if (isShakeArr[k]) shakeCount[k] += 1
+-        if (isHeadDownArr[k]) headDownCount[k] += 1
+-        if (expArr[k] && faceExpCount[k][expArr[k]] !== undefined) faceExpCount[k][expArr[k]] += 1
+-        let expStr = FINAL_EXP_TYPES.map(e => `${e}:${faceExpCount[k][e]}`).join(', ')
+-        console.log(
+-          `[Person${k+1}] 다리벌림:${spreadCount[k]}, 다리떨기:${shakeCount[k]}, 고개숙임:${headDownCount[k]}, [표정] ${expStr}`
+-        )
++    // 1초마다 JSON 송신
++    if (Date.now() - lastCountedTime > 1000) {
++      for (let k = 0; k < numPersons; k++) {
++        let isSpeaking = false
++        if (detections[k]) {
++          isSpeaking = detectSpeaking(detections[k].landmarks)
++        }
++
++        let poseObj = { leg_spread: 0, leg_shake: 0, head_down: 0 }
++        if (poseIndexes[k] !== undefined) {
++          const i = poseIndexes[k]
++          const landmarks = poses.landmarks[i]
++          if (landmarks && landmarks.length >= 20) {
++            const { kneeSpread, kneeShakeAmp, valid } = analyzeLegByKnee(landmarks, k)
++            if (valid && (kneeSpread > 0.21)) spreadCount[k] += 1
++            if (valid && (kneeShakeAmp > 0.04)) shakeCount[k] += 1
++            const nose = landmarks[NOSE]
++            const avgShoulderY = (landmarks[LEFT_SHOULDER].y + landmarks[RIGHT_SHOULDER].y) / 2
++            if (nose && nose.y > avgShoulderY + 0.04) headDownCount[k] += 1
++            poseObj = {
++              leg_spread: spreadCount[k],
++              leg_shake: shakeCount[k],
++              head_down: headDownCount[k]
++            }
++            prevKneeY[k].min = prevKneeY[k].max = (landmarks[LEFT_KNEE].y + landmarks[RIGHT_KNEE].y) / 2
++          }
++        }
++        if (!faceExpCount[k]) faceExpCount[k] = Object.fromEntries(expList.map(e => [e, 0]))
++        let faceExpTmp = Object.fromEntries(expList.map(e => [e, 0]))
++        if (detections[k]) {
++          const det = detections[k]
++          const expLabel = Object.entries(det.expressions)
++            .reduce((max, cur) => cur[1] > max[1] ? cur : max)[0]
++          const expKor = expKorean[expLabel] || expLabel
++          if (faceExpTmp[expKor] !== undefined) faceExpTmp[expKor] += 1
++          for (let key of expList) {
++            faceExpCount[k][key] += faceExpTmp[key]
++          }
++        }
++
++        // ----- JSON 송신 -----
++        const payload = {
++          person: k + 1,
++          speaking: isSpeaking,
++          pose: poseObj,
++          expression: Object.fromEntries(expList.map(e => [e, faceExpCount[k][e] || 0])),
++          timestamp: new Date().toISOString()
++        }
++        if (ws && ws.readyState === WebSocket.OPEN) {
++          ws.send(JSON.stringify(payload))
++        }
++        // 개발/테스트용 로그 출력
++        console.log(payload)
+       }
++      lastCountedTime = Date.now()
+     }
+ 
+     requestAnimationFrame(analyze)
+@@ -349,5 +275,6 @@ onMounted(async () => {
+ 
+ onBeforeUnmount(() => {
+   active = false
++  if (ws) ws.close()
+ })
+-</script>
+\ No newline at end of file
++</script>
+diff --git a/client/src/data/interviewData.ts b/client/src/data/interviewData.ts
+index febdc17..72c10b1 100644
+--- a/client/src/data/interviewData.ts
++++ b/client/src/data/interviewData.ts
+@@ -28,7 +28,7 @@ export const timeSlots: TimeSlot[] = [
+   {
+     id: 'ts1',
+     roomId: 'room1',
+-    date: '2025-06-02',
++    date: '2025-06-04',
+     timeRange: '09:00 - 10:00',
+     interviewerIds: ['i1', 'i2', 'i3'],
+     candidateIds: ['c1']
+@@ -36,7 +36,7 @@ export const timeSlots: TimeSlot[] = [
+   {
+     id: 'ts2',
+     roomId: 'room1',
+-    date: '2025-06-02',
++    date: '2025-06-05',
+     timeRange: '10:30 - 11:30',
+     interviewerIds: ['i1', 'i2', 'i3'],
+     candidateIds: ['c2', 'c3']
+@@ -44,7 +44,7 @@ export const timeSlots: TimeSlot[] = [
+   {
+     id: 'ts3',
+     roomId: 'room2',
+-    date: '2025-06-02',
++    date: '2025-06-05',
+     timeRange: '09:00 - 10:00',
+     interviewerIds: ['i1', 'i2', 'i3'],
+     candidateIds: ['c4']
+@@ -52,7 +52,7 @@ export const timeSlots: TimeSlot[] = [
+   {
+     id: 'ts4',
+     roomId: 'room2',
+-    date: '2025-06-02',
++    date: '2025-06-05',
+     timeRange: '10:30 - 11:30',
+     interviewerIds: ['i1', 'i2', 'i3'],
+     candidateIds: ['c5', 'c6']
+@@ -60,7 +60,7 @@ export const timeSlots: TimeSlot[] = [
+   {
+     id: 'ts5',
+     roomId: 'room1',
+-    date: '2025-06-02',
++    date: '2025-06-05',
+     timeRange: '09:00 - 10:00',
+     interviewerIds: ['i1', 'i2', 'i3'],
+     candidateIds: ['c7']
+@@ -68,7 +68,7 @@ export const timeSlots: TimeSlot[] = [
+   {
+     id: 'ts6',
+     roomId: 'room2',
+-    date: '2025-06-02',
++    date: '2025-06-05',
+     timeRange: '10:30 - 11:30',
+     interviewerIds: ['i1', 'i2', 'i3'],
+     candidateIds: ['c8', 'c9']
+@@ -76,7 +76,7 @@ export const timeSlots: TimeSlot[] = [
+   {
+     id: 'ts7',
+     roomId: 'room3',
+-    date: '2025-06-02',
++    date: '2025-06-05',
+     timeRange: '09:00 - 10:00',
+     interviewerIds: ['i4', 'i5', 'i6'],
+     candidateIds: ['c1', 'c2']
+@@ -84,7 +84,7 @@ export const timeSlots: TimeSlot[] = [
+   {
+     id: 'ts8',
+     roomId: 'room3',
+-    date: '2025-06-02',
++    date: '2025-06-05',
+     timeRange: '10:30 - 11:30',
+     interviewerIds: ['i4', 'i5', 'i6'],
+     candidateIds: ['c3', 'c4']
+@@ -92,7 +92,7 @@ export const timeSlots: TimeSlot[] = [
+   {
+     id: 'ts9',
+     roomId: 'room3',
+-    date: '2025-06-02',
++    date: '2025-06-05',
+     timeRange: '09:00 - 10:00',
+     interviewerIds: ['i4', 'i5', 'i6'],
+     candidateIds: ['c5', 'c6']
+@@ -100,7 +100,7 @@ export const timeSlots: TimeSlot[] = [
+   {
+     id: 'ts10',
+     roomId: 'room3',
+-    date: '2025-06-02',
++    date: '2025-06-05',
+     timeRange: '10:30 - 11:30',
+     interviewerIds: ['i4', 'i5', 'i6'],
+     candidateIds: ['c7', 'c8', 'c9']
+diff --git a/client/src/services/interviewService.ts b/client/src/services/interviewService.ts
+deleted file mode 100644
+index 5cd3682..0000000
+--- a/client/src/services/interviewService.ts
++++ /dev/null
+@@ -1,26 +0,0 @@
+-import axios from 'axios';
+-
+-interface InterviewSchedule {
+-  interviewDate: number[];
+-  timeRange: string;
+-  roomName: string;
+-  interviewers: string[];
+-  interviewees: string[];
+-}
+-
+-interface ScheduleResponse {
+-  schedules: InterviewSchedule[];
+-  message: string;
+-}
+-
+-export const getInterviewSchedules = async (date: string): Promise<ScheduleResponse> => {
+-  try {
+-    const response = await axios.get<ScheduleResponse>(`http://localhost:8080/api/interviewees/schedule`, {
+-      params: { date }
+-    });
+-    return response.data;
+-  } catch (error) {
+-    console.error('면접 일정 조회 중 오류 발생:', error);
+-    throw error;
+-  }
+-}; 
+\ No newline at end of file
+diff --git a/client/websocket_test.py b/client/websocket_test.py
+new file mode 100644
+index 0000000..4bdba8a
+--- /dev/null
++++ b/client/websocket_test.py
+@@ -0,0 +1,23 @@
++import asyncio
++import websockets
++import json
++
++async def handler(websocket, path):
++    print("클라이언트 연결됨")
++    try:
++        async for message in websocket:
++            try:
++                data = json.loads(message)
++                print("수신된 JSON:", data)
++                # 응답 필요시:
++                # await websocket.send(json.dumps({"result": "ok"}))
++            except json.JSONDecodeError:
++                print("잘못된 JSON:", message)
++    except websockets.ConnectionClosed:
++        print("클라이언트 연결 종료")
++
++start_server = websockets.serve(handler, '0.0.0.0', 9000)
++print("WebSocket 서버가 9000번 포트에서 대기 중...")
++
++asyncio.get_event_loop().run_until_complete(start_server)
++asyncio.get_event_loop().run_forever()
+-- 
+2.39.5 (Apple Git-154)
+

@@ -1,0 +1,31 @@
+From a8c08f53b7a48da6f3f494ac652e6826314b0d02 Mon Sep 17 00:00:00 2001
+From: imclaremont <dhha1515@gmail.com>
+Date: Thu, 5 Jun 2025 17:08:56 +0900
+Subject: [PATCH 06/33] =?UTF-8?q?[Fix]=20tsconfig.json=20=ED=8C=8C?=
+ =?UTF-8?q?=EC=9D=BC=20allowJs:=20true=20=EC=98=B5=EC=85=98=20=EC=B6=94?=
+ =?UTF-8?q?=EA=B0=80?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ client/tsconfig.json | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/client/tsconfig.json b/client/tsconfig.json
+index 1cb9d83..d252cdc 100644
+--- a/client/tsconfig.json
++++ b/client/tsconfig.json
+@@ -25,7 +25,8 @@
+     "paths": {
+       "@/*": ["./src/*"]
+     },
+-    "types": ["node", "vite/client"]
++    "types": ["node", "vite/client"],
++    "allowJs": true
+   },
+   "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue", "env.d.ts"],
+   "references": [{ "path": "./tsconfig.node.json" }]
+-- 
+2.39.5 (Apple Git-154)
+

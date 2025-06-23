@@ -1,0 +1,123 @@
+From 90c27767cb4b4eced7f28b7dfb6c40b891e46541 Mon Sep 17 00:00:00 2001
+From: wochae <officialwochae@gmail.com>
+Date: Tue, 10 Jun 2025 17:07:15 +0900
+Subject: [PATCH 10/33] =?UTF-8?q?[fix]=20:=20=EC=9D=B8=ED=84=B0=EB=B7=B0?=
+ =?UTF-8?q?=EC=85=8B=EC=97=85=20=EC=B0=BD=EC=97=90=EC=84=9C=20=EC=9D=B8?=
+ =?UTF-8?q?=EA=B0=80=EC=97=86=EC=9D=B4=20=EC=9D=BC=EC=A0=95=EA=B0=80?=
+ =?UTF-8?q?=EC=A0=B8=EC=98=A4=EA=B8=B0,=20=EB=8D=94=EB=AF=B8=20=EB=8D=B0?=
+ =?UTF-8?q?=EC=9D=B4=ED=84=B0=20=EC=A3=BC=EC=84=9D,=20=EC=8B=A4=EC=A0=9C?=
+ =?UTF-8?q?=20api=20=EC=97=90=EC=84=9C=20=EB=8D=B0=EC=9D=B4=ED=84=B0?=
+ =?UTF-8?q?=EB=B0=94=EC=9D=B8=EB=94=A9?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ client/src/components/InterviewSetup.vue | 53 ++++++++++++------------
+ client/src/services/interviewService.ts  |  3 +-
+ 2 files changed, 29 insertions(+), 27 deletions(-)
+
+diff --git a/client/src/components/InterviewSetup.vue b/client/src/components/InterviewSetup.vue
+index 3ce1f5f..271cc51 100644
+--- a/client/src/components/InterviewSetup.vue
++++ b/client/src/components/InterviewSetup.vue
+@@ -115,22 +115,22 @@
+ <script setup lang="ts">
+ import { ref, computed, onMounted, watch } from 'vue';
+ import { useRouter } from 'vue-router';
+-import type { Room, TimeSlot, Person } from '../data/interviewData';
+-// getPersonById 제거 (사용하지 않음)
++
+ import AdminLoginModal from './AdminLoginModal.vue';
+ import { getInterviewSchedules } from '../services/interviewService';
+ 
+-interface Props {
+-  rooms: Room[];
+-  timeSlots: TimeSlot[];
+-  people: Person[];
+-}
+-
+-const props = withDefaults(defineProps<Props>(), {
+-  rooms: () => [],
+-  timeSlots: () => [],
+-  people: () => []
+-});
++// Props 인터페이스와 선언 제거 (더 이상 사용하지 않음)
++// interface Props {
++//   rooms: Room[];
++//   timeSlots: TimeSlot[];
++//   people: Person[];
++// }
++
++// const props = withDefaults(defineProps<Props>(), {
++//   rooms: () => [],
++//   timeSlots: () => [],
++//   people: () => []
++// });
+ 
+ const router = useRouter();
+ 
+@@ -144,32 +144,33 @@ const error = ref<string | null>(null);
+ const showAdminLogin = ref(false);
+ const selectedSchedule = ref<any>(null);
+ 
+-// 오늘 날짜와 선택된 날짜가 일치하는지 확인하는 computed 속성 추가
++// API 데이터에서 동적으로 rooms 생성
++const rooms = computed(() => {
++  const uniqueRooms = new Set(schedules.value.map(schedule => schedule.roomName));
++  return Array.from(uniqueRooms).map((roomName, index) => ({
++    id: `room${index + 1}`,
++    name: roomName
++  }));
++});
++
++// 오늘 날짜와 선택된 날짜가 일치하는지 확인하는 computed 속성
+ const isToday = computed(() => {
+   const today = new Date().toISOString().split('T')[0];
+   return selectedDate.value === today;
+ });
+ 
+-// Remove the unused availableTimeSlots computed property
+-// const availableTimeSlots = computed(() => {
+-//   if (!selectedRoom.value || !selectedDate.value) return [];
+-//   return props.timeSlots.filter(slot => 
+-//     slot.roomId === selectedRoom.value && 
+-//     slot.date === selectedDate.value &&
+-//     slot.candidateIds.length > 0
+-//   );
+-// });
+-
++// selectedRoom, selectedTimeSlot, isToday가 모두 true일 때만 canProceed가 true가 되도록 변경
+ const canProceed = computed(() => {
+   return selectedRoom.value && 
+          selectedTimeSlot.value && 
+          isToday.value && 
+-         selectedSchedule.value; // 선택된 일정이 있는 경우에만 true
++         selectedSchedule.value;
+ });
+ 
++// props.rooms 대신 rooms.value 사용
+ const filteredSchedules = computed(() =>
+   schedules.value.filter(schedule => 
+-    schedule.roomName === props.rooms.find(r => r.id === selectedRoom.value)?.name
++    schedule.roomName === rooms.value.find(r => r.id === selectedRoom.value)?.name
+   )
+ );
+ 
+diff --git a/client/src/services/interviewService.ts b/client/src/services/interviewService.ts
+index 7d7b365..8f130ca 100644
+--- a/client/src/services/interviewService.ts
++++ b/client/src/services/interviewService.ts
+@@ -20,7 +20,8 @@ interface ScheduleResponse {
+ 
+ export const getInterviewSchedules = async (date: string): Promise<ScheduleResponse> => {
+   try {
+-    const response = await axios.get<ScheduleResponse>(`${API_BASE_URL}/interviews/all`, {
++    // 수정: schedule/all 엔드포인트 사용
++    const response = await axios.get<ScheduleResponse>(`${API_BASE_URL}/interviews/schedule/all`, {
+       params: { date }
+     });
+     return response.data;
+-- 
+2.39.5 (Apple Git-154)
+

@@ -1,0 +1,63 @@
+From e1c61e63d972b6da699140c5f6b361b4361d810c Mon Sep 17 00:00:00 2001
+From: starwarrior77 <kkk792100@naver.com>
+Date: Tue, 17 Jun 2025 14:59:43 +0900
+Subject: [PATCH 20/33] interviewee_id str -> int
+
+---
+ client/src/components/Interview.vue      | 13 +++++++++----
+ client/src/components/PoseMiniWidget.vue |  2 +-
+ 2 files changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/client/src/components/Interview.vue b/client/src/components/Interview.vue
+index 7ccc4d6..fd25868 100644
+--- a/client/src/components/Interview.vue
++++ b/client/src/components/Interview.vue
+@@ -101,7 +101,7 @@ interface Props {
+   timeRange: string
+   interviewers: string
+   candidates: string[]
+-  candidateIds: string[]
++  candidateIds: number[]
+   interviewerIds: number[]
+ }
+ 
+@@ -119,15 +119,20 @@ const router = useRouter()
+ const isAnalyzing = ref(false)
+ 
+ // 비언어적 데이터 저장소
+-const nonverbalData = ref<Record<string, any>>({})
++const nonverbalData = ref<Record<number, any>>({})
+ 
+-const getQuestionsForCandidate = (candidateId: string): Question[] => {
++const getQuestionsForCandidate = (candidateId: number): Question[] => {
+   return getCandidateQuestions(candidateId)
+ }
+ 
+ // PoseMiniWidget으로부터 비언어적 데이터 업데이트
+ const handleNonverbalData = (data: Record<string, any>) => {
+-  nonverbalData.value = data
++  // string 키를 number로 변환
++  const convertedData: Record<number, any> = {}
++  Object.entries(data).forEach(([key, value]) => {
++    convertedData[Number(key)] = value
++  })
++  nonverbalData.value = convertedData
+ }
+ 
+ const startSession = async () => {
+diff --git a/client/src/components/PoseMiniWidget.vue b/client/src/components/PoseMiniWidget.vue
+index 995c693..403dd87 100644
+--- a/client/src/components/PoseMiniWidget.vue
++++ b/client/src/components/PoseMiniWidget.vue
+@@ -148,7 +148,7 @@ async function startRecording(personIndex) {
+       
+       const formData = new FormData()
+       formData.append('audio', audioBlob, fileName)
+-      formData.append('interviewee_id', state.id)
++      formData.append('interviewee_id', state.id.toString())
+       
+       try {
+         const response = await fetch('/api/v1/interview/stt/upload', {
+-- 
+2.39.5 (Apple Git-154)
+

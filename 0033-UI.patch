@@ -1,0 +1,31 @@
+From 1f14159250ff7e95bab05c07a42e5cc480a63674 Mon Sep 17 00:00:00 2001
+From: miinae416 <miin416@naver.com>
+Date: Mon, 23 Jun 2025 11:27:58 +0900
+Subject: [PATCH 33/33] =?UTF-8?q?=ED=8F=89=EA=B0=80=EA=B8=B0=EC=A4=80=20?=
+ =?UTF-8?q?=EC=84=A4=EC=A0=95=20UI=EB=B3=80=EA=B2=BD?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ client/src/components/SystemSettings.vue | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/client/src/components/SystemSettings.vue b/client/src/components/SystemSettings.vue
+index d6ac0c3..972c510 100644
+--- a/client/src/components/SystemSettings.vue
++++ b/client/src/components/SystemSettings.vue
+@@ -13,8 +13,8 @@
+     <div class="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+       <h3 class="text-lg font-bold text-gray-900 mb-4">면접 평가 기준 설정</h3>
+       <p class="text-gray-600 mb-6">각 평가 항목의 가중치를 설정합니다. 모든 항목의 합은 100%여야 합니다.</p>
+-      <div class="space-y-6">
+-        <div v-for="(criterion, index) in evaluationCriteria" :key="index" class="bg-gray-50 rounded-lg p-6">
++      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
++        <div v-for="(criterion, index) in evaluationCriteria" :key="index" class="bg-gray-50 rounded-lg p-6 col-span-1">
+           <div class="flex items-center justify-between mb-4">
+             <div class="flex items-center gap-3">
+               <div class="w-10 h-10 rounded-full flex items-center justify-center" :class="criterion.bgColor">
+-- 
+2.39.5 (Apple Git-154)
+
