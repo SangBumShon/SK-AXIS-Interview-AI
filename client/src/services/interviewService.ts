@@ -47,7 +47,7 @@ export const getInterviewSchedules = async (date: string): Promise<ScheduleRespo
     
     apiResponse.data.forEach(item => {
       // 날짜 배열을 문자열로 변환
-      const dateStr = item.interviewDate.join('-');
+      // const dateStr = item.interviewDate.join('-');
       
       // 시간대는 임시로 기본값 사용 (API에서 시간 정보가 없으므로)
       const timeRange = '09:00 - 10:00'; // 기본값

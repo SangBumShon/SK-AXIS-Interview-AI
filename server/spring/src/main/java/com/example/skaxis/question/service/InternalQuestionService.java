@@ -72,7 +72,6 @@ public class InternalQuestionService {
         
         return questionsPerInterviewee;
     }
-<<<<<<< HEAD
     
     /**
      * 가장 간단한 방법: 기존 메서드들 조합
@@ -98,6 +97,4 @@ public class InternalQuestionService {
         
         return result;
     }
-=======
->>>>>>> origin/front-ai-face
 }

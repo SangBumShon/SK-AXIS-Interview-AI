@@ -5,6 +5,9 @@ WORKDIR /app
 # Gradle Wrapper 및 프로젝트 파일 복사
 COPY . .
 
+RUN apt-get update && apt-get install -y dos2unix
+RUN dos2unix gradlew
+
 # Gradle 빌드 (테스트 생략)
 RUN ./gradlew build -x test
 

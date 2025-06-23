@@ -2,15 +2,12 @@ package com.example.skaxis.interview.controller;
 
 import com.example.skaxis.interview.dto.*;
 import com.example.skaxis.interview.dto.interviewee.IntervieweeListResponseDto;
-<<<<<<< HEAD
 import com.example.skaxis.question.dto.QuestionDto;
 import com.example.skaxis.question.dto.StartInterviewRequestDto;
 import com.example.skaxis.question.dto.StartInterviewResponseDto;
 import com.example.skaxis.question.model.Question;
 import com.example.skaxis.question.service.InternalQuestionService;
 import io.swagger.v3.oas.annotations.Operation;
-=======
->>>>>>> origin/front-ai-face
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,11 +17,8 @@ import com.example.skaxis.interview.service.IntervieweeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-<<<<<<< HEAD
 import java.util.HashMap;
 import java.util.List;
-=======
->>>>>>> origin/front-ai-face
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
@@ -56,10 +50,7 @@ public class InterviewController {
 
     private final InterviewService interviewService;
     private final IntervieweeService intervieweeService;
-<<<<<<< HEAD
     private final InternalQuestionService internalQuestionService; // 추가
-=======
->>>>>>> origin/front-ai-face
 
     // 기존 면접 관련 메서드들
     @GetMapping("/all")
@@ -173,11 +164,7 @@ public class InterviewController {
         }
     }
     
-<<<<<<< HEAD
     @GetMapping("schedule/all")
-=======
-    @GetMapping("/schedule/all")
->>>>>>> origin/front-ai-face
     @Transactional(readOnly = true)
     public ResponseEntity<?> getAllInterviewSchedules(
             @RequestParam(required = false) String status) {
@@ -207,7 +194,6 @@ public class InterviewController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error");
         }
     }
-<<<<<<< HEAD
 
     @PostMapping("/start")
     @Operation(summary = "면접 시작", description = "각 지원자의 질문 목록을 로드해 반환하고, 면접 상태를 초기화합니다.")
@@ -272,6 +258,3 @@ public class InterviewController {
         return dbType; // 기본값
     }
 }
-=======
-}
->>>>>>> origin/front-ai-face

@@ -26,11 +26,7 @@ public class GetInterviewByIdResponseDto {
     public static class IntervieweeDto {
         private Long intervieweeId;
         private String name;
-<<<<<<< HEAD
 //        private String applicantCode;
-=======
-        private String applicantCode;
->>>>>>> origin/front-ai-face
         private String createdAt;
     }
 
