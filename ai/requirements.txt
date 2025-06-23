@@ -37,3 +37,6 @@ openai
 langchain
 langchain-community
 aiofiles
+langgraph
+fpdf2
+scipy

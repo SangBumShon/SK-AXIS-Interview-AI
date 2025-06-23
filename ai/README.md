@@ -84,4 +84,3 @@ curl -X POST "http://localhost:8000/interview/20250527_174848/stop"
 7. 종합 평가 점수 (5점 만점)
 
 각 항목에 대한 점수와 코멘트가 제공됩니다.
-
