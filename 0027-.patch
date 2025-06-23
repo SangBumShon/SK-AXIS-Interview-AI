@@ -1,0 +1,29 @@
+From 69a1a676e73d19a5144497974f9eea21df9b4761 Mon Sep 17 00:00:00 2001
+From: starwarrior77 <kkk792100@naver.com>
+Date: Wed, 18 Jun 2025 14:51:39 +0900
+Subject: [PATCH 27/33] =?UTF-8?q?=EB=A1=9C=EA=B7=B8=EC=9D=B8=20=EC=95=88?=
+ =?UTF-8?q?=EB=90=98=EB=8D=98=20=EB=AC=B8=EC=A0=9C=20=ED=95=B4=EA=B2=B0?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ client/src/components/InterviewerLogin.vue | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/client/src/components/InterviewerLogin.vue b/client/src/components/InterviewerLogin.vue
+index 6be1e5b..63d1490 100644
+--- a/client/src/components/InterviewerLogin.vue
++++ b/client/src/components/InterviewerLogin.vue
+@@ -192,7 +192,7 @@ const handleLogin = async () => {
+   try {
+     loginError.value = '';
+     
+-    const response = await fetch('/api/v1/auth/login', {
++    const response = await fetch('http://localhost:8080/api/v1/auth/login', {
+       method: 'POST',
+       headers: {
+         'Content-Type': 'application/json'
+-- 
+2.39.5 (Apple Git-154)
+

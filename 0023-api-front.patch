@@ -1,0 +1,41 @@
+From a59ea551ff9f2a8ea5e1055e662bd0bd17b2adb5 Mon Sep 17 00:00:00 2001
+From: starwarrior77 <kkk792100@naver.com>
+Date: Tue, 17 Jun 2025 16:39:23 +0900
+Subject: [PATCH 23/33] api + front
+
+---
+ client/src/data/questionData.ts         | 4 ++--
+ client/src/services/interviewService.ts | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/client/src/data/questionData.ts b/client/src/data/questionData.ts
+index b85def5..a11c261 100644
+--- a/client/src/data/questionData.ts
++++ b/client/src/data/questionData.ts
+@@ -136,7 +136,7 @@ export const individualQuestions: Record<string, Question[]> = {
+ };
+ 
+ // 지원자별 전체 질문 목록을 가져오는 함수
+-export const getQuestionsForCandidate = (candidateId: string): Question[] => {
+-  const candidateQuestions = individualQuestions[candidateId] || [];
++export const getQuestionsForCandidate = (candidateId: number): Question[] => {
++  const candidateQuestions = individualQuestions[candidateId.toString()] || [];
+   return [...commonQuestions, ...candidateQuestions];
+ }; 
+\ No newline at end of file
+diff --git a/client/src/services/interviewService.ts b/client/src/services/interviewService.ts
+index 29e66bf..2f7c0d1 100644
+--- a/client/src/services/interviewService.ts
++++ b/client/src/services/interviewService.ts
+@@ -19,7 +19,7 @@ interface ScheduleResponse {
+ export const getInterviewSchedules = async (date: string): Promise<ScheduleResponse> => {
+   try {
+     // 수정: schedule/all 엔드포인트 사용
+-    const response = await fetch('http://sk-axis-springboot:8080/api/v1/schedule/all', {
++    const response = await fetch('http://sk-axis-springboot:8080/api/v1/interviews/schedule/all', {
+       method: 'GET',
+       headers: {
+         'Content-Type': 'application/json'
+-- 
+2.39.5 (Apple Git-154)
+

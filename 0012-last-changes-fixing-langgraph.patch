@@ -1,0 +1,45 @@
+From 14adc9deee5229e782db60502f0a6bb666d86741 Mon Sep 17 00:00:00 2001
+From: SangBumShon <core5630@naver.com>
+Date: Thu, 12 Jun 2025 17:20:10 +0900
+Subject: [PATCH 12/33] last changes: fixing langgraph
+
+---
+ client/src/components/PoseMiniWidget.vue | 22 ++++++++++++++++------
+ 1 file changed, 16 insertions(+), 6 deletions(-)
+
+diff --git a/client/src/components/PoseMiniWidget.vue b/client/src/components/PoseMiniWidget.vue
+index 74758ac..94609cd 100644
+--- a/client/src/components/PoseMiniWidget.vue
++++ b/client/src/components/PoseMiniWidget.vue
+@@ -253,12 +253,22 @@ onMounted(async () => {
+ 
+         // ----- JSON 송신 -----
+         const payload = {
+-          person: k + 1,
+-          speaking: isSpeaking,
+-          pose: poseObj,
+-          expression: Object.fromEntries(expList.map(e => [e, faceExpCount[k][e] || 0])),
+-          timestamp: new Date().toISOString()
+-        }
++  interviewee_id: k + 1,                                    // int
++  is_speaking: isSpeaking,                                  // bool
++  posture: {                                                // Posture 필드명과 개수 일치
++    leg_spread: poseObj.leg_spread,
++    leg_shake:  poseObj.leg_shake,
++    head_down:  poseObj.head_down
++  },
++  facial_expression: {                                      // FacialExpression 키와 개수 일치
++    smile:       faceExpCount[k].smile     || 0,
++    neutral:     faceExpCount[k].neutral   || 0,
++    embarrassed: faceExpCount[k].embarrassed || 0,
++    tearful:     faceExpCount[k].tearful   || 0,
++    frown:       faceExpCount[k].frown     || 0
++  },
++  timestamp: new Date().toISOString()                       // (추가 필드는 무시됨)
++};
+         if (ws && ws.readyState === WebSocket.OPEN) {
+           ws.send(JSON.stringify(payload))
+         }
+-- 
+2.39.5 (Apple Git-154)
+

@@ -11,10 +11,8 @@
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^6.4.2",
-    "@mediapipe/tasks-vision": "^0.10.22-rc.20250304",
     "autoprefixer": "^10.4.15",
-    "axios": "^1.10.0",
-    "echarts": "^5.6.0",
+    "echarts": "^5.4.3",
     "face-api.js": "^0.22.2",
     "postcss": "^8.4.28",
     "tailwindcss": "^3.3.3",
@@ -22,7 +20,6 @@
     "vue-router": "^4.2.4"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.10",
     "@types/node": "^20.5.7",
     "@vitejs/plugin-vue": "^4.3.4",
     "@vue/eslint-config-typescript": "^12.0.0",

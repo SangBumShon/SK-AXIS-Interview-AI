@@ -1,4 +1,4 @@
-FROM node:16-alpine as build
+FROM --platform=linux/amd64 node:16-alpine as build
 
 WORKDIR /app
 
@@ -7,7 +7,7 @@ COPY package*.json ./
 RUN npm install
 
 # Tailwind CSS 및 추가 패키지 설치
-RUN npm install -D tailwindcss@latest postcss@latest autoprefixer@latest
+RUN npm install -D tailwindcss@latest postcss@latest autoprefixer@latest @tailwindcss/postcss
 RUN npm install @mediapipe/pose @mediapipe/camera_utils @mediapipe/drawing_utils @mediapipe/tasks-vision
 RUN npm install axios vue-router@4 pinia@latest chart.js vue-chartjs
 
@@ -16,7 +16,7 @@ COPY . .
 RUN npm run build
 
 # 실행 이미지 생성
-FROM nginx:stable-alpine
+FROM --platform=linux/amd64 nginx:stable-alpine
 
 # Nginx 설정 복사
 COPY --from=build /app/dist /usr/share/nginx/html

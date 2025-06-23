@@ -1,0 +1,2492 @@
+From 7290859cd76dea793bab356f8e32adcc898469af Mon Sep 17 00:00:00 2001
+From: wochae <officialwochae@gmail.com>
+Date: Wed, 4 Jun 2025 13:24:21 +0900
+Subject: [PATCH 01/33] Add frontend client directory from front_api
+
+---
+ client/package.json                       |  28 +-
+ client/src/App.vue                        |  34 +-
+ client/src/components/AdminDashboard.vue  | 375 ++++++++++++++++
+ client/src/components/AdminLoginModal.vue |  81 ++++
+ client/src/components/AiLoadingModal.vue  |  34 ++
+ client/src/components/Interview.vue       | 182 ++++++++
+ client/src/components/InterviewResult.vue | 494 ++++++++++------------
+ client/src/components/InterviewSetup.vue  | 240 +++++++++++
+ client/src/components/PoseMiniWidget.vue  | 353 ++++++++++++++++
+ client/src/data/interviewData.ts          | 127 ++++++
+ client/src/data/peopleData.ts             |  35 ++
+ client/src/data/questionData.ts           | 142 +++++++
+ client/src/env.d.ts                       |  16 +
+ client/src/main.ts                        |  35 +-
+ client/src/services/interviewService.ts   |  26 ++
+ client/tsconfig.json                      |  31 +-
+ client/tsconfig.node.json                 |  11 +
+ 17 files changed, 1939 insertions(+), 305 deletions(-)
+ create mode 100644 client/src/components/AdminDashboard.vue
+ create mode 100644 client/src/components/AdminLoginModal.vue
+ create mode 100644 client/src/components/AiLoadingModal.vue
+ create mode 100644 client/src/components/Interview.vue
+ create mode 100644 client/src/components/InterviewSetup.vue
+ create mode 100644 client/src/components/PoseMiniWidget.vue
+ create mode 100644 client/src/data/interviewData.ts
+ create mode 100644 client/src/data/peopleData.ts
+ create mode 100644 client/src/data/questionData.ts
+ create mode 100644 client/src/env.d.ts
+ create mode 100644 client/src/services/interviewService.ts
+ create mode 100644 client/tsconfig.node.json
+
+diff --git a/client/package.json b/client/package.json
+index 1ef1bd1..b0619a0 100644
+--- a/client/package.json
++++ b/client/package.json
+@@ -2,6 +2,7 @@
+   "name": "testskaxis",
+   "version": "0.1.0",
+   "private": true,
++  "type": "module",
+   "scripts": {
+     "dev": "vite",
+     "build": "vue-tsc && vite build",
+@@ -9,23 +10,26 @@
+     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore"
+   },
+   "dependencies": {
+-    "vue": "^3.3.4",
+-    "vue-router": "^4.2.4",
+     "@fortawesome/fontawesome-free": "^6.4.2",
+-    "tailwindcss": "^3.3.3",
+-    "postcss": "^8.4.28",
++    "@mediapipe/tasks-vision": "^0.10.22-rc.20250304",
+     "autoprefixer": "^10.4.15",
+-    "echarts": "^5.4.3"
++    "axios": "^1.9.0",
++    "echarts": "^5.4.3",
++    "postcss": "^8.4.28",
++    "tailwindcss": "^3.3.3",
++    "vue": "^3.3.4",
++    "vue-router": "^4.2.4"
+   },
+   "devDependencies": {
+-    "@vitejs/plugin-vue": "^4.3.4",
+-    "@vue/tsconfig": "^0.4.0",
+-    "typescript": "~5.2.0",
+-    "vite": "^4.4.9",
+-    "vue-tsc": "^1.8.8",
+     "@types/node": "^20.5.7",
++    "@vitejs/plugin-vue": "^4.3.4",
++    "@vue/eslint-config-typescript": "^12.0.0",
++    "@vue/runtime-core": "^3.5.16",
++    "@vue/tsconfig": "^0.7.0",
+     "eslint": "^8.48.0",
+     "eslint-plugin-vue": "^9.17.0",
+-    "@vue/eslint-config-typescript": "^12.0.0"
++    "typescript": "~5.2.0",
++    "vite": "^4.4.9",
++    "vue-tsc": "^1.8.8"
+   }
+-} 
+\ No newline at end of file
++}
+diff --git a/client/src/App.vue b/client/src/App.vue
+index 5bbc5ee..0700116 100644
+--- a/client/src/App.vue
++++ b/client/src/App.vue
+@@ -1,12 +1,22 @@
+ <template>
+-  <router-view v-slot="{ Component }">
+-    <transition name="fade" mode="out-in">
+-      <component :is="Component" />
+-    </transition>
+-  </router-view>
++  <div class="min-h-screen bg-gray-50">
++    <InterviewSetup
++      v-if="$route.name === 'setup'"
++      :rooms="rooms"
++      :time-slots="timeSlots"
++      :people="people"
++    />
++    <router-view v-else />
++  </div>
+ </template>
+ 
++<script setup lang="ts">
++import { rooms, timeSlots, people } from './data/interviewData';
++import InterviewSetup from './components/InterviewSetup.vue';
++</script>
++
+ <style>
++/* 전역 스타일 */
+ .fade-enter-active,
+ .fade-leave-active {
+   transition: opacity 0.3s ease;
+@@ -16,4 +26,18 @@
+ .fade-leave-to {
+   opacity: 0;
+ }
++
++/* 기본 스타일 리셋 */
++* {
++  margin: 0;
++  padding: 0;
++  box-sizing: border-box;
++}
++
++body {
++  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
++  -webkit-font-smoothing: antialiased;
++  -moz-osx-font-smoothing: grayscale;
++  color: #2c3e50;
++}
+ </style> 
+\ No newline at end of file
+diff --git a/client/src/components/AdminDashboard.vue b/client/src/components/AdminDashboard.vue
+new file mode 100644
+index 0000000..a874f46
+--- /dev/null
++++ b/client/src/components/AdminDashboard.vue
+@@ -0,0 +1,375 @@
++<template>
++    <div class="fixed inset-0 bg-white z-50 overflow-auto">
++      <div class="flex h-full">
++        <!-- 사이드바 -->
++        <div class="w-64 bg-white border-r border-gray-200 h-full shadow-sm flex flex-col justify-between">
++          <div>
++            <div class="p-6">
++              <div class="flex items-center gap-2 mb-8">
++                <h1 class="text-2xl font-bold">
++                  <span class="text-red-600">SK</span><span class="text-orange-500">AXIS</span>
++                </h1>
++              </div>
++              <nav class="space-y-1">
++                <a href="#" class="flex items-center px-4 py-3 text-gray-900 bg-gray-100 rounded-lg">
++                  <i class="fas fa-tachometer-alt w-5 text-red-600"></i>
++                  <span class="ml-3 font-medium">대시보드</span>
++                </a>
++                <a href="#" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg">
++                  <i class="fas fa-users w-5 text-gray-500"></i>
++                  <span class="ml-3">지원자 관리</span>
++                </a>
++                <a href="#" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg">
++                  <i class="fas fa-calendar-alt w-5 text-gray-500"></i>
++                  <span class="ml-3">면접 일정</span>
++                </a>
++                <a href="#" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg">
++                  <i class="fas fa-chart-bar w-5 text-gray-500"></i>
++                  <span class="ml-3">통계 분석</span>
++                </a>
++                <a href="#" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg">
++                  <i class="fas fa-cog w-5 text-gray-500"></i>
++                  <span class="ml-3">시스템 설정</span>
++                </a>
++              </nav>
++            </div>
++          </div>
++          <div class="p-6 border-t border-gray-200">
++            <div class="flex items-center gap-3">
++              <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
++                <i class="fas fa-user text-gray-500"></i>
++              </div>
++              <div>
++                <p class="text-sm font-medium text-gray-900">관리자</p>
++                <p class="text-xs text-gray-500">admin@skaxis.com</p>
++              </div>
++            </div>
++          </div>
++        </div>
++        <!-- 메인 콘텐츠 -->
++        <div class="flex-1 overflow-auto">
++          <div class="container mx-auto px-6 py-8">
++            <!-- 헤더 -->
++            <div class="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
++              <div class="flex items-center gap-6">
++                <span class="text-xl text-gray-700 font-bold">관리자 대시보드</span>
++              </div>
++              <div class="flex items-center gap-4">
++                <button class="px-4 py-2 text-gray-600 hover:text-gray-800 !rounded-button whitespace-nowrap cursor-pointer flex items-center gap-2">
++                  <i class="fas fa-info-circle"></i> About
++                </button>
++                <button class="px-4 py-2 text-gray-600 hover:text-gray-800 !rounded-button whitespace-nowrap cursor-pointer flex items-center gap-2">
++                  <i class="fas fa-headset"></i> 개발자 문의
++                </button>
++                <button @click="emitClose" class="text-gray-400 hover:text-gray-600">
++                  <i class="fas fa-times text-2xl"></i>
++                </button>
++              </div>
++            </div>
++            <!-- 통계 대시보드 -->
++            <div class="grid grid-cols-4 gap-6 mb-8">
++              <div class="bg-white rounded-lg p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
++                <div class="flex items-center gap-4 mb-4">
++                  <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
++                    <i class="fas fa-users text-blue-600 text-2xl"></i>
++                  </div>
++                  <div>
++                    <h3 class="text-lg font-medium text-gray-700">전체 지원자</h3>
++                    <p class="text-3xl font-semibold text-gray-900">128</p>
++                  </div>
++                </div>
++                <p class="text-sm text-gray-500 flex items-center gap-1">
++                  전월 대비 <span class="text-blue-600 font-medium flex items-center"><i class="fas fa-caret-up text-xs"></i>15%</span>
++                </p>
++              </div>
++              <div class="bg-white rounded-lg p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
++                <div class="flex items-center gap-4 mb-4">
++                  <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
++                    <i class="fas fa-calendar-day text-green-600 text-2xl"></i>
++                  </div>
++                  <div>
++                    <h3 class="text-lg font-medium text-gray-700">오늘의 면접</h3>
++                    <p class="text-3xl font-semibold text-gray-900">12</p>
++                  </div>
++                </div>
++                <p class="text-sm text-gray-500 flex items-center gap-1">
++                  전일 대비 <span class="text-green-600 font-medium flex items-center"><i class="fas fa-caret-up text-xs"></i>2</span>
++                </p>
++              </div>
++              <div class="bg-white rounded-lg p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
++                <div class="flex items-center gap-4 mb-4">
++                  <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
++                    <i class="fas fa-check-circle text-purple-600 text-2xl"></i>
++                  </div>
++                  <div>
++                    <h3 class="text-lg font-medium text-gray-700">완료된 면접</h3>
++                    <p class="text-3xl font-semibold text-gray-900">75</p>
++                  </div>
++                </div>
++                <p class="text-sm text-gray-500">전체 면접 대비 58%</p>
++              </div>
++              <div class="bg-white rounded-lg p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
++                <div class="flex items-center gap-4 mb-4">
++                  <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
++                    <i class="fas fa-clock text-orange-600 text-2xl"></i>
++                  </div>
++                  <div>
++                    <h3 class="text-lg font-medium text-gray-700">대기중</h3>
++                    <p class="text-3xl font-semibold text-gray-900">45</p>
++                  </div>
++                </div>
++                <p class="text-sm text-gray-500">전체 면접 대비 35%</p>
++              </div>
++            </div>
++            <!-- 필터 섹션 -->
++            <div class="bg-white rounded-lg p-6 mb-8 border border-gray-100">
++              <div class="grid grid-cols-4 gap-6">
++                <div>
++                  <label class="block text-sm font-medium text-gray-600 mb-2">면접 기간</label>
++                  <select v-model="filters.period" class="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400">
++                    <option value="all">전체 기간</option>
++                    <option value="today">오늘</option>
++                    <option value="week">이번 주</option>
++                    <option value="month">이번 달</option>
++                  </select>
++                </div>
++                <div>
++                  <label class="block text-sm font-medium text-gray-700 mb-2">면접실</label>
++                  <select v-model="filters.room" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
++                    <option value="all">전체</option>
++                    <option value="room1">1호실</option>
++                    <option value="room2">2호실</option>
++                    <option value="room3">3호실</option>
++                    <option value="room4">4호실</option>
++                  </select>
++                </div>
++                <div>
++                  <label class="block text-sm font-medium text-gray-700 mb-2">평가 상태</label>
++                  <select v-model="filters.status" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
++                    <option value="all">전체</option>
++                    <option value="completed">평가 완료</option>
++                    <option value="pending">대기중</option>
++                    <option value="in_progress">진행중</option>
++                  </select>
++                </div>
++                <div>
++                  <label class="block text-sm font-medium text-gray-700 mb-2">검색</label>
++                  <div class="relative">
++                    <input type="text" v-model="filters.search" placeholder="이름 또는 부서 검색" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
++                    <i class="fas fa-search absolute right-3 top-2.5 text-gray-400"></i>
++                  </div>
++                </div>
++              </div>
++            </div>
++            <!-- 테이블 섹션 -->
++            <div class="bg-white rounded-lg border border-gray-100 overflow-hidden mb-8">
++              <div class="p-4 border-b border-gray-100 flex justify-between items-center">
++                <h2 class="text-lg font-medium text-gray-700">면접자 목록</h2>
++                <div class="flex items-center gap-3">
++                  <button @click="showDeleteConfirm = true" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors !rounded-button whitespace-nowrap cursor-pointer flex items-center gap-2">
++                    <i class="fas fa-trash-alt"></i> 전체 삭제
++                  </button>
++                  <label class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors !rounded-button whitespace-nowrap cursor-pointer flex items-center gap-2">
++                    <i class="fas fa-file-upload"></i> 엑셀 업로드
++                    <input type="file" accept=".xlsx,.xls" class="hidden" @change="handleExcelUpload">
++                  </label>
++                  <button @click="downloadExcel" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors !rounded-button whitespace-nowrap cursor-pointer flex items-center gap-2">
++                    <i class="fas fa-file-download"></i> 엑셀 다운로드
++                  </button>
++                </div>
++              </div>
++              <div class="overflow-x-auto">
++                <table class="min-w-full">
++                  <thead class="bg-gray-50">
++                    <tr>
++                      <th v-for="column in tableColumns" :key="column.key"
++                          @click="sortBy(column.key)"
++                          class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
++                        {{ column.label }} <i class="fas fa-sort ml-1"></i>
++                      </th>
++                    </tr>
++                  </thead>
++                  <tbody class="bg-white divide-y divide-gray-200">
++                    <tr v-for="interview in sortedInterviews" :key="interview.id" class="hover:bg-gray-50">
++                      <td class="px-6 py-4 whitespace-nowrap">{{ interview.date }}</td>
++                      <td class="px-6 py-4 whitespace-nowrap">{{ interview.time }}</td>
++                      <td class="px-6 py-4 whitespace-nowrap">{{ interview.room }}</td>
++                      <td class="px-6 py-4 whitespace-nowrap">{{ interview.candidate }}</td>
++                      <td class="px-6 py-4 whitespace-nowrap">{{ interview.position }}</td>
++                      <td class="px-6 py-4 whitespace-nowrap">{{ interview.department }}</td>
++                      <td class="px-6 py-4 whitespace-nowrap">{{ interview.interviewers.join(', ') }}</td>
++                      <td class="px-6 py-4 whitespace-nowrap">
++                        <span :class="{
++                          'px-2 py-1 text-xs font-medium rounded-full': true,
++                          'bg-green-100 text-green-800': interview.status === 'completed',
++                          'bg-yellow-100 text-yellow-800': interview.status === 'pending',
++                          'bg-blue-100 text-blue-800': interview.status === 'in_progress'
++                        }">
++                          {{ getStatusText(interview.status) }}
++                        </span>
++                      </td>
++                      <td class="px-6 py-4 whitespace-nowrap">{{ interview.score || '-' }}</td>
++                      <td class="px-6 py-4 whitespace-nowrap">
++                        <button @click="viewDetails(interview.id)" class="text-red-600 hover:text-red-800">
++                          <i class="fas fa-eye"></i>
++                        </button>
++                      </td>
++                    </tr>
++                  </tbody>
++                </table>
++              </div>
++            </div>
++          </div> <!-- container -->
++        </div>
++      </div>
++    </div>
++
++    <!-- 삭제 확인 모달 -->
++    <div v-if="showDeleteConfirm" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
++      <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
++        <h3 class="text-xl font-bold text-gray-900 mb-4">전체 삭제 확인</h3>
++        <p class="text-gray-600 mb-6">모든 면접자 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
++        <div class="flex justify-end gap-3">
++          <button @click="showDeleteConfirm = false" class="px-4 py-2 text-gray-600 hover:text-gray-800">
++            취소
++          </button>
++          <button @click="deleteAllInterviews" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
++            삭제
++          </button>
++        </div>
++      </div>
++    </div>
++  </template>
++  
++  <script setup lang="ts">
++  import { ref, computed } from 'vue';
++  import { useRouter } from 'vue-router';
++  const router = useRouter();
++  const filters = ref({
++    period: 'all',
++    room: 'all',
++    status: 'all',
++    search: ''
++  });
++  const sortConfig = ref({
++    key: 'date',
++    direction: 'asc'
++  });
++  const tableColumns = [
++    { key: 'date', label: '날짜' },
++    { key: 'time', label: '시간' },
++    { key: 'room', label: '면접실' },
++    { key: 'candidate', label: '지원자' },
++    { key: 'position', label: '지원 직무' },
++    { key: 'department', label: '지원 부서' },
++    { key: 'interviewers', label: '면접관' },
++    { key: 'status', label: '상태' },
++    { key: 'score', label: '점수' },
++    { key: 'actions', label: '상세보기' }
++  ];
++  const interviews = ref([
++    {
++      id: 1,
++      date: '2025-05-29',
++      time: '09:00 ~ 10:00',
++      room: '1호실',
++      candidate: '홍길동',
++      position: '소프트웨어 엔지니어',
++      department: 'IT 개발부',
++      interviewers: ['김민수', '이지원', '박성훈'],
++      status: 'completed',
++      score: 92
++    },
++    {
++      id: 2,
++      date: '2025-05-29',
++      time: '10:30 ~ 11:30',
++      room: '1호실',
++      candidate: '이지은',
++      position: '프론트엔드 개발자',
++      department: 'IT 개발부',
++      interviewers: ['최영희', '정태우', '강미란'],
++      status: 'in_progress',
++      score: null
++    },
++    // ...추가 데이터는 실제 상황에 맞게 넣으세요
++  ]);
++  const sortedInterviews = computed(() => {
++    let filtered = [...interviews.value];
++    // Apply filters
++    if (filters.value.period !== 'all') {
++      // Add date filtering logic if needed
++    }
++    if (filters.value.room !== 'all') {
++      filtered = filtered.filter(i => i.room === filters.value.room);
++    }
++    if (filters.value.status !== 'all') {
++      filtered = filtered.filter(i => i.status === filters.value.status);
++    }
++    if (filters.value.search) {
++      const search = filters.value.search.toLowerCase();
++      filtered = filtered.filter(i =>
++        i.candidate.toLowerCase().includes(search) ||
++        i.department.toLowerCase().includes(search)
++      );
++    }
++    // Apply sorting
++    return filtered.sort((a, b) => {
++      const aVal = a[sortConfig.value.key as keyof typeof a];
++      const bVal = b[sortConfig.value.key as keyof typeof b];
++      if (aVal < bVal) return sortConfig.value.direction === 'asc' ? -1 : 1;
++      if (aVal > bVal) return sortConfig.value.direction === 'asc' ? 1 : -1;
++      return 0;
++    });
++  });
++  const emitClose = () => {
++    router.push('/'); // 첫 화면으로 이동
++  };
++  function sortBy(key: string) {
++    if (sortConfig.value.key === key) {
++      sortConfig.value.direction = sortConfig.value.direction === 'asc' ? 'desc' : 'asc';
++    } else {
++      sortConfig.value.key = key;
++      sortConfig.value.direction = 'asc';
++    }
++  }
++  function getStatusText(status: string) {
++    switch (status) {
++      case 'completed': return '평가 완료';
++      case 'pending': return '대기중';
++      case 'in_progress': return '진행중';
++      default: return status;
++    }
++  }
++  function viewDetails(id: number) {
++    // 상세보기 팝업 등 추가 구현 가능
++    alert('면접 상세보기: ' + id);
++  }
++  function handleExcelUpload(event: Event) {
++    const input = event.target as HTMLInputElement;
++    if (input.files && input.files[0]) {
++      const file = input.files[0];
++      // 실제 업로드 구현 필요
++      alert('엑셀 업로드: ' + file.name);
++      input.value = '';
++    }
++  }
++  function downloadExcel() {
++    // 실제 다운로드 구현 필요
++    alert('엑셀 다운로드');
++  }
++  const showDeleteConfirm = ref(false);
++
++  // 전체 삭제 함수
++  function deleteAllInterviews() {
++    // TODO: API 호출하여 전체 데이터 삭제
++    showDeleteConfirm.value = false;
++    // 삭제 후 목록 새로고침
++    // refreshInterviews();
++  }
++  </script>
++  
++  <style scoped>
++  /* 관리자 대시보드에 맞는 스타일만 남기세요 */
++  </style>
++  
+\ No newline at end of file
+diff --git a/client/src/components/AdminLoginModal.vue b/client/src/components/AdminLoginModal.vue
+new file mode 100644
+index 0000000..9e021c8
+--- /dev/null
++++ b/client/src/components/AdminLoginModal.vue
+@@ -0,0 +1,81 @@
++<template>
++    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
++      <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4 relative animate-fadeIn">
++        <button @click="emitClose" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
++          <i class="fas fa-times"></i>
++        </button>
++        <div class="text-center mb-8">
++          <h2 class="text-2xl font-bold mb-2">
++            <span class="text-red-600">SK</span><span class="text-orange-500">AXIS</span>
++          </h2>
++          <p class="text-gray-600">관리자 로그인</p>
++        </div>
++        <form @submit.prevent="handleLogin" class="space-y-4">
++          <div>
++            <label class="block text-sm font-medium text-gray-700 mb-1">아이디</label>
++            <input
++              type="text"
++              v-model="username"
++              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
++              required
++            />
++          </div>
++          <div>
++            <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
++            <input
++              type="password"
++              v-model="password"
++              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
++              required
++            />
++          </div>
++          <div v-if="error" class="text-red-600 text-sm text-center">{{ error }}</div>
++          <button
++            type="submit"
++            class="w-full bg-red-600 text-white py-2 rounded-md hover:bg-red-700 transition-colors !rounded-button whitespace-nowrap"
++          >
++            로그인
++          </button>
++        </form>
++      </div>
++    </div>
++  </template>
++  
++  <script setup lang="ts">
++  import { ref } from 'vue';
++  import { useRouter } from 'vue-router';
++  
++  const router = useRouter();
++  const emit = defineEmits(['close', 'login']);
++  const username = ref('');
++  const password = ref('');
++  const error = ref('');
++  
++  const handleLogin = () => {
++    // 데모 로그인 (실제로는 API 호출로 대체)
++    if (username.value === 'admin' && password.value === 'admin123') {
++      emit('login');
++      emit('close');
++      router.push('/admin'); // AdminDashboard로 이동
++    } else {
++      error.value = '아이디 또는 비밀번호가 올바르지 않습니다.';
++    }
++  };
++  function emitClose() {
++    emit('close');
++    username.value = '';
++    password.value = '';
++    error.value = '';
++  }
++  </script>
++  
++  <style scoped>
++  @keyframes fadeIn {
++    from { opacity: 0; }
++    to { opacity: 1; }
++  }
++  .animate-fadeIn {
++    animation: fadeIn 0.3s ease-in-out;
++  }
++  </style>
++  
+\ No newline at end of file
+diff --git a/client/src/components/AiLoadingModal.vue b/client/src/components/AiLoadingModal.vue
+new file mode 100644
+index 0000000..d559cf7
+--- /dev/null
++++ b/client/src/components/AiLoadingModal.vue
+@@ -0,0 +1,34 @@
++<template>
++    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
++      <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center relative overflow-hidden">
++        <div class="mb-6">
++          <div class="w-24 h-24 mx-auto mb-6">
++            <i class="fas fa-circle-notch fa-spin text-red-600 text-5xl"></i>
++          </div>
++          <h3 class="text-2xl font-bold mb-3">
++            <span class="text-red-600">SK</span><span class="text-orange-500">AXIS</span>가
++            <span class="text-gray-900">면접 결과를 분석 중입니다...</span>
++          </h3>
++          <p class="text-gray-600 text-lg">AI가 면접 내용을 평가하고 있습니다</p>
++        </div>
++        <div class="w-full bg-gray-200 h-3 rounded-full overflow-hidden">
++          <div class="loading-progress bg-gradient-to-r from-red-600 to-orange-500 h-full rounded-full"></div>
++        </div>
++      </div>
++    </div>
++  </template>
++  
++  <script setup lang="ts">
++  // 아무 props/state 필요 없음(타이머 등은 부모가 관리)
++  </script>
++  
++  <style scoped>
++  @keyframes loading {
++    0% { width: 0; }
++    100% { width: 100%; }
++  }
++  .loading-progress {
++    animation: loading 10s linear forwards;
++  }
++  </style>
++  
+\ No newline at end of file
+diff --git a/client/src/components/Interview.vue b/client/src/components/Interview.vue
+new file mode 100644
+index 0000000..088cdd6
+--- /dev/null
++++ b/client/src/components/Interview.vue
+@@ -0,0 +1,182 @@
++<template>
++  <div class="fixed inset-0 bg-white z-50 overflow-auto">
++    <div class="container mx-auto px-4 py-6">
++      <div class="flex justify-between items-center mb-6">
++        <h3 class="text-2xl font-bold text-gray-900">면접 진행</h3>
++        <button @click="close" class="text-gray-400 hover:text-gray-600 cursor-pointer">
++          <i class="fas fa-times text-xl"></i>
++        </button>
++      </div>
++      <div class="bg-gray-50 rounded-lg p-4 mb-6">
++        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
++          <div class="flex items-center gap-2">
++            <i class="fas fa-door-open text-red-600"></i>
++            <span class="text-gray-700">면접실: {{ roomName }}</span>
++          </div>
++          <div class="flex items-center gap-2">
++            <i class="fas fa-clock text-red-600"></i>
++            <span class="text-gray-700">시간: {{ timeRange }}</span>
++          </div>
++          <div class="flex items-center gap-2">
++            <i class="fas fa-users text-red-600"></i>
++            <span class="text-gray-700">면접관: {{ interviewers }}</span>
++          </div>
++        </div>
++      </div>
++      <div class="mb-8">
++        <div class="grid" :class="[candidates.length > 1 ? 'grid-cols-2 gap-6' : 'grid-cols-1']">
++          <div v-for="(candidate, index) in candidates" :key="index" class="bg-white rounded-lg shadow-lg p-6">
++            <div class="flex justify-between items-center mb-4">
++              <h4 class="text-xl font-semibold text-gray-900">{{ candidate }} 님</h4>
++              <span class="text-sm text-gray-500">지원자 {{ index + 1 }}</span>
++            </div>
++            <div class="space-y-4">
++              <div v-for="(question, qIndex) in getQuestionsForCandidate(candidateIds[index])" :key="question.id" class="p-4 bg-gray-50 rounded-lg">
++                <div class="flex items-center gap-3 mb-2">
++                  <span class="flex items-center justify-center w-6 h-6 bg-red-600 text-white rounded-full text-sm font-medium">
++                    {{ qIndex + 1 }}
++                  </span>
++                  <h5 class="font-medium text-gray-900">
++                    {{ question.type === 'common' ? '공통 질문' : '개별 질문' }} {{ qIndex + 1 }}
++                  </h5>
++                </div>
++                <p class="text-gray-700 ml-9">{{ question.content }}</p>
++              </div>
++            </div>
++          </div>
++        </div>
++        <div class="flex justify-center space-x-4 mt-8">
++          <button
++            class="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium !rounded-button whitespace-nowrap cursor-pointer flex items-center gap-2"
++            @click="startSession"
++          >
++            <i class="fas fa-play"></i>
++            면접 시작
++          </button>
++          <button
++            class="px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium !rounded-button whitespace-nowrap cursor-pointer flex items-center gap-2"
++            @click="endSession"
++          >
++            <i class="fas fa-stop"></i>
++            면접 종료
++          </button>
++          <button
++            class="px-8 py-3 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 font-medium !rounded-button whitespace-nowrap cursor-pointer flex items-center gap-2"
++            @click="close"
++          >
++            <i class="fas fa-times"></i>
++            취소
++          </button>
++        </div>
++      </div>
++    </div>
++
++    <!-- 우측 하단 실시간 캠/분석 오버레이 (480x270픽셀 고정) -->
++    <div
++      class="fixed bottom-4 right-4 bg-gray-900 rounded-lg overflow-hidden shadow-lg z-50 flex items-center justify-center"
++      style="width:480px; height:270px; pointer-events:none;"
++    >
++      <PoseMiniWidget style="width:100%; height:100%;" />
++    </div>
++
++    <!-- AI 로딩 모달 -->
++    <AiLoadingModal v-if="isAnalyzing" />
++  </div>
++</template>
++
++<script setup lang="ts">
++import { ref } from 'vue';
++import { useRouter } from 'vue-router';
++import type { Question } from '../data/questionData';
++import { getQuestionsForCandidate as getCandidateQuestions } from '../data/questionData';
++import AiLoadingModal from './AiLoadingModal.vue';
++import PoseMiniWidget from './PoseMiniWidget.vue';
++
++interface Props {
++  roomName: string;
++  timeRange: string;
++  interviewers: string;
++  candidates: string[];
++  candidateIds: string[];
++}
++
++const props = withDefaults(defineProps<Props>(), {
++  roomName: '',
++  timeRange: '',
++  interviewers: '',
++  candidates: () => [],
++  candidateIds: () => []
++});
++
++const emit = defineEmits<{
++  (e: 'close'): void;
++  (e: 'startSession'): void;
++  (e: 'endSession'): void;
++  (e: 'toggleWebcam'): void;
++}>();
++
++const router = useRouter();
++const isAnalyzing = ref(false);
++
++const getQuestionsForCandidate = (candidateId: string): Question[] => {
++  return getCandidateQuestions(candidateId);
++};
++
++const startSession = () => {
++  emit('startSession');
++};
++
++const endSession = async () => {
++  try {
++    isAnalyzing.value = true;
++    await new Promise(resolve => setTimeout(resolve, 3000));
++    const interviewResults = props.candidates.map((candidate, index) => ({
++      candidateInfo: {
++        name: candidate,
++        position: '개발자',
++        department: 'IT',
++        interviewDate: new Date().toLocaleDateString(),
++        interviewTime: props.timeRange
++      },
++      score: Math.floor(Math.random() * 30) + 70,
++      evaluationKeywords: [
++        {
++          category: '기술 역량',
++          score: Math.floor(Math.random() * 30) + 70,
++          reason: '기술적 이해도가 높고 실무 경험이 풍부합니다.'
++        },
++        {
++          category: '의사소통 능력',
++          score: Math.floor(Math.random() * 30) + 70,
++          reason: '명확한 의사 전달과 적극적인 커뮤니케이션이 돋보입니다.'
++        },
++        {
++          category: '문제해결 능력',
++          score: Math.floor(Math.random() * 30) + 70,
++          reason: '논리적 사고와 창의적인 해결책 제시가 뛰어납니다.'
++        }
++      ],
++      questions: getQuestionsForCandidate(props.candidateIds[index]).map(q => q.content),
++      answers: getQuestionsForCandidate(props.candidateIds[index]).map(() => '지원자의 답변 내용...'),
++      feedback: '전반적으로 우수한 역량을 보여주었습니다. 특히 기술적 이해도와 문제해결 능력이 돋보였습니다.'
++    }));
++
++    router.push({
++      name: 'result',
++      query: {
++        results: JSON.stringify(interviewResults),
++        candidates: JSON.stringify(props.candidates),
++        tab: '0'
++      }
++    });
++  } catch (error) {
++    console.error('면접 분석 중 오류 발생:', error);
++  } finally {
++    isAnalyzing.value = false;
++  }
++};
++
++const close = () => {
++  router.push('/');
++};
++</script>
+diff --git a/client/src/components/InterviewResult.vue b/client/src/components/InterviewResult.vue
+index 18fc77a..536e235 100644
+--- a/client/src/components/InterviewResult.vue
++++ b/client/src/components/InterviewResult.vue
+@@ -1,302 +1,254 @@
+ <template>
+-  <div class="min-h-screen bg-white py-8 px-4 sm:px-6 lg:px-8">
+-    <!-- Header -->
+-    <header class="bg-white shadow-sm">
+-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+-        <div class="flex justify-between items-center">
+-          <h1 class="text-2xl font-bold text-gray-900">면접 결과</h1>
+-          <router-link to="/" class="text-[#FF7A00] hover:text-[#E60012]">
+-            <i class="fas fa-arrow-left mr-2"></i>대시보드로 돌아가기
+-          </router-link>
+-        </div>
+-      </div>
+-    </header>
+-
+-    <!-- Main Content -->
+-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+-      <!-- Candidate Info -->
+-      <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+-        <div class="flex justify-between items-start">
+-          <div>
+-            <h2 class="text-xl font-semibold text-gray-900">{{ candidateName }}님의 면접 결과</h2>
+-            <p class="text-gray-600 mt-1">면접 일시: {{ formattedDate }}</p>
++  <div class="fixed inset-0 bg-white z-50 overflow-auto">
++    <div class="container mx-auto px-4 py-6">
++      <!-- 헤더 -->
++      <div class="flex justify-between items-center mb-6 sticky top-0 bg-white z-10 py-4 border-b border-gray-200">
++        <div class="flex items-center gap-4">
++          <h2 class="text-2xl font-bold">
++            <span class="text-red-600">SK</span><span class="text-orange-500">AXIS</span>
++            <span class="text-gray-900 ml-2">면접 결과 보고서</span>
++          </h2>
++          <div class="flex items-center gap-2 ml-6">
++            <div v-for="(candidate, idx) in selectedCandidates" :key="idx"
++              @click="setTab(idx)"
++              class="px-4 py-2 rounded-md cursor-pointer transition-colors"
++              :class="tab === idx ? 'bg-red-100 text-red-700 font-medium' : 'bg-gray-100 text-gray-700'">
++              {{ candidate }}
++            </div>
+           </div>
+-          <div class="flex space-x-4">
+-            <button @click="downloadPdf" class="!rounded-button whitespace-nowrap px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200">
+-              <i class="fas fa-download mr-2"></i>PDF 다운로드
+-            </button>
+-            <button @click="sendEmail" class="!rounded-button whitespace-nowrap px-4 py-2 bg-[#FF7A00] text-white hover:bg-[#e66e00]">
+-              <i class="fas fa-envelope mr-2"></i>이메일 전송
++        </div>
++        <div class="flex items-center gap-4">
++          <!-- 목차 TOC 드롭다운 -->
++          <div class="relative">
++            <button @click="toggleTocDropdown"
++              class="flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors !rounded-button whitespace-nowrap cursor-pointer">
++              <i class="fas fa-list-ul text-gray-700"></i>
++              <span class="text-gray-700">목차</span>
++              <i class="fas fa-chevron-down text-gray-500 text-xs"></i>
+             </button>
++            <div v-if="showTocDropdown" class="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
++              <div class="p-2">
++                <div v-for="section in tocSections" :key="section.id"
++                  @click="scrollToSection(section.id)"
++                  class="px-3 py-2 hover:bg-gray-50 rounded cursor-pointer text-gray-700 text-sm">
++                  {{ section.title }}
++                </div>
++              </div>
++            </div>
+           </div>
++          <button @click="emitClose" class="text-gray-400 hover:text-gray-600">
++            <i class="fas fa-times text-xl"></i>
++          </button>
+         </div>
+       </div>
+-
+-      <!-- Score Section -->
+-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+-        <!-- Overall Score -->
+-        <div class="bg-white rounded-lg shadow-sm p-6">
+-          <h3 class="text-lg font-semibold text-gray-900 mb-4">종합 점수</h3>
+-          <div class="flex items-center justify-center">
+-            <div class="relative w-48 h-48">
+-              <div ref="scoreChart" class="w-full h-full"></div>
++      <!-- 결과 본문 -->
++      <div v-if="result" class="bg-white rounded-lg p-8">
++        <!-- 기본 정보 -->
++        <div id="basic-info" class="mb-8 bg-gray-50 rounded-lg p-6">
++          <div class="grid grid-cols-2 gap-6">
++            <div>
++              <h3 class="text-xl font-bold text-gray-900 mb-4">면접자 정보</h3>
++              <div class="space-y-2">
++                <p class="text-gray-700"><span class="font-medium">이름:</span> {{ result.candidateInfo.name }}</p>
++                <p class="text-gray-700"><span class="font-medium">지원 직무:</span> {{ result.candidateInfo.position }}</p>
++                <p class="text-gray-700"><span class="font-medium">지원 부서:</span> {{ result.candidateInfo.department }}</p>
++              </div>
++            </div>
++            <div>
++              <h3 class="text-xl font-bold text-gray-900 mb-4">면접 정보</h3>
++              <div class="space-y-2">
++                <p class="text-gray-700"><span class="font-medium">면접 일시:</span> {{ result.candidateInfo.interviewDate }}</p>
++                <p class="text-gray-700"><span class="font-medium">면접 시간:</span> {{ result.candidateInfo.interviewTime }}</p>
++                <p class="text-gray-700"><span class="font-medium">면접 장소:</span> {{ result.candidateInfo.room ?? '-' }}</p>
++                <p class="text-gray-700"><span class="font-medium">면접관:</span> {{ result.candidateInfo.interviewers?.join(', ') ?? '-' }}</p>
++              </div>
+             </div>
+           </div>
+         </div>
+-
+-        <!-- Assessment Categories -->
+-        <div class="bg-white rounded-lg shadow-sm p-6 lg:col-span-2">
+-          <h3 class="text-lg font-semibold text-gray-900 mb-4">평가 항목</h3>
+-          <div class="space-y-4">
+-            <div v-for="(category, index) in assessmentCategories" :key="index" class="flex items-center">
+-              <div class="w-32 text-sm text-gray-600">{{ category.name }}</div>
+-              <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+-                <div 
+-                  class="h-full bg-[#FF7A00] rounded-full"
+-                  :style="{ width: `${category.score}%` }"
+-                ></div>
++        <!-- 종합 점수 -->
++        <div id="total-score" class="mb-12 text-center">
++          <div class="inline-block relative">
++            <div class="w-56 h-56 rounded-full border-8 border-red-100 flex items-center justify-center bg-white shadow-lg">
++              <div class="text-center">
++                <div class="text-7xl font-bold text-red-600">
++                  {{ result.score }}
++                </div>
++                <div class="text-gray-500 mt-2 text-xl">종합 점수</div>
+               </div>
+-              <div class="w-16 text-right text-sm font-medium text-gray-900">{{ category.score }}%</div>
+             </div>
+           </div>
+         </div>
+-      </div>
+-
+-      <!-- Detailed Assessment -->
+-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+-        <!-- Strengths -->
+-        <div class="bg-white rounded-lg shadow-sm p-6">
+-          <h3 class="text-lg font-semibold text-gray-900 mb-4">강점</h3>
+-          <ul class="space-y-2">
+-            <li v-for="(strength, index) in strengths" :key="index" class="flex items-start">
+-              <i class="fas fa-check-circle text-green-500 mt-1 mr-2"></i>
+-              <span class="text-gray-700">{{ strength }}</span>
+-            </li>
+-          </ul>
++        <!-- 역량별 평가 (5개 항목, 아이콘별 색상) -->
++        <div id="competency-evaluation" class="mb-8">
++          <h3 class="text-2xl font-bold text-gray-900 mb-6">역량별 평가</h3>
++          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
++            <div v-for="(item, i) in fixedKeywordList" :key="i" class="bg-gray-50 rounded-lg p-6">
++              <div class="flex justify-between items-center mb-4">
++                <div class="flex items-center gap-3">
++                  <div class="w-12 h-12 rounded-full flex items-center justify-center"
++                    :class="item.bgClass">
++                    <i :class="item.icon + ' text-2xl ' + item.iconColor"></i>
++                  </div>
++                  <h4 class="text-lg font-semibold text-gray-900">{{ item.category }}</h4>
++                </div>
++                <div class="flex items-center gap-2">
++                  <div class="text-2xl font-bold" :class="item.textColor">
++                    {{ item.score ?? '-' }}
++                  </div>
++                  <span class="text-gray-500">/ 100</span>
++                </div>
++              </div>
++              <p class="text-gray-700">{{ item.reason ?? '해당 평가 항목에 대한 데이터가 없습니다.' }}</p>
++            </div>
++          </div>
+         </div>
+-
+-        <!-- Areas for Improvement -->
+-        <div class="bg-white rounded-lg shadow-sm p-6">
+-          <h3 class="text-lg font-semibold text-gray-900 mb-4">개선 사항</h3>
+-          <ul class="space-y-2">
+-            <li v-for="(area, index) in areasForImprovement" :key="index" class="flex items-start">
+-              <i class="fas fa-exclamation-circle text-[#FF7A00] mt-1 mr-2"></i>
+-              <span class="text-gray-700">{{ area }}</span>
+-            </li>
+-          </ul>
++        <!-- 면접 질문 및 답변 -->
++        <div id="interview-content" class="mb-8">
++          <h3 class="text-2xl font-bold text-gray-900 mb-6">면접 내용 요약</h3>
++          <div class="space-y-6">
++            <div v-for="(question, qIdx) in result.questions" :key="qIdx"
++              class="bg-gray-50 rounded-lg p-6">
++              <div class="mb-4">
++                <h4 class="text-lg font-semibold text-gray-900 mb-2">
++                  Q{{ qIdx + 1 }}. {{ question }}
++                </h4>
++                <p class="text-gray-700 pl-6">A: {{ result.answers[qIdx] }}</p>
++              </div>
++            </div>
++          </div>
+         </div>
+-      </div>
+-
+-      <!-- Overall Assessment -->
+-      <div class="bg-white rounded-lg shadow-sm p-6 mt-6">
+-        <h3 class="text-lg font-semibold text-gray-900 mb-4">종합 평가</h3>
+-        <p class="text-gray-700 whitespace-pre-line">{{ overallAssessment }}</p>
+-      </div>
+-
+-      <!-- Interviewer Notes -->
+-      <div class="bg-white rounded-lg shadow-sm p-6 mt-6">
+-        <h3 class="text-lg font-semibold text-gray-900 mb-4">면접관 코멘트</h3>
+-        <div class="space-y-4">
+-          <div v-for="(note, index) in interviewerNotes" :key="index" class="border-l-4 border-[#FF7A00] pl-4">
+-            <p class="text-gray-700">{{ note }}</p>
++        <!-- 종합 평가 -->
++        <div id="overall-evaluation" class="mb-8">
++          <h3 class="text-2xl font-bold text-gray-900 mb-6">종합 평가</h3>
++          <div class="bg-gray-50 rounded-lg p-6">
++            <p class="text-gray-700 leading-relaxed">{{ result.feedback }}</p>
+           </div>
+         </div>
++        <!-- 다운로드 버튼 -->
++        <div id="download-section" class="mt-12 text-center">
++          <button @click="emitDownload"
++            class="bg-red-600 text-white px-12 py-4 rounded-lg hover:bg-red-700 text-xl font-bold shadow-lg transform transition hover:scale-105 !rounded-button whitespace-nowrap cursor-pointer inline-flex items-center gap-3">
++            <i class="fas fa-file-pdf text-2xl"></i>
++            면접 결과 리포트 다운로드
++          </button>
++        </div>
+       </div>
+-    </main>
++    </div>
+   </div>
+ </template>
+ 
+-<script lang="ts" setup>
+-import { ref, onMounted, computed } from 'vue';
+-import * as echarts from 'echarts';
+-import { useRoute } from 'vue-router';
+-
+-const route = useRoute();
+-
+-// Data
+-const score = ref(78);
+-const candidateName = ref(route.query.candidateName as string || 'Michael Johnson');
+-const interviewDate = ref(new Date().toLocaleDateString('en-US', {
+-  year: 'numeric',
+-  month: 'long',
+-  day: 'numeric'
+-}));
+-const formattedDate = computed(() => new Date().toLocaleDateString('en-US', {
+-  weekday: 'long',
+-  year: 'numeric',
+-  month: 'long',
+-  day: 'numeric'
+-}));
+-
+-const overallAssessment = ref(`지원자는 전반적으로 우수한 역량을 보여주었습니다. 특히 기술적 전문성과 의사소통 능력이 뛰어나며, 팀 프로젝트 경험도 풍부합니다. 문제 해결에 대한 창의적인 접근 방식이 인상적이었습니다.
+-
+-다만, 일부 기술적 영역에서 추가적인 학습이 필요해 보이며, 프레젠테이션 스킬과 시간 관리 능력에서 개선의 여지가 있습니다. 이러한 부분들을 보완한다면 더욱 뛰어난 성과를 낼 수 있을 것으로 기대됩니다.
+-
+-전반적으로 이 직무에 적합한 역량을 갖추고 있으며, 회사의 문화와도 잘 맞을 것으로 판단됩니다.`);
+-
+-const strengths = ref([
+-  '기술적 전문성이 뛰어남',
+-  '명확하고 논리적인 의사소통',
+-  '프로젝트 경험 풍부',
+-  '팀 협업 능력이 우수함',
+-  '문제 해결에 대한 창의적 접근'
+-]);
+-
+-const areasForImprovement = ref([
+-  '일부 기술적 영역에서 추가 학습 필요',
+-  '프레젠테이션 스킬 향상 필요',
+-  '시간 관리 능력 개선 필요'
+-]);
+-
+-const assessmentCategories = ref([
+-  { name: '전문성', score: 85 },
+-  { name: '의사소통', score: 90 },
+-  { name: '문제해결', score: 75 },
+-  { name: '팀워크', score: 80 },
+-  { name: '적응력', score: 88 }
+-]);
+-
+-const interviewerNotes = ref([
+-  '기술적 질문에 대해 깊이 있는 이해를 보여줌',
+-  '실무 경험을 바탕으로 한 구체적인 사례 제시가 인상적',
+-  '팀 프로젝트 경험에서 리더십 역량이 돋보임',
+-  '회사에 대한 이해도가 높고 지원 동기가 명확함'
+-]);
+-
+-const scoreChart = ref<HTMLElement | null>(null);
+-let chart: echarts.ECharts | null = null;
+-
+-onMounted(() => {
+-  if (scoreChart.value) {
+-    chart = echarts.init(scoreChart.value);
+-    
+-    const option = {
+-      series: [
+-        {
+-          type: 'gauge',
+-          startAngle: 90,
+-          endAngle: -270,
+-          pointer: {
+-            show: false
+-          },
+-          progress: {
+-            show: true,
+-            overlap: false,
+-            roundCap: true,
+-            clip: false,
+-            itemStyle: {
+-              color: {
+-                type: 'linear',
+-                x: 0,
+-                y: 0,
+-                x2: 0,
+-                y2: 1,
+-                colorStops: [
+-                  {
+-                    offset: 0,
+-                    color: '#E60012' // SK Group red
+-                  },
+-                  {
+-                    offset: 1,
+-                    color: '#FF7A00' // Orange
+-                  }
+-                ]
+-              }
+-            }
+-          },
+-          axisLine: {
+-            lineStyle: {
+-              width: 12,
+-              color: [
+-                [1, '#E8E8E8']
+-              ]
+-            }
+-          },
+-          splitLine: {
+-            show: false
+-          },
+-          axisTick: {
+-            show: false
+-          },
+-          axisLabel: {
+-            show: false
+-          },
+-          data: [
+-            {
+-              value: score.value,
+-              name: 'Score',
+-              title: {
+-                show: true,
+-                offsetCenter: [0, '30%'],
+-                fontSize: 14,
+-                color: '#666'
+-              },
+-              detail: {
+-                show: true,
+-                offsetCenter: [0, '-10%'],
+-                fontSize: 24,
+-                fontWeight: 'bold',
+-                color: '#FF7A00',
+-                formatter: '{value}/100'
+-              }
+-            }
+-          ],
+-          animation: false
+-        }
+-      ]
+-    };
+-    
+-    chart.setOption(option);
++<script setup lang="ts">
++import { ref, computed, defineProps, defineEmits, onMounted } from 'vue';
++import { useRouter } from 'vue-router';
++
++const router = useRouter();
++
++// 카테고리별 기본 아이콘/색상 세팅
++const competencyConfig = [
++  {
++    category: '문제 해결 능력',
++    icon: 'fas fa-lightbulb',
++    iconColor: 'text-green-600',
++    bgClass: 'bg-green-100',
++    textColor: 'text-green-600'
++  },
++  {
++    category: '커뮤니케이션',
++    icon: 'fas fa-comments',
++    iconColor: 'text-blue-600',
++    bgClass: 'bg-blue-100',
++    textColor: 'text-blue-600'
++  },
++  {
++    category: '전문성',
++    icon: 'fas fa-code',
++    iconColor: 'text-purple-600',
++    bgClass: 'bg-purple-100',
++    textColor: 'text-purple-600'
++  },
++  {
++    category: '팀워크',
++    icon: 'fas fa-users',
++    iconColor: 'text-orange-600',
++    bgClass: 'bg-orange-100',
++    textColor: 'text-orange-600'
++  },
++  {
++    category: '리더십',
++    icon: 'fas fa-crown',
++    iconColor: 'text-yellow-600',
++    bgClass: 'bg-yellow-100',
++    textColor: 'text-yellow-600'
+   }
++];
++
++const props = defineProps<{
++  interviewResults: any[]
++  selectedCandidates: string[]
++  initialTab?: number
++}>();
++
++const emit = defineEmits(['close', 'download']);
++
++const tab = ref(props.initialTab ?? 0);
++const result = computed(() => props.interviewResults[tab.value]);
++
++// 항목이 빠져있어도 5개 항목을 모두 채워서 보여줌
++const fixedKeywordList = computed(() => {
++  // 실제 받은 평가 배열
++  const evalArr = result.value?.evaluationKeywords || [];
++  // 5개 고정 카테고리 loop
++  return competencyConfig.map(conf => {
++    const found = evalArr.find(e => e.category === conf.category);
++    return {
++      ...conf,
++      score: found?.score ?? null,
++      reason: found?.reason ?? null
++    };
++  });
+ });
+ 
+-// Methods
+-const downloadPdf = () => {
+-  // In a real application, this would generate and download a PDF
+-  alert('Downloading interview results as PDF...');
+-};
+-
+-const sendEmail = () => {
+-  // In a real application, this would send an email
+-  alert('Sending interview results via email...');
+-};
+-</script>
+-
+-<style scoped>
+-/* Pretendard 폰트 적용 */
+-:root {
+-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+-  background-color: white;
++// 목차
++const tocSections = [
++  { id: 'basic-info', title: '기본 정보' },
++  { id: 'total-score', title: '종합 점수' },
++  { id: 'competency-evaluation', title: '역량별 평가' },
++  { id: 'interview-content', title: '면접 내용 요약' },
++  { id: 'overall-evaluation', title: '종합 평가' },
++  { id: 'download-section', title: '리포트 다운로드' }
++];
++const showTocDropdown = ref(false);
++function toggleTocDropdown() {
++  showTocDropdown.value = !showTocDropdown.value;
+ }
+-
+-/* 전체 배경색 하얀색으로 설정 */
+-body {
+-  background-color: white;
++function scrollToSection(sectionId: string) {
++  const el = document.getElementById(sectionId);
++  if (el) el.scrollIntoView({ behavior: 'smooth' });
++  showTocDropdown.value = false;
+ }
+ 
+-/* 전체 텍스트에 Pretendard 폰트 적용 */
+-* {
+-  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
++function setTab(idx: number) {
++  tab.value = idx;
+ }
+-
+-/* Custom styles that can't be handled by Tailwind */
+-.rounded-button {
+-  border-radius: 0.375rem;
+-  transition: all 0.2s ease;
++function emitClose() {
++  emit('close');
++  router.push('/');
+ }
+-
+-/* Ensure the chart container maintains aspect ratio */
+-.chart-container {
+-  position: relative;
+-  width: 100%;
+-  padding-bottom: 100%;
++function emitDownload() {
++  emit('download', tab.value);
+ }
+ 
+-.chart-container > div {
+-  position: absolute;
+-  top: 0;
+-  left: 0;
+-  width: 100%;
+-  height: 100%;
+-}
+-</style> 
+\ No newline at end of file
++// 드롭다운 외부 클릭시 닫기
++onMounted(() => {
++  document.addEventListener('click', (event) => {
++    const target = event.target as HTMLElement;
++    if (!target.closest('.relative') && showTocDropdown.value) {
++      showTocDropdown.value = false;
++    }
++  });
++});
++</script>
++
++<style scoped>
++/* 스크롤바 등 스타일 보강은 여기에! */
++</style>
+diff --git a/client/src/components/InterviewSetup.vue b/client/src/components/InterviewSetup.vue
+new file mode 100644
+index 0000000..346f5be
+--- /dev/null
++++ b/client/src/components/InterviewSetup.vue
+@@ -0,0 +1,240 @@
++<!-- InterviewSetup.vue -->
++<template>
++    <div class="min-h-screen bg-white flex justify-center items-center relative">
++      <button 
++        @click="showAdminLogin = true"
++        class="absolute top-4 right-4 text-gray-600 hover:text-gray-800 transition-colors cursor-pointer"
++      >
++        <i class="fas fa-cog text-2xl"></i>
++      </button>
++      <div class="w-full max-w-md bg-white rounded-lg shadow-lg p-8">
++        <div class="text-center mb-8">
++          <h1 class="text-4xl font-bold">
++            <span class="text-red-600">SK</span><span class="text-orange-500">AXIS</span>
++          </h1>
++        </div>
++        <div class="text-center mb-6">
++          <h2 class="text-2xl font-bold mb-2 text-gray-800">AI 면접 시스템</h2>
++          <p class="text-gray-600">면접 호실과 시간을 선택해주세요</p>
++        </div>
++        <!-- 날짜 선택 부분 -->
++        <div class="mb-4">
++          <label class="block text-sm font-medium text-gray-700 mb-1">면접 날짜</label>
++          <input
++            type="date"
++            v-model="selectedDate"
++            class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
++          />
++        </div>
++        <!-- 면접실 선택 부분 -->
++        <div class="mb-4">
++          <label class="block text-sm font-medium text-gray-700 mb-1">면접 호실</label>
++          <div class="relative">
++            <div
++              @click="toggleRoomDropdown"
++              class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500 cursor-pointer text-gray-700 flex justify-between items-center"
++            >
++              <span v-if="selectedRoom">{{ rooms.find(r => r.id === selectedRoom)?.name }}</span>
++              <span v-else class="text-gray-500">면접 호실을 선택해주세요</span>
++              <i class="fas fa-chevron-down text-gray-600"></i>
++            </div>
++            <div v-if="showRoomDropdown" class="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg">
++              <div
++                v-for="room in rooms"
++                :key="room.id"
++                @click="selectRoom(room.id)"
++                class="px-3 py-2 hover:bg-gray-50 cursor-pointer"
++              >
++                {{ room.name }}
++              </div>
++            </div>
++          </div>
++        </div>
++        <div class="mb-6" v-if="selectedRoom">
++          <label class="block text-sm font-medium text-gray-700 mb-2">면접 일정</label>
++          <div v-if="loading" class="text-center py-4">
++            <i class="fas fa-spinner fa-spin text-gray-500"></i>
++            <span class="ml-2 text-gray-500">일정을 불러오는 중...</span>
++          </div>
++          <div v-else-if="error" class="text-center py-4 text-red-500">
++            {{ error }}
++          </div>
++          <div v-else class="overflow-x-auto">
++            <table class="min-w-full bg-white border border-gray-200">
++              <thead>
++                <tr class="bg-gray-50">
++                  <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">시간</th>
++                  <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">면접관</th>
++                  <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b">지원자</th>
++                  <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-b w-20">선택</th>
++                </tr>
++              </thead>
++              <tbody>
++                <tr v-for="schedule in filteredSchedules" :key="schedule.timeRange" class="hover:bg-gray-50">
++                  <td class="px-4 py-3 text-center text-sm text-gray-700 border-b">{{ schedule.timeRange }}</td>
++                  <td class="px-4 py-3 text-center text-sm text-gray-700 border-b">{{ schedule.interviewers.join(', ') }}</td>
++                  <td class="px-4 py-3 text-center text-sm text-gray-700 border-b">{{ schedule.interviewees.join(', ') }}</td>
++                  <td class="px-4 py-3 text-center border-b">
++                    <button
++                      @click="selectTimeSlot(schedule)"
++                      class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
++                    >
++                      선택
++                    </button>
++                  </td>
++                </tr>
++              </tbody>
++            </table>
++          </div>
++        </div>
++        <button
++          class="w-full bg-red-600 text-white py-3 rounded-md font-medium hover:bg-red-700 transition-colors !rounded-button whitespace-nowrap cursor-pointer"
++          :disabled="!canProceed"
++          :class="{
++            'opacity-50 cursor-not-allowed': !canProceed,
++            'bg-gray-400': !isToday
++          }"
++          @click="onStartInterview"
++        >
++          {{ isToday ? '면접 시작하기' : '오늘 날짜의 면접만 시작할 수 있습니다' }}
++        </button>
++        <div class="mt-6 text-center text-xs text-gray-500">
++          <p>© 2025 SK AXIS. All rights reserved.</p>
++          <p>2025년 5월 29일 최신 기준</p>
++        </div>
++      </div>
++      <!-- Admin Login Modal -->
++      <AdminLoginModal 
++        v-if="showAdminLogin"
++        @close="showAdminLogin = false"
++        @login="handleAdminLogin"
++      />
++    </div>
++  </template>
++  
++  <script setup lang="ts">
++  import { ref, computed, onMounted, watch } from 'vue';
++  import { useRouter } from 'vue-router';
++  import type { Room, TimeSlot, Person } from '../data/interviewData';
++  import { getPersonById } from '../data/interviewData';
++  import AdminLoginModal from './AdminLoginModal.vue';
++  import { getInterviewSchedules } from '../services/interviewService';
++  
++  interface Props {
++    rooms: Room[];
++    timeSlots: TimeSlot[];
++    people: Person[];
++  }
++  
++  const props = withDefaults(defineProps<Props>(), {
++    rooms: () => [],
++    timeSlots: () => [],
++    people: () => []
++  });
++  
++  const router = useRouter();
++  
++  const selectedRoom = ref<string>('');
++  const selectedTimeSlot = ref<string>('');
++  const showRoomDropdown = ref(false);
++  const selectedDate = ref<string>(new Date().toISOString().split('T')[0]);
++  const schedules = ref<any[]>([]);
++  const loading = ref(false);
++  const error = ref<string | null>(null);
++  const showAdminLogin = ref(false);
++  const selectedSchedule = ref<any>(null);
++  
++  // 오늘 날짜와 선택된 날짜가 일치하는지 확인하는 computed 속성 추가
++  const isToday = computed(() => {
++    const today = new Date().toISOString().split('T')[0];
++    return selectedDate.value === today;
++  });
++  
++  const availableTimeSlots = computed(() => {
++    if (!selectedRoom.value || !selectedDate.value) return [];
++    return props.timeSlots.filter(slot => 
++      slot.roomId === selectedRoom.value && 
++      slot.date === selectedDate.value &&
++      slot.candidateIds.length > 0
++    );
++  });
++  
++  const canProceed = computed(() => {
++    return selectedRoom.value && 
++           selectedTimeSlot.value && 
++           isToday.value && 
++           selectedSchedule.value; // 선택된 일정이 있는 경우에만 true
++  });
++  
++  const filteredSchedules = computed(() =>
++    schedules.value.filter(schedule => 
++      schedule.roomName === props.rooms.find(r => r.id === selectedRoom.value)?.name
++    )
++  );
++  
++  const toggleRoomDropdown = () => { showRoomDropdown.value = !showRoomDropdown.value; };
++  const selectRoom = (roomId: string) => {
++    selectedRoom.value = roomId;
++    selectedTimeSlot.value = '';
++    showRoomDropdown.value = false;
++  };
++  
++  const fetchSchedules = async () => {
++    if (!selectedDate.value) return;
++    
++    loading.value = true;
++    error.value = null;
++    
++    try {
++      const response = await getInterviewSchedules(selectedDate.value);
++      schedules.value = response.schedules;
++    } catch (err) {
++      error.value = '면접 일정을 불러오는데 실패했습니다.';
++      console.error(err);
++    } finally {
++      loading.value = false;
++    }
++  };
++  
++  // 날짜가 변경될 때마다 일정을 다시 불러옵니다
++  watch(selectedDate, () => {
++    fetchSchedules();
++  });
++  
++  const selectTimeSlot = (schedule: any) => {
++    selectedSchedule.value = schedule;
++    selectedTimeSlot.value = schedule.timeRange;
++  };
++  
++  const onStartInterview = () => {
++    if (!canProceed.value || !selectedSchedule.value) return;
++    
++    router.push({
++      name: 'interview',
++      query: {
++        roomName: selectedSchedule.value.roomName,
++        date: selectedDate.value,
++        timeRange: selectedSchedule.value.timeRange,
++        interviewers: selectedSchedule.value.interviewers.join(', '),
++        candidates: JSON.stringify(selectedSchedule.value.interviewees),
++        candidateIds: JSON.stringify(selectedSchedule.value.interviewees)
++      }
++    });
++  };
++  
++  const handleAdminLogin = () => {
++    // 로그인 성공 시 관리자 대시보드로 이동
++    router.push('/admin');
++  };
++  
++  onMounted(() => {
++    fetchSchedules();
++    document.addEventListener('click', (event) => {
++      const target = event.target as HTMLElement;
++      if (!target.closest('.relative') && showRoomDropdown.value) {
++        showRoomDropdown.value = false;
++      }
++    });
++  });
++  </script>
++  
+\ No newline at end of file
+diff --git a/client/src/components/PoseMiniWidget.vue b/client/src/components/PoseMiniWidget.vue
+new file mode 100644
+index 0000000..0a3a0f0
+--- /dev/null
++++ b/client/src/components/PoseMiniWidget.vue
+@@ -0,0 +1,353 @@
++<template>
++  <div style="position:relative; width:100%; height:100%;">
++    <video
++      ref="video"
++      width="1280" height="720"
++      autoplay
++      muted
++      playsinline
++      style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; z-index:1; background:#111;"
++    ></video>
++    <canvas
++      ref="canvas"
++      width="1280" height="720"
++      style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; pointer-events:none; background:transparent;"
++    ></canvas>
++  </div>
++</template>
++
++<script setup>
++import { ref, onMounted, onBeforeUnmount } from 'vue'
++import {
++  FilesetResolver,
++  PoseLandmarker,
++  FaceLandmarker,
++} from '@mediapipe/tasks-vision'
++
++const video = ref(null)
++const canvas = ref(null)
++let poseLandmarker, faceLandmarker
++let active = true
++
++const LEFT_ANKLE = 27, RIGHT_ANKLE = 28
++const LEFT_KNEE = 25, RIGHT_KNEE = 26
++const NOSE = 0, LEFT_SHOULDER = 11, RIGHT_SHOULDER = 12
++const POSE_FACE_LANDMARKS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
++
++// ★ 최종 표정 평가 항목(5종)
++const FINAL_EXP_TYPES = [
++  '무표정', '미소', '울상', '당황', '찡그림'
++]
++
++// 원래의 분류 (추론용)
++const EXP_TYPES = [
++  '입벌림', '무표정', '미소',
++  '울상', '당황', '찡그림', '놀람', '찡그림+입', '눈웃음'
++]
++
++// 평가 항목별 카운트
++let spreadCount = [0, 0]
++let shakeCount = [0, 0]
++let headDownCount = [0, 0]
++let faceExpCount = [
++  Object.fromEntries(FINAL_EXP_TYPES.map(e => [e, 0])),
++  Object.fromEntries(FINAL_EXP_TYPES.map(e => [e, 0])),
++]
++let prevAnkleY = [null, null]
++let lastCountedTime = 0
++
++// 표정 mapping 함수
++function mapExpression(exp) {
++  if (exp === '눈웃음' || exp === '미소') return '미소'
++  if (exp === '찡그림+입' || exp === '찡그림') return '찡그림'
++  if (exp === '놀람' || exp === '당황') return '당황'
++  if (exp === '울상') return '울상'
++  // 입벌림은 무표정으로 처리
++  return '무표정'
++}
++
++// --- 표정 분석 정규화 버전 ---
++function analyzeFaceExpression(faceLandmarks) {
++  const LEFT_MOUTH = 61, RIGHT_MOUTH = 291, TOP_LIP = 13, BOTTOM_LIP = 14
++  const LEFT_CORNER = 78, RIGHT_CORNER = 308
++  const LEFT_EYE_TOP = 159, RIGHT_EYE_TOP = 386, LEFT_EYE_BOTTOM = 145, RIGHT_EYE_BOTTOM = 374
++  const LEFT_BROW = 70, RIGHT_BROW = 300
++  const NOSE_TIP = 1
++  const CHIN = 152
++  const FOREHEAD = 10
++
++  const leftMouth = faceLandmarks[LEFT_MOUTH]
++  const rightMouth = faceLandmarks[RIGHT_MOUTH]
++  const topLip = faceLandmarks[TOP_LIP]
++  const bottomLip = faceLandmarks[BOTTOM_LIP]
++  const leftCorner = faceLandmarks[LEFT_CORNER]
++  const rightCorner = faceLandmarks[RIGHT_CORNER]
++  const leftEyeTop = faceLandmarks[LEFT_EYE_TOP]
++  const leftEyeBottom = faceLandmarks[LEFT_EYE_BOTTOM]
++  const rightEyeTop = faceLandmarks[RIGHT_EYE_TOP]
++  const rightEyeBottom = faceLandmarks[RIGHT_EYE_BOTTOM]
++  const leftBrow = faceLandmarks[LEFT_BROW]
++  const rightBrow = faceLandmarks[RIGHT_BROW]
++  const noseTip = faceLandmarks[NOSE_TIP]
++  const chin = faceLandmarks[CHIN]
++  const forehead = faceLandmarks[FOREHEAD]
++
++  const faceHeight = Math.max(0.001, Math.abs(chin.y - forehead.y))
++  const mouthOpen = Math.abs(topLip.y - bottomLip.y) / faceHeight
++  const mouthWidth = Math.abs(leftMouth.x - rightMouth.x) / faceHeight
++  const mouthCornerSlope = (leftCorner.y - rightCorner.y) / ((leftCorner.x - rightCorner.x) + 1e-6)
++  const isSadMouth = mouthCornerSlope > 0.05
++  const isSmile = mouthCornerSlope < -0.07
++  const leftEyeHeight = Math.abs(leftEyeTop.y - leftEyeBottom.y) / faceHeight
++  const rightEyeHeight = Math.abs(rightEyeTop.y - rightEyeBottom.y) / faceHeight
++  const leftBrowDist = Math.abs(leftEyeTop.y - leftBrow.y) / faceHeight
++  const rightBrowDist = Math.abs(rightEyeTop.y - rightBrow.y) / faceHeight
++  const avgBrowDist = (leftBrowDist + rightBrowDist) / 2
++  const chinLipDist = Math.abs(chin.y - bottomLip.y) / faceHeight
++
++  if (mouthOpen > 0.25 && leftEyeHeight > 0.11 && rightEyeHeight > 0.11 && avgBrowDist > 0.035) {
++    return '당황'
++  }
++  if (isSadMouth && avgBrowDist < 0.018 && mouthWidth < 0.18) {
++    return '울상'
++  }
++  if (avgBrowDist < 0.012 && isSadMouth) {
++    return '찡그림'
++  }
++  if (mouthOpen > 0.34 && chinLipDist > 0.31 && avgBrowDist > 0.034) {
++    return '놀람'
++  }
++  if (isSmile && mouthWidth > 0.22) {
++    if (leftEyeHeight < 0.053 && rightEyeHeight < 0.053) {
++      return '눈웃음'
++    }
++    return '미소'
++  }
++  if (mouthOpen > 0.15 && mouthWidth > 0.15) {
++    return '입벌림'
++  }
++  if (
++    mouthOpen < 0.07 &&
++    Math.abs(mouthCornerSlope) < 0.035 &&
++    leftEyeHeight > 0.038 &&
++    rightEyeHeight > 0.038
++  ) {
++    return '무표정'
++  }
++  if (avgBrowDist < 0.013 && mouthOpen > 0.13) {
++    return '찡그림+입'
++  }
++  return '무표정'
++}
++
++function isValidKeypoint(lm) {
++  return (
++    lm &&
++    ((typeof lm.visibility === "number" && lm.visibility > 0.5) ||
++     (typeof lm.presence === "number" && lm.presence > 0.5) ||
++     (lm.visibility === undefined && lm.presence === undefined)) &&
++    lm.x >= 0.0 && lm.x <= 1.0 &&
++    lm.y >= 0.0 && lm.y <= 1.0
++  )
++}
++function analyzeLegSpread(poseLandmarks) {
++  if (
++    !isValidKeypoint(poseLandmarks[LEFT_ANKLE]) ||
++    !isValidKeypoint(poseLandmarks[RIGHT_ANKLE]) ||
++    !isValidKeypoint(poseLandmarks[LEFT_KNEE]) ||
++    !isValidKeypoint(poseLandmarks[RIGHT_KNEE])
++  ) return { ankleSpread: 0, kneeSpread: 0, valid: false }
++  const ankleSpread = Math.abs(poseLandmarks[LEFT_ANKLE].x - poseLandmarks[RIGHT_ANKLE].x)
++  const kneeSpread = Math.abs(poseLandmarks[LEFT_KNEE].x - poseLandmarks[RIGHT_KNEE].x)
++  return { ankleSpread, kneeSpread, valid: true }
++}
++
++const SIMPLE_POSE_CONNECTIONS = [
++  [11, 13], [13, 15], [12, 14], [14, 16],
++  [11, 12], [23, 24],
++  [23, 25], [25, 27], [24, 26], [26, 28],
++  [27, 31], [28, 32]
++]
++const poseColors = ['red', 'blue']
++const faceColors = ['lime', 'yellow']
++
++function getPersonIndexes(landmarksArr) {
++  if (!landmarksArr || landmarksArr.length === 0) return []
++  if (landmarksArr.length === 1) return [0]
++  let centers = []
++  for (let i = 0; i < landmarksArr.length; i++) {
++    const lmArr = landmarksArr[i]
++    if (!lmArr || lmArr.length === 0) continue
++    const avgX = lmArr.reduce((acc, l) => acc + l.x, 0) / lmArr.length
++    const avgY = lmArr.reduce((acc, l) => acc + l.y, 0) / lmArr.length
++    centers.push({ i, dist: Math.hypot(avgX - 0.5, avgY - 0.5) })
++  }
++  centers.sort((a, b) => a.dist - b.dist)
++  if (centers.length >= 2) {
++    const first = centers[0]
++    const second = centers[1]
++    const dist = Math.abs(first.dist - second.dist)
++    if (dist < 0.08) return [first.i]
++    return [first.i, second.i]
++  }
++  return [centers[0].i]
++}
++
++onMounted(async () => {
++  while (!video.value) {
++    await new Promise(r => requestAnimationFrame(r))
++  }
++
++  const stream = await navigator.mediaDevices.getUserMedia({
++    video: { width: 1280, height: 720 }
++  })
++  video.value.srcObject = stream
++  await new Promise(resolve => {
++    video.value.onloadedmetadata = resolve
++  })
++
++  const vision = await FilesetResolver.forVisionTasks(
++    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm'
++  )
++
++  poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
++    baseOptions: {
++      modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task'
++    },
++    runningMode: 'VIDEO',
++    numPoses: 2,
++    outputSegmentationMasks: false
++  })
++
++  faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
++    baseOptions: {
++      modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
++    },
++    runningMode: 'VIDEO',
++    numFaces: 2,
++    minDetectionConfidence: 0.8,
++    minTrackingConfidence: 0.8,
++    outputFaceBlendshapes: false,
++    outputFacialTransformationMatrixes: false
++  })
++
++  const analyze = () => {
++    if (!active) return
++    const ctx = canvas.value.getContext('2d')
++    ctx.clearRect(0, 0, 1280, 720)
++    ctx.drawImage(video.value, 0, 0, 1280, 720)
++
++    const poses = poseLandmarker.detectForVideo(
++      video.value,
++      performance.now()
++    )
++    const faces = faceLandmarker.detectForVideo(
++      video.value,
++      performance.now()
++    )
++
++    const poseIndexes = getPersonIndexes(poses.landmarks)
++    const faceIndexes = getPersonIndexes(faces.faceLandmarks)
++    const validCount = Math.max(poseIndexes.length, faceIndexes.length)
++    const now = Date.now()
++    const shouldCount = (now - lastCountedTime > 1000)
++    if (shouldCount) lastCountedTime = now
++
++    let isSpreadArr = []
++    let isShakeArr = []
++    let isHeadDownArr = []
++    let expArr = []
++
++    // ----- POSE -----
++    for (let k = 0; k < poseIndexes.length; k++) {
++      const i = poseIndexes[k]
++      const landmarks = poses.landmarks[i]
++      if (!landmarks || landmarks.length < 20) continue
++      const color = poseColors[k % 2]
++
++      for (let j = 0; j < landmarks.length; j++) {
++        if (POSE_FACE_LANDMARKS.includes(j)) continue
++        const pt = landmarks[j]
++        ctx.beginPath()
++        ctx.arc(pt.x * 1280, pt.y * 720, 4, 0, 2 * Math.PI)
++        ctx.fillStyle = color
++        ctx.fill()
++      }
++      ctx.strokeStyle = color
++      ctx.lineWidth = 2
++      for (const [start, end] of SIMPLE_POSE_CONNECTIONS) {
++        if (POSE_FACE_LANDMARKS.includes(start) || POSE_FACE_LANDMARKS.includes(end)) continue
++        const s = landmarks[start], e = landmarks[end]
++        if (s && e) {
++          ctx.beginPath()
++          ctx.moveTo(s.x * 1280, s.y * 720)
++          ctx.lineTo(e.x * 1280, e.y * 720)
++          ctx.stroke()
++        }
++      }
++      const { ankleSpread, kneeSpread, valid } = analyzeLegSpread(landmarks)
++      isSpreadArr[k] = valid && (ankleSpread > 0.3 || kneeSpread > 0.3)
++      if (valid && prevAnkleY[k] !== null) {
++        const dy = Math.abs(landmarks[RIGHT_ANKLE].y - prevAnkleY[k])
++        isShakeArr[k] = (dy > 0.012)
++      } else {
++        isShakeArr[k] = false
++      }
++      prevAnkleY[k] = valid ? landmarks[RIGHT_ANKLE].y : null
++      const nose = landmarks[NOSE]
++      const avgShoulderY = (landmarks[LEFT_SHOULDER].y + landmarks[RIGHT_SHOULDER].y) / 2
++      isHeadDownArr[k] = (nose && nose.y > avgShoulderY + 0.04)
++      const lmk = landmarks[LEFT_SHOULDER]
++      if (lmk) {
++        ctx.font = 'bold 13px sans-serif'
++        ctx.fillStyle = color
++        ctx.fillText(`Person${k+1}: 다리벌림${isSpreadArr[k] ? '▲' : ''}`, lmk.x * 1280, lmk.y * 720 - 10)
++      }
++    }
++
++    // ----- FACE -----
++    for (let k = 0; k < faceIndexes.length; k++) {
++      const i = faceIndexes[k]
++      const color = faceColors[k % 2]
++      const faceLandmarks = faces.faceLandmarks[i]
++      for (let j = 0; j < faceLandmarks.length; j++) {
++        const pt = faceLandmarks[j]
++        ctx.beginPath()
++        ctx.arc(pt.x * 1280, pt.y * 720, 1.8, 0, 2 * Math.PI)
++        ctx.fillStyle = color
++        ctx.fill()
++      }
++      // ★ 표정은 mapExpression()으로 매핑하여 최종 평가 항목에 귀속
++      const rawExp = analyzeFaceExpression(faceLandmarks)
++      const finalExp = mapExpression(rawExp)
++      expArr[k] = finalExp
++      const nose = faceLandmarks[1]
++      if (nose) {
++        ctx.font = 'bold 13px sans-serif'
++        ctx.fillStyle = color
++        ctx.fillText(`표정: ${finalExp}`, nose.x * 1280, nose.y * 720 - 10)
++      }
++    }
++
++    if (shouldCount) {
++      for (let k = 0; k < validCount; k++) {
++        if (isSpreadArr[k]) spreadCount[k] += 1
++        if (isShakeArr[k]) shakeCount[k] += 1
++        if (isHeadDownArr[k]) headDownCount[k] += 1
++        if (expArr[k] && faceExpCount[k][expArr[k]] !== undefined) faceExpCount[k][expArr[k]] += 1
++        let expStr = FINAL_EXP_TYPES.map(e => `${e}:${faceExpCount[k][e]}`).join(', ')
++        console.log(
++          `[Person${k+1}] 다리벌림:${spreadCount[k]}, 다리떨기:${shakeCount[k]}, 고개숙임:${headDownCount[k]}, [표정] ${expStr}`
++        )
++      }
++    }
++
++    requestAnimationFrame(analyze)
++  }
++  analyze()
++})
++
++onBeforeUnmount(() => {
++  active = false
++})
++</script>
+\ No newline at end of file
+diff --git a/client/src/data/interviewData.ts b/client/src/data/interviewData.ts
+new file mode 100644
+index 0000000..febdc17
+--- /dev/null
++++ b/client/src/data/interviewData.ts
+@@ -0,0 +1,127 @@
++export interface Room {
++  id: string;
++  name: string;
++}
++
++export interface TimeSlot {
++  id: string;
++  roomId: string;
++  date: string;  // YYYY-MM-DD 형식의 날짜
++  timeRange: string;
++  interviewerIds: string[];
++  candidateIds: string[];
++}
++
++export interface Person {
++  id: string;
++  name: string;
++  role: 'interviewer' | 'candidate';
++}
++
++export const rooms: Room[] = [
++  { id: 'room1', name: '면접실 1' },
++  { id: 'room2', name: '면접실 2' },
++  { id: 'room3', name: '면접실 3' }
++];
++
++export const timeSlots: TimeSlot[] = [
++  {
++    id: 'ts1',
++    roomId: 'room1',
++    date: '2025-06-02',
++    timeRange: '09:00 - 10:00',
++    interviewerIds: ['i1', 'i2', 'i3'],
++    candidateIds: ['c1']
++  },
++  {
++    id: 'ts2',
++    roomId: 'room1',
++    date: '2025-06-02',
++    timeRange: '10:30 - 11:30',
++    interviewerIds: ['i1', 'i2', 'i3'],
++    candidateIds: ['c2', 'c3']
++  },
++  {
++    id: 'ts3',
++    roomId: 'room2',
++    date: '2025-06-02',
++    timeRange: '09:00 - 10:00',
++    interviewerIds: ['i1', 'i2', 'i3'],
++    candidateIds: ['c4']
++  },
++  {
++    id: 'ts4',
++    roomId: 'room2',
++    date: '2025-06-02',
++    timeRange: '10:30 - 11:30',
++    interviewerIds: ['i1', 'i2', 'i3'],
++    candidateIds: ['c5', 'c6']
++  },
++  {
++    id: 'ts5',
++    roomId: 'room1',
++    date: '2025-06-02',
++    timeRange: '09:00 - 10:00',
++    interviewerIds: ['i1', 'i2', 'i3'],
++    candidateIds: ['c7']
++  },
++  {
++    id: 'ts6',
++    roomId: 'room2',
++    date: '2025-06-02',
++    timeRange: '10:30 - 11:30',
++    interviewerIds: ['i1', 'i2', 'i3'],
++    candidateIds: ['c8', 'c9']
++  },
++  {
++    id: 'ts7',
++    roomId: 'room3',
++    date: '2025-06-02',
++    timeRange: '09:00 - 10:00',
++    interviewerIds: ['i4', 'i5', 'i6'],
++    candidateIds: ['c1', 'c2']
++  },
++  {
++    id: 'ts8',
++    roomId: 'room3',
++    date: '2025-06-02',
++    timeRange: '10:30 - 11:30',
++    interviewerIds: ['i4', 'i5', 'i6'],
++    candidateIds: ['c3', 'c4']
++  },
++  {
++    id: 'ts9',
++    roomId: 'room3',
++    date: '2025-06-02',
++    timeRange: '09:00 - 10:00',
++    interviewerIds: ['i4', 'i5', 'i6'],
++    candidateIds: ['c5', 'c6']
++  },
++  {
++    id: 'ts10',
++    roomId: 'room3',
++    date: '2025-06-02',
++    timeRange: '10:30 - 11:30',
++    interviewerIds: ['i4', 'i5', 'i6'],
++    candidateIds: ['c7', 'c8', 'c9']
++  }
++];
++
++export const people: Person[] = [
++  { id: 'i1', name: '김면접', role: 'interviewer' },
++  { id: 'i2', name: '이평가', role: 'interviewer' },
++  { id: 'i3', name: '박관리', role: 'interviewer' },
++  { id: 'c1', name: '홍길동', role: 'candidate' },
++  { id: 'c2', name: '김철수', role: 'candidate' },
++  { id: 'c3', name: '이영희', role: 'candidate' },
++  { id: 'c4', name: '박지성', role: 'candidate' },
++  { id: 'c5', name: '최지원', role: 'candidate' },
++  { id: 'c6', name: '최민수', role: 'candidate' },
++  { id: 'c7', name: '정다은', role: 'candidate' },
++  { id: 'c8', name: '김지원', role: 'candidate' },
++  { id: 'c9', name: '이수진', role: 'candidate' }
++];
++
++export const getPersonById = (id: string): Person | undefined => {
++  return people.find(person => person.id === id);
++}; 
+\ No newline at end of file
+diff --git a/client/src/data/peopleData.ts b/client/src/data/peopleData.ts
+new file mode 100644
+index 0000000..0a38c97
+--- /dev/null
++++ b/client/src/data/peopleData.ts
+@@ -0,0 +1,35 @@
++export interface Person {
++  id: string;
++  name: string;
++  role: 'interviewer' | 'candidate';
++}
++
++export const people: Person[] = [
++  // 면접관
++  { id: 'i1', name: '김면접', role: 'interviewer' },
++  { id: 'i2', name: '이면접', role: 'interviewer' },
++  { id: 'i3', name: '박면접', role: 'interviewer' },
++  { id: 'i4', name: '최면접', role: 'interviewer' },
++  { id: 'i5', name: '정면접', role: 'interviewer' },
++  { id: 'i6', name: '강면접', role: 'interviewer' },
++  { id: 'i7', name: '윤면접', role: 'interviewer' },
++  { id: 'i8', name: '한면접', role: 'interviewer' },
++  { id: 'i9', name: '최면접', role: 'interviewer' },
++
++  // 지원자
++  { id: 'c1', name: '홍길동', role: 'candidate' },
++  { id: 'c2', name: '김철수', role: 'candidate' },
++  { id: 'c3', name: '이영희', role: 'candidate' },
++  { id: 'c4', name: '박지성', role: 'candidate' },
++  { id: 'c5', name: '최지원', role: 'candidate' },
++  { id: 'c6', name: '최민수', role: 'candidate' },
++  { id: 'c7', name: '정다은', role: 'candidate' },
++  { id: 'c8', name: '김지원', role: 'candidate' },
++  { id: 'c9', name: '이수진', role: 'candidate' }
++];
++
++export const getInterviewers = () => people.filter(p => p.role === 'interviewer');
++export const getCandidates = () => people.filter(p => p.role === 'candidate');
++
++export const getPersonById = (id: string) => people.find(p => p.id === id);
++export const getPersonByName = (name: string) => people.find(p => p.name === name); 
+\ No newline at end of file
+diff --git a/client/src/data/questionData.ts b/client/src/data/questionData.ts
+new file mode 100644
+index 0000000..b85def5
+--- /dev/null
++++ b/client/src/data/questionData.ts
+@@ -0,0 +1,142 @@
++export interface Question {
++  id: string;
++  content: string;
++  type: 'common' | 'individual';
++}
++
++// 공통 질문 (모든 지원자에게 동일하게 적용)
++export const commonQuestions: Question[] = [
++  {
++    id: 'cq1',
++    content: '자신의 장점과 단점에 대해 설명해주세요.',
++    type: 'common'
++  },
++  {
++    id: 'cq2',
++    content: '지원동기는 무엇인가요?',
++    type: 'common'
++  },
++  {
++    id: 'cq3',
++    content: '향후 5년 후의 목표는 무엇인가요?',
++    type: 'common'
++  }
++];
++
++// 개별 질문 (지원자별로 다른 질문)
++export const individualQuestions: Record<string, Question[]> = {
++  'c1': [ // 홍길동
++    {
++      id: 'iq1-1',
++      content: '프로젝트에서 리더십을 발휘한 경험이 있다면 말씀해주세요.',
++      type: 'individual'
++    },
++    {
++      id: 'iq1-2',
++      content: '실패했던 경험과 그로부터 배운 점은 무엇인가요?',
++      type: 'individual'
++    }
++  ],
++  'c2': [ // 김철수
++    {
++      id: 'iq2-1',
++      content: '팀 프로젝트에서 갈등을 해결한 경험이 있나요?',
++      type: 'individual'
++    },
++    {
++      id: 'iq2-2',
++      content: '새로운 기술을 배울 때 어떤 방식으로 접근하시나요?',
++      type: 'individual'
++    }
++  ],
++  'c3': [ // 이영희
++    {
++      id: 'iq3-1',
++      content: '업무 중 가장 큰 도전을 극복한 경험은 무엇인가요?',
++      type: 'individual'
++    },
++    {
++      id: 'iq3-2',
++      content: '스트레스 상황에서 어떻게 대처하시나요?',
++      type: 'individual'
++    }
++  ],
++  'c4': [ // 박지성
++    {
++      id: 'iq4-1',
++      content: '본인의 커리어 목표는 무엇인가요?',
++      type: 'individual'
++    },
++    {
++      id: 'iq4-2',
++      content: '우리 회사에 대해 어떤 점을 알고 계신가요?',
++      type: 'individual'
++    }
++  ],
++  'c5': [ // 최지원
++    {
++      id: 'iq5-1',
++      content: '본인의 강점을 업무에 어떻게 활용할 수 있을까요?',
++      type: 'individual'
++    },
++    {
++      id: 'iq5-2',
++      content: '업무와 관련하여 가장 자신 있는 분야는 무엇인가요?',
++      type: 'individual'
++    }
++  ],
++  'c6': [ // 최민수
++    {
++      id: 'iq6-1',
++      content: '팀워크가 중요한 이유는 무엇이라고 생각하시나요?',
++      type: 'individual'
++    },
++    {
++      id: 'iq6-2',
++      content: '본인의 업무 스타일은 어떤 것인가요?',
++      type: 'individual'
++    }
++  ],
++  'c7': [ // 정다은
++    {
++      id: 'iq7-1',
++      content: '업무 중 가장 중요하게 생각하는 가치는 무엇인가요?',
++      type: 'individual'
++    },
++    {
++      id: 'iq7-2',
++      content: '본인의 약점을 보완하기 위해 어떤 노력을 하고 있나요?',
++      type: 'individual'
++    }
++  ],
++  'c8': [ // 김지원
++    {
++      id: 'iq8-1',
++      content: '업무 중 가장 큰 성취감을 느낀 경험은 무엇인가요?',
++      type: 'individual'
++    },
++    {
++      id: 'iq8-2',
++      content: '본인의 전문성을 키우기 위해 어떤 노력을 하고 있나요?',
++      type: 'individual'
++    }
++  ],
++  'c9': [ // 이수진
++    {
++      id: 'iq9-1',
++      content: '업무 중 가장 어려웠던 결정은 무엇이었나요?',
++      type: 'individual'
++    },
++    {
++      id: 'iq9-2',
++      content: '본인의 업무 방식이 팀에 어떤 기여를 할 수 있을까요?',
++      type: 'individual'
++    }
++  ]
++};
++
++// 지원자별 전체 질문 목록을 가져오는 함수
++export const getQuestionsForCandidate = (candidateId: string): Question[] => {
++  const candidateQuestions = individualQuestions[candidateId] || [];
++  return [...commonQuestions, ...candidateQuestions];
++}; 
+\ No newline at end of file
+diff --git a/client/src/env.d.ts b/client/src/env.d.ts
+new file mode 100644
+index 0000000..938e16e
+--- /dev/null
++++ b/client/src/env.d.ts
+@@ -0,0 +1,16 @@
++/// <reference types="vite/client" />
++
++declare module '*.vue' {
++  import type { DefineComponent } from 'vue'
++  const component: DefineComponent<{}, {}, any>
++  export default component
++}
++
++interface ImportMetaEnv {
++  readonly VITE_APP_TITLE: string
++  // 더 많은 환경 변수 타입을 여기에 추가할 수 있습니다
++}
++
++interface ImportMeta {
++  readonly env: ImportMetaEnv
++} 
+\ No newline at end of file
+diff --git a/client/src/main.ts b/client/src/main.ts
+index 4b068d9..837b2bd 100644
+--- a/client/src/main.ts
++++ b/client/src/main.ts
+@@ -1,39 +1,52 @@
+ import { createApp } from 'vue'
+ import { createRouter, createWebHistory } from 'vue-router'
+ import App from './App.vue'
+-import InterviewView from './components/InterviewView.vue'
++import InterviewSetup from './components/InterviewSetup.vue'
++import Interview from './components/Interview.vue'
+ import InterviewResult from './components/InterviewResult.vue'
+-import InterviewAdminDashboard from './components/InterviewAdminDashboard.vue'
+-import './assets/main.css'
+-
+-// Font Awesome
+-import '@fortawesome/fontawesome-free/css/all.min.css'
++import AdminDashboard from './components/AdminDashboard.vue'
+ 
+ // Tailwind CSS
+ import './assets/tailwind.css'
++import './assets/main.css'
++
++// Font Awesome
++import '@fortawesome/fontawesome-free/css/all.css'
+ 
+ const router = createRouter({
+   history: createWebHistory(),
+   routes: [
+     {
+       path: '/',
+-      redirect: '/interview'
++      name: 'setup',
++      component: InterviewSetup
+     },
+     {
+       path: '/interview',
+       name: 'interview',
+-      component: InterviewView
++      component: Interview,
++      props: (route) => ({
++        roomName: route.query.roomName as string,
++        timeRange: route.query.timeRange as string,
++        interviewers: route.query.interviewers as string,
++        candidates: JSON.parse(route.query.candidates as string || '[]'),
++        candidateIds: JSON.parse(route.query.candidateIds as string || '[]')
++      })
+     },
+     {
+       path: '/result',
+       name: 'result',
+       component: InterviewResult,
+-      props: true
++      props: (route) => ({
++        interviewResults: JSON.parse(route.query.results as string || '[]'),
++        selectedCandidates: JSON.parse(route.query.candidates as string || '[]'),
++        initialTab: parseInt(route.query.tab as string || '0')
++      })
+     },
+     {
+       path: '/admin',
+-      name: 'admin',
+-      component: InterviewAdminDashboard
++      name: 'AdminDashboard',
++      component: AdminDashboard
+     }
+   ]
+ })
+diff --git a/client/src/services/interviewService.ts b/client/src/services/interviewService.ts
+new file mode 100644
+index 0000000..5cd3682
+--- /dev/null
++++ b/client/src/services/interviewService.ts
+@@ -0,0 +1,26 @@
++import axios from 'axios';
++
++interface InterviewSchedule {
++  interviewDate: number[];
++  timeRange: string;
++  roomName: string;
++  interviewers: string[];
++  interviewees: string[];
++}
++
++interface ScheduleResponse {
++  schedules: InterviewSchedule[];
++  message: string;
++}
++
++export const getInterviewSchedules = async (date: string): Promise<ScheduleResponse> => {
++  try {
++    const response = await axios.get<ScheduleResponse>(`http://localhost:8080/api/interviewees/schedule`, {
++      params: { date }
++    });
++    return response.data;
++  } catch (error) {
++    console.error('면접 일정 조회 중 오류 발생:', error);
++    throw error;
++  }
++}; 
+\ No newline at end of file
+diff --git a/client/tsconfig.json b/client/tsconfig.json
+index b575254..1cb9d83 100644
+--- a/client/tsconfig.json
++++ b/client/tsconfig.json
+@@ -1,13 +1,32 @@
+ {
+-  "extends": "@vue/tsconfig/tsconfig.dom.json",
+-  "include": ["env.d.ts", "src/**/*", "src/**/*.vue"],
+-  "exclude": ["src/**/__tests__/*"],
+   "compilerOptions": {
+-    "composite": true,
++    "target": "ES2020",
++    "useDefineForClassFields": true,
++    "module": "ESNext",
++    "lib": ["ES2020", "DOM", "DOM.Iterable"],
++    "skipLibCheck": true,
++
++    /* Bundler mode */
++    "moduleResolution": "bundler",
++    "allowImportingTsExtensions": true,
++    "resolveJsonModule": true,
++    "isolatedModules": true,
++    "noEmit": true,
++    "jsx": "preserve",
++
++    /* Linting */
++    "strict": true,
++    "noUnusedLocals": true,
++    "noUnusedParameters": true,
++    "noFallthroughCasesInSwitch": true,
++
++    /* Path aliases */
+     "baseUrl": ".",
+     "paths": {
+       "@/*": ["./src/*"]
+     },
+-    "types": ["node"]
+-  }
++    "types": ["node", "vite/client"]
++  },
++  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue", "env.d.ts"],
++  "references": [{ "path": "./tsconfig.node.json" }]
+ } 
+\ No newline at end of file
+diff --git a/client/tsconfig.node.json b/client/tsconfig.node.json
+new file mode 100644
+index 0000000..7e53654
+--- /dev/null
++++ b/client/tsconfig.node.json
+@@ -0,0 +1,11 @@
++{
++  "compilerOptions": {
++    "composite": true,
++    "skipLibCheck": true,
++    "module": "ESNext",
++    "moduleResolution": "bundler",
++    "allowSyntheticDefaultImports": true,
++    "strict": true
++  },
++  "include": ["vite.config.ts"]
++} 
+\ No newline at end of file
+-- 
+2.39.5 (Apple Git-154)
+

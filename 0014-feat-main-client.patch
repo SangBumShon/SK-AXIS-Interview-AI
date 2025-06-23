@@ -1,0 +1,80 @@
+From 4602b1f75b6397096a639891a93050a0047d3cee Mon Sep 17 00:00:00 2001
+From: SangBumShon <core5630@naver.com>
+Date: Mon, 16 Jun 2025 10:44:08 +0900
+Subject: [PATCH 14/33] =?UTF-8?q?feat:=20main=20=EB=B8=8C=EB=9E=9C?=
+ =?UTF-8?q?=EC=B9=98=EC=9D=98=20client=20=EB=94=94=EB=A0=89=ED=86=A0?=
+ =?UTF-8?q?=EB=A6=AC=20=EB=B3=80=EA=B2=BD=EC=82=AC=ED=95=AD=20=EB=B0=98?=
+ =?UTF-8?q?=EC=98=81?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ client/src/components/PoseMiniWidget.vue | 24 +++++++-----------------
+ client/tsconfig.node.json                | 11 +++++++++++
+ 2 files changed, 18 insertions(+), 17 deletions(-)
+ create mode 100644 client/tsconfig.node.json
+
+diff --git a/client/src/components/PoseMiniWidget.vue b/client/src/components/PoseMiniWidget.vue
+index 94609cd..0c3e3a7 100644
+--- a/client/src/components/PoseMiniWidget.vue
++++ b/client/src/components/PoseMiniWidget.vue
+@@ -25,7 +25,7 @@ import {
+ } from '@mediapipe/tasks-vision'
+ 
+ // 1. WebSocket 연결
+-const wsUrl = `ws://localhost:8000/api/v1/ws/nonverbal`// 서버 주소에 맞게 수정
++const wsUrl = 'ws://localhost:9000'   // 서버 주소에 맞게 수정
+ let ws = null
+ function connectWebSocket() {
+   ws = new WebSocket(wsUrl)
+@@ -253,22 +253,12 @@ onMounted(async () => {
+ 
+         // ----- JSON 송신 -----
+         const payload = {
+-  interviewee_id: k + 1,                                    // int
+-  is_speaking: isSpeaking,                                  // bool
+-  posture: {                                                // Posture 필드명과 개수 일치
+-    leg_spread: poseObj.leg_spread,
+-    leg_shake:  poseObj.leg_shake,
+-    head_down:  poseObj.head_down
+-  },
+-  facial_expression: {                                      // FacialExpression 키와 개수 일치
+-    smile:       faceExpCount[k].smile     || 0,
+-    neutral:     faceExpCount[k].neutral   || 0,
+-    embarrassed: faceExpCount[k].embarrassed || 0,
+-    tearful:     faceExpCount[k].tearful   || 0,
+-    frown:       faceExpCount[k].frown     || 0
+-  },
+-  timestamp: new Date().toISOString()                       // (추가 필드는 무시됨)
+-};
++          person: k + 1,
++          speaking: isSpeaking,
++          pose: poseObj,
++          expression: Object.fromEntries(expList.map(e => [e, faceExpCount[k][e] || 0])),
++          timestamp: new Date().toISOString()
++        }
+         if (ws && ws.readyState === WebSocket.OPEN) {
+           ws.send(JSON.stringify(payload))
+         }
+diff --git a/client/tsconfig.node.json b/client/tsconfig.node.json
+new file mode 100644
+index 0000000..7e53654
+--- /dev/null
++++ b/client/tsconfig.node.json
+@@ -0,0 +1,11 @@
++{
++  "compilerOptions": {
++    "composite": true,
++    "skipLibCheck": true,
++    "module": "ESNext",
++    "moduleResolution": "bundler",
++    "allowSyntheticDefaultImports": true,
++    "strict": true
++  },
++  "include": ["vite.config.ts"]
++} 
+\ No newline at end of file
+-- 
+2.39.5 (Apple Git-154)
+

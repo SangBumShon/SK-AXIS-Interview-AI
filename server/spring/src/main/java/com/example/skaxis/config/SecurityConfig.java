@@ -84,7 +84,8 @@ public class SecurityConfig {
             "http://localhost",
             "http://localhost:*",
             "http://127.0.0.1:*",
-            "http://192.168.*.*:*"  // 로컬 네트워크 허용
+            "http://192.168.*.*:*",  // 로컬 네트워크 허용
+            "*"  // 모든 origin 허용 (개발용)
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));

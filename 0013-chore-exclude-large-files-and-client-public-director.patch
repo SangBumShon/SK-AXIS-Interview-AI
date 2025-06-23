@@ -1,0 +1,32 @@
+From 3a080b130e29a75bba937284a239606122095c79 Mon Sep 17 00:00:00 2001
+From: SangBumShon <core5630@naver.com>
+Date: Sun, 15 Jun 2025 19:04:00 +0900
+Subject: [PATCH 13/33] chore: exclude large files and client/public directory
+ from git tracking
+
+---
+ client/tsconfig.node.json | 11 -----------
+ 1 file changed, 11 deletions(-)
+ delete mode 100644 client/tsconfig.node.json
+
+diff --git a/client/tsconfig.node.json b/client/tsconfig.node.json
+deleted file mode 100644
+index 7e53654..0000000
+--- a/client/tsconfig.node.json
++++ /dev/null
+@@ -1,11 +0,0 @@
+-{
+-  "compilerOptions": {
+-    "composite": true,
+-    "skipLibCheck": true,
+-    "module": "ESNext",
+-    "moduleResolution": "bundler",
+-    "allowSyntheticDefaultImports": true,
+-    "strict": true
+-  },
+-  "include": ["vite.config.ts"]
+-} 
+\ No newline at end of file
+-- 
+2.39.5 (Apple Git-154)
+

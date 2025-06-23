@@ -11,96 +11,56 @@
     <canvas
       ref="canvas"
       width="1280" height="720"
-      style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:100; pointer-events:none; background:transparent; border: 2px solid red;"
+      style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; pointer-events:none; background:transparent;"
     ></canvas>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, defineProps, watch, defineEmits, defineExpose } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import * as faceapi from 'face-api.js'
+import {
+  FilesetResolver,
+  PoseLandmarker
+} from '@mediapipe/tasks-vision'
 
-const props = defineProps({
-  intervieweeNames: {
-    type: Array,
-    required: true,
-    default: () => []
-  },
-  intervieweeIds: {
-    type: Array,
-    required: true,
-    default: () => []
-  }
-})
-
-const emit = defineEmits(['updateNonverbalData'])
-
-// 부모 컴포넌트에서 접근 가능하도록 누적 데이터 노출
-defineExpose({
-  getAccumulatedNonverbalData: () => accumulatedNonverbalData.value,
-  getCurrentNonverbalData: () => nonverbalData.value
-})
-
-// 녹음 관련 상태 - 면접자별 개별 관리
-const recorderMap = ref({})  // { [id]: { mediaRecorder, audioChunks, stream } }
-const MOUTH_CLOSED_THRESHOLD = 3000 // 3초
+// 1. WebSocket 연결
+const wsUrl = 'ws://localhost:9000'   // 서버 주소에 맞게 수정
+let ws = null
+function connectWebSocket() {
+  ws = new WebSocket(wsUrl)
+  ws.onopen = () => console.log('WebSocket 연결됨')
+  ws.onerror = err => console.error('WebSocket 에러:', err)
+  ws.onclose = () => console.log('WebSocket 연결 종료')
+}
+connectWebSocket()
 
 const video = ref(null)
 const canvas = ref(null)
+let poseLandmarker
 let active = true
 
-// 얼굴표정 관련 상수
-const expList = ['미소', '무표정', '울상', '찡그림']
+const LEFT_KNEE = 25, RIGHT_KNEE = 26
+const NOSE = 0, LEFT_SHOULDER = 11, RIGHT_SHOULDER = 12
+const POSE_FACE_LANDMARKS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+let spreadCount = [0, 0]
+let shakeCount = [0, 0]
+let headDownCount = [0, 0]
+let prevKneeY = [
+  { left: null, right: null, max: null, min: null },
+  { left: null, right: null, max: null, min: null }
+]
+let lastCountedTime = 0
+
+const expList = ['미소', '무표정', '당황', '울상', '찡그림']
 const expKorean = {
-  happy: '미소', sad: '울상', angry: '찡그림',
-  neutral: '무표정', disgusted: '불쾌'
+  happy: '미소', sad: '울상', angry: '찡그림', surprised: '당황',
+  neutral: '무표정', fearful: '불안', disgusted: '불쾌'
 }
-
-// 각 면접자별 상태 관리
-const faceStates = ref([])
-
-// 비언어적 데이터 저장소
-const nonverbalData = ref({})
-
-// 면접 종료 시 누적 데이터 저장소
-const accumulatedNonverbalData = ref({})  // { [id]: { facial_expression_history: [], posture_history: [], ... } }
-
-// 1초마다 데이터 업데이트 및 전송
-let updateInterval = null
-
-// 면접자 이름이 변경될 때마다 상태 초기화
-watch(() => props.intervieweeNames, (newNames) => {
-  faceStates.value = newNames.map((name, index) => {
-    const id = props.intervieweeIds[index]
-    nonverbalData.value[id] = {
-      posture: { upright: 0, leaning: 0, slouching: 0 },
-      facial_expression: { smile: 0, neutral: 0, frown: 0, angry: 0 },
-      gaze: 0,
-      gesture: 0,
-      timestamp: Date.now()
-    }
-    
-    // 누적 데이터 초기화
-    accumulatedNonverbalData.value[id] = {
-      facial_expression_history: [],
-      posture_history: [],
-      gaze_history: [],
-      gesture_history: [],
-      start_time: Date.now()
-    }
-    
-    return {
-      name,
-      id,
-      speaking: false,
-      mouthClosedStartTime: null,
-      isRecording: false,
-      expression: Object.fromEntries(expList.map(e => [e, 0])),
-      expressionTotal: 0, // 총 프레임 수
-      lastExpression: null
-    }
-  })
-}, { immediate: true })
+let faceExpCount = [
+  Object.fromEntries(expList.map(e => [e, 0])),
+  Object.fromEntries(expList.map(e => [e, 0]))
+]
 
 function detectSpeaking(landmarks) {
   if (!landmarks || !landmarks.positions) return false
@@ -114,378 +74,207 @@ function detectSpeaking(landmarks) {
   return mouthOpen > 20 && mouthWidth > 25
 }
 
-async function startRecording(personIndex) {
-  const state = faceStates.value[personIndex]
-  
-  if (state.isRecording) {
-    console.log(`[녹음 시작 실패] ${state.name}님의 녹음이 이미 진행 중입니다.`)
-    return
-  }
-  
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    
-    // WebM 형식으로 녹음 설정
-    const mimeType = 'audio/webm'
-    if (!MediaRecorder.isTypeSupported(mimeType)) {
-      console.error(`[녹음 시작 실패] ${mimeType} 형식이 지원되지 않습니다.`)
-      return
-    }
-    
-    const recorder = new MediaRecorder(stream, {
-      mimeType: mimeType
-    })
-    const audioChunks = []
-    
-    recorder.ondataavailable = (event) => {
-      audioChunks.push(event.data)
-    }
-    
-    recorder.onstop = async () => {
-      const audioBlob = new Blob(audioChunks, { type: mimeType })
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-      const fileName = `${state.id}_${timestamp}.webm`
-      
-      const formData = new FormData()
-      formData.append('audio', audioBlob, fileName)
-      formData.append('interviewee_id', state.id.toString())
-      
-      try {
-        const response = await fetch('/api/v1/interview/stt/upload', {
-          method: 'POST',
-          body: formData
-        })
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          throw new Error(`Upload failed: ${response.status} ${errorData.detail || response.statusText}`)
-        }
-        
-        const result = await response.json()
-        console.log(`[업로드 성공] ${state.name}님의 녹음 파일이 성공적으로 업로드되었습니다.`)
-        state.isRecording = false
-      } catch (error) {
-        console.error(`[업로드 실패] ${state.name}님의 녹음 파일 업로드 중 오류 발생:`, error.message)
-        state.isRecording = false
-      } finally {
-        if (recorder && recorder.stream) {
-          recorder.stream.getTracks().forEach(track => {
-            track.stop()
-          })
-        }
-      }
-    }
-    
-    recorder.start()
-    state.isRecording = true
-    console.log(`[녹음 시작] ${state.name}님의 녹음이 시작되었습니다.`)
-
-    recorderMap.value[state.id] = { mediaRecorder: recorder, audioChunks, stream }
-  } catch (error) {
-    console.error(`[녹음 시작 실패] ${state.name}님의 녹음 시작 중 오류 발생:`, error.message)
-  }
+function isValidKeypoint(lm) {
+  return (
+    lm &&
+    ((typeof lm.visibility === "number" && lm.visibility > 0.5) ||
+      (typeof lm.presence === "number" && lm.presence > 0.5) ||
+      (lm.visibility === undefined && lm.presence === undefined)) &&
+    lm.x >= 0.0 && lm.x <= 1.0 &&
+    lm.y >= 0.0 && lm.y <= 1.0
+  )
 }
 
-function stopRecording(personIndex) {
-  const state = faceStates.value[personIndex]
-  
-  if (!state.isRecording) {
-    console.log(`[녹음 종료 실패] ${state.name}님의 녹음이 진행 중이 아닙니다.`)
-    return
+function analyzeLegByKnee(poseLandmarks, k) {
+  if (!isValidKeypoint(poseLandmarks[LEFT_KNEE]) || !isValidKeypoint(poseLandmarks[RIGHT_KNEE]))
+    return { kneeSpread: 0, kneeShakeAmp: 0, valid: false }
+
+  const kneeSpread = Math.abs(poseLandmarks[LEFT_KNEE].x - poseLandmarks[RIGHT_KNEE].x)
+  const avgKneeY = (poseLandmarks[LEFT_KNEE].y + poseLandmarks[RIGHT_KNEE].y) / 2
+
+  if (prevKneeY[k].min === null || prevKneeY[k].max === null) {
+    prevKneeY[k].min = avgKneeY
+    prevKneeY[k].max = avgKneeY
+  } else {
+    prevKneeY[k].min = Math.min(prevKneeY[k].min, avgKneeY)
+    prevKneeY[k].max = Math.max(prevKneeY[k].max, avgKneeY)
   }
-  
-  if (!recorderMap.value[state.id]) {
-    console.error(`[녹음 종료 실패] ${state.name}님의 MediaRecorder가 초기화되지 않았습니다.`)
-    return
+
+  const kneeShakeAmp = prevKneeY[k].max - prevKneeY[k].min
+  return { kneeSpread, kneeShakeAmp, valid: true }
+}
+
+function getSortedPersonIndexes(landmarksArr) {
+  if (!landmarksArr || landmarksArr.length === 0) return []
+  if (landmarksArr.length === 1) return [0]
+  let centers = []
+  for (let i = 0; i < landmarksArr.length; i++) {
+    const lmArr = landmarksArr[i]
+    if (!lmArr || lmArr.length === 0) continue
+    const avgX = lmArr.reduce((acc, l) => acc + l.x, 0) / lmArr.length
+    centers.push({ i, avgX })
   }
-  
-  try {
-    const recorder = recorderMap.value[state.id].mediaRecorder
-    recorder.stop()
-    state.isRecording = false
-    console.log(`[녹음 종료] ${state.name}님의 녹음이 종료되었습니다.`)
-  } catch (error) {
-    console.error(`[녹음 종료 실패] ${state.name}님의 녹음 종료 중 오류 발생:`, error.message)
-  }
+  centers.sort((a, b) => a.avgX - b.avgX)
+  return centers.map(c => c.i)
 }
 
 onMounted(async () => {
-  console.log('=== PoseMiniWidget 컴포넌트 마운트 시작 ===')
+  await faceapi.nets.tinyFaceDetector.loadFromUri('/models/tiny_face_detector')
+  await faceapi.nets.faceLandmark68Net.loadFromUri('/models/face_landmark_68')
+  await faceapi.nets.faceExpressionNet.loadFromUri('/models/face_expression')
 
-  try {
-    console.log('face-api.js 모델 로딩 시작...')
-    
-    // 모델 로딩 전 상태 확인
-    if (!faceapi.nets.tinyFaceDetector.isLoaded) {
-      await faceapi.nets.tinyFaceDetector.loadFromUri('/models/tiny_face_detector')
-    }
-    
-    if (!faceapi.nets.faceLandmark68Net.isLoaded) {
-      await faceapi.nets.faceLandmark68Net.loadFromUri('/models/face_landmark_68')
-    }
-    
-    if (!faceapi.nets.faceExpressionNet.isLoaded) {
-      await faceapi.nets.faceExpressionNet.loadFromUri('/models/face_expression')
-    }
-    
-    console.log('모든 face-api.js 모델 로딩 완료')
+  while (!video.value) await new Promise(r => requestAnimationFrame(r))
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 } })
+  video.value.srcObject = stream
+  await new Promise(resolve => { video.value.onloadedmetadata = resolve })
 
-    // 비디오 엘리먼트 초기화
-    try {
-      while (!video.value) {
-        await new Promise(r => setTimeout(r, 100))
+  const vision = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm')
+  poseLandmarker = await PoseLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task'
+    },
+    runningMode: 'VIDEO',
+    numPoses: 2,
+    outputSegmentationMasks: false
+  })
+
+  const analyze = async () => {
+    if (!active) return
+    const ctx = canvas.value.getContext('2d')
+    ctx.clearRect(0, 0, 1280, 720)
+    ctx.drawImage(video.value, 0, 0, 1280, 720)
+
+    const poses = poseLandmarker.detectForVideo(video.value, performance.now())
+    let poseIndexes = getSortedPersonIndexes(poses.landmarks)
+    if (poseIndexes.length > 2) poseIndexes = poseIndexes.slice(0, 2)
+
+    let detections = await faceapi.detectAllFaces(video.value, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks()
+      .withFaceExpressions()
+    detections.sort((a, b) => a.detection.box.x - b.detection.box.x)
+    if (detections.length > 2) detections = detections.slice(0, 2)
+
+    const numPersons = Math.max(poseIndexes.length, detections.length)
+    if (numPersons === 0) {
+      requestAnimationFrame(analyze)
+      return
+    }
+
+    // 얼굴 랜드마크/박스 시각화
+    if (detections.length === 1) {
+      const color = 'lime'
+      const det = detections[0]
+      for (const pt of det.landmarks.positions) {
+        ctx.beginPath()
+        ctx.arc(pt.x, pt.y, 2.2, 0, 2 * Math.PI)
+        ctx.fillStyle = color
+        ctx.fill()
       }
-
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          width: 1280, 
-          height: 720,
-          facingMode: 'user'
-        } 
-      })
-      
-      video.value.srcObject = stream
-      
-      // 비디오 메타데이터 로드 완료 후 캔버스 크기 동기화
-      await new Promise((resolve, reject) => {
-        if (!video.value) {
-          reject(new Error('비디오 엘리먼트가 없습니다.'))
-          return
-        }
-        video.value.onloadedmetadata = () => {
-          console.log('비디오 실제 해상도:', video.value.videoWidth, video.value.videoHeight)
-          // 💡 실제 비디오 해상도를 기반으로 canvas 해상도 설정 (스케일링 문제 해결)
-          const width = video.value.videoWidth
-          const height = video.value.videoHeight
-          canvas.value.width = width
-          canvas.value.height = height
-          
-          // Canvas 스타일 동적 설정
-          canvas.value.style.zIndex = '100'
-          canvas.value.style.position = 'absolute'
-          canvas.value.style.top = '0'
-          canvas.value.style.left = '0'
-          canvas.value.style.width = '100%'
-          canvas.value.style.height = '100%'
-          canvas.value.style.pointerEvents = 'none'
-          canvas.value.style.background = 'transparent'
-          
-          console.log(`Canvas 해상도 동기화 완료: ${width}x${height}`)
-          
-          // 테스트용 빨간 사각형 그리기
-          const ctx = canvas.value.getContext('2d')
-          ctx.fillStyle = 'red'
-          ctx.fillRect(20, 20, 50, 50)
-          
-          resolve()
-        }
-        video.value.onerror = reject
-      })
-
-    } catch (error) {
-      console.error('비디오 초기화 중 오류:', error)
-      throw error
-    }
-
-    const analyze = async () => {
-      if (!active) {
-        return
-      }
-
-      try {
-        const ctx = canvas.value.getContext('2d')
-        const width = canvas.value.width
-        const height = canvas.value.height
-        
-        ctx.clearRect(0, 0, width, height)
-        ctx.drawImage(video.value, 0, 0, width, height)
-
-        // 테스트용 점 찍기 (계속 그리기)
-        ctx.fillStyle = 'red'
-        ctx.fillRect(10, 10, 10, 10)
-        ctx.fillRect(width - 20, height - 20, 10, 10) // 우하단에도 점 찍기
-
-        let detections = await faceapi.detectAllFaces(video.value, new faceapi.TinyFaceDetectorOptions())
-          .withFaceLandmarks()
-          .withFaceExpressions()
-        
-        // 면접자 수에 따라 감지된 얼굴 수 제한
-        detections = detections.slice(0, props.intervieweeNames.length)
-        detections.sort((a, b) => a.detection.box.x - b.detection.box.x)
-
-        // 얼굴 랜드마크/박스 시각화 및 상태 업데이트
-        for (let k = 0; k < detections.length; k++) {
-          const det = detections[k]
-          const color = k === 0 ? 'lime' : k === 1 ? 'yellow' : 'aqua'
-          
-          // faceStates 안전성 체크
-          if (!faceStates.value[k]) {
-            continue
-          }
-          const faceState = faceStates.value[k]
-          
-          // 얼굴 랜드마크 시각화
-          for (const pt of det.landmarks.positions) {
-            ctx.beginPath()
-            ctx.arc(pt.x, pt.y, 2.2, 0, 2 * Math.PI)
-            ctx.fillStyle = color
-            ctx.fill()
-          }
-          
-          // 얼굴 박스 시각화
-          const box = det.detection.box
-          ctx.strokeStyle = color
-          ctx.lineWidth = 2
-          ctx.strokeRect(
-            box.x,
-            box.y,
-            box.width,
-            box.height
-          )
-          
-          // 면접자 이름 표시
-          ctx.font = 'bold 20px sans-serif'
+      const box = det.detection.box
+      ctx.strokeStyle = color
+      ctx.lineWidth = 2
+      ctx.strokeRect(box.x, box.y, box.width, box.height)
+      ctx.font = 'bold 20px sans-serif'
+      ctx.fillStyle = color
+      ctx.fillText(`person1`, box.x, box.y - 8)
+    } else if (detections.length === 2) {
+      for (let k = 0; k < 2; k++) {
+        const color = k === 0 ? 'lime' : 'yellow'
+        const det = detections[k]
+        for (const pt of det.landmarks.positions) {
+          ctx.beginPath()
+          ctx.arc(pt.x, pt.y, 2.2, 0, 2 * Math.PI)
           ctx.fillStyle = color
-          ctx.fillText(
-            faceState.name,
-            box.x,
-            box.y - 8
-          )
+          ctx.fill()
+        }
+        const box = det.detection.box
+        ctx.strokeStyle = color
+        ctx.lineWidth = 2
+        ctx.strokeRect(box.x, box.y, box.width, box.height)
+        ctx.font = 'bold 20px sans-serif'
+        ctx.fillStyle = color
+        ctx.fillText(`person${k + 1}`, box.x, box.y - 8)
+      }
+    }
 
-          // 입벌림 감지 및 녹음 처리
-          const isSpeaking = detectSpeaking(det.landmarks)
-          
-          if (isSpeaking) {
-            if (!faceState.speaking) {
-              console.log(`[입벌림 감지] ${faceState.name}님이 말하기 시작했습니다.`)
+    // 포즈 랜드마크 시각화
+    for (let k = 0; k < poseIndexes.length; k++) {
+      const i = poseIndexes[k]
+      const landmarks = poses.landmarks[i]
+      if (!landmarks || landmarks.length < 20) continue
+      const color = k === 0 ? 'aqua' : 'orange'
+      for (let j = 0; j < landmarks.length; j++) {
+        ctx.beginPath()
+        ctx.arc(landmarks[j].x * 1280, landmarks[j].y * 720, 3, 0, 2 * Math.PI)
+        ctx.fillStyle = color
+        ctx.fill()
+      }
+    }
+
+    // 1초마다 JSON 송신
+    if (Date.now() - lastCountedTime > 1000) {
+      for (let k = 0; k < numPersons; k++) {
+        let isSpeaking = false
+        if (detections[k]) {
+          isSpeaking = detectSpeaking(detections[k].landmarks)
+        }
+
+        let poseObj = { leg_spread: 0, leg_shake: 0, head_down: 0 }
+        if (poseIndexes[k] !== undefined) {
+          const i = poseIndexes[k]
+          const landmarks = poses.landmarks[i]
+          if (landmarks && landmarks.length >= 20) {
+            const { kneeSpread, kneeShakeAmp, valid } = analyzeLegByKnee(landmarks, k)
+            if (valid && (kneeSpread > 0.21)) spreadCount[k] += 1
+            if (valid && (kneeShakeAmp > 0.04)) shakeCount[k] += 1
+            const nose = landmarks[NOSE]
+            const avgShoulderY = (landmarks[LEFT_SHOULDER].y + landmarks[RIGHT_SHOULDER].y) / 2
+            if (nose && nose.y > avgShoulderY + 0.04) headDownCount[k] += 1
+            poseObj = {
+              leg_spread: spreadCount[k],
+              leg_shake: shakeCount[k],
+              head_down: headDownCount[k]
             }
-            faceState.speaking = true
-            faceState.mouthClosedStartTime = null
-            if (!faceState.isRecording) {
-              startRecording(k)
-            }
-          } else if (faceState.speaking) {
-            if (!faceState.mouthClosedStartTime) {
-              faceState.mouthClosedStartTime = Date.now()
-            } else if (Date.now() - faceState.mouthClosedStartTime >= MOUTH_CLOSED_THRESHOLD) {
-              console.log(`[녹음 종료] ${faceState.name}님이 3초 동안 말하지 않았습니다.`)
-              faceState.speaking = false
-              faceState.mouthClosedStartTime = null
-              stopRecording(k)
-            }
+            prevKneeY[k].min = prevKneeY[k].max = (landmarks[LEFT_KNEE].y + landmarks[RIGHT_KNEE].y) / 2
           }
-
-          // 표정 감지 및 카운트
+        }
+        if (!faceExpCount[k]) faceExpCount[k] = Object.fromEntries(expList.map(e => [e, 0]))
+        let faceExpTmp = Object.fromEntries(expList.map(e => [e, 0]))
+        if (detections[k]) {
+          const det = detections[k]
           const expLabel = Object.entries(det.expressions)
             .reduce((max, cur) => cur[1] > max[1] ? cur : max)[0]
-          const expKor = expKorean[expLabel]
-          if (expKor && expList.includes(expKor)) {
-            faceState.expression[expKor]++
-            faceState.expressionTotal++
-            faceState.lastExpression = expKor
+          const expKor = expKorean[expLabel] || expLabel
+          if (faceExpTmp[expKor] !== undefined) faceExpTmp[expKor] += 1
+          for (let key of expList) {
+            faceExpCount[k][key] += faceExpTmp[key]
           }
         }
 
-      } catch (error) {
-        console.error('analyze 함수 실행 중 오류:', error)
+        // ----- JSON 송신 -----
+        const payload = {
+          person: k + 1,
+          speaking: isSpeaking,
+          pose: poseObj,
+          expression: Object.fromEntries(expList.map(e => [e, faceExpCount[k][e] || 0])),
+          timestamp: new Date().toISOString()
+        }
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(payload))
+        }
+        // 개발/테스트용 로그 출력
+        console.log(payload)
       }
-
-      requestAnimationFrame(analyze)
+      lastCountedTime = Date.now()
     }
 
-    analyze()
-    console.log('=== PoseMiniWidget 컴포넌트 마운트 완료 ===')
-
-  } catch (error) {
-    console.error('PoseMiniWidget 초기화 중 오류 발생:', error)
-    // 사용자에게 오류 알림
-    alert('카메라 초기화 중 오류가 발생했습니다. 페이지를 새로고침하거나 카메라 권한을 확인해주세요.')
+    requestAnimationFrame(analyze)
   }
-
-  // 1초마다 데이터 업데이트 및 전송
-  updateInterval = setInterval(() => {
-    const currentData = {}
-    faceStates.value.forEach((state, index) => {
-      const id = props.intervieweeIds[index]
-      
-      // 표정 비율 계산 (총 프레임 대비)
-      const totalFrames = state.expressionTotal || 1
-      const expressionRatios = {
-        smile: Math.round((state.expression['미소'] || 0) / totalFrames * 100),
-        neutral: Math.round((state.expression['무표정'] || 0) / totalFrames * 100),
-        frown: Math.round((state.expression['울상'] || 0) / totalFrames * 100),
-        angry: Math.round((state.expression['찡그림'] || 0) / totalFrames * 100)
-      }
-      
-      const currentNonverbalData = {
-        posture: { upright: 0, leaning: 0, slouching: 0 },  // 자세 데이터는 추후 추가
-        facial_expression: expressionRatios,
-        gaze: 0,  // 시선 데이터는 추후 추가
-        gesture: 0,  // 제스처 데이터는 추후 추가
-        timestamp: Date.now()
-      }
-      
-      currentData[id] = currentNonverbalData
-      
-      // 누적 데이터에 저장
-      if (accumulatedNonverbalData.value[id]) {
-        accumulatedNonverbalData.value[id].facial_expression_history.push({
-          ...expressionRatios,
-          timestamp: Date.now()
-        })
-        accumulatedNonverbalData.value[id].posture_history.push({
-          ...currentNonverbalData.posture,
-          timestamp: Date.now()
-        })
-        accumulatedNonverbalData.value[id].gaze_history.push({
-          value: currentNonverbalData.gaze,
-          timestamp: Date.now()
-        })
-        accumulatedNonverbalData.value[id].gesture_history.push({
-          value: currentNonverbalData.gesture,
-          timestamp: Date.now()
-        })
-      }
-      
-      // 1초마다 표정 카운터 초기화 (최근 1초간의 데이터만 유지)
-      state.expression = Object.fromEntries(expList.map(e => [e, 0]))
-      state.expressionTotal = 0
-    })
-    nonverbalData.value = currentData
-    emit('updateNonverbalData', currentData)
-  }, 1000)
+  analyze()
 })
 
 onBeforeUnmount(() => {
   active = false
-  console.log('[컴포넌트 정리] PoseMiniWidget 컴포넌트를 정리합니다...')
-  
-  // 모든 면접자의 녹음 중지 및 리소스 정리
-  Object.entries(recorderMap.value).forEach(([id, recorderData]) => {
-    if (recorderData.mediaRecorder && recorderData.mediaRecorder.state !== 'inactive') {
-      console.log(`[강제 종료] 면접자 ID ${id}의 녹음을 강제 종료합니다.`)
-      try {
-        recorderData.mediaRecorder.stop()
-      } catch (error) {
-        console.warn(`[리소스 정리] 면접자 ID ${id}의 녹음 종료 중 오류:`, error.message)
-      }
-    }
-    
-    // 스트림 리소스 정리
-    if (recorderData.stream) {
-      recorderData.stream.getTracks().forEach(track => {
-        track.stop()
-      })
-    }
-  })
-  
-  // recorderMap 초기화
-  recorderMap.value = {}
-  
-  console.log('[컴포넌트 정리 완료] PoseMiniWidget 컴포넌트가 정리되었습니다.')
-
-  if (updateInterval) {
-    clearInterval(updateInterval)
-  }
+  if (ws) ws.close()
 })
 </script>
