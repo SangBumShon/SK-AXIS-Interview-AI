@@ -100,8 +100,8 @@
             <tbody>
               <tr v-for="schedule in filteredSchedules" :key="schedule.timeRange" class="hover:bg-gray-50">
                 <td class="px-4 py-3 text-center text-sm text-gray-700 border-b">{{ schedule.timeRange }}</td>
-                <td class="px-4 py-3 text-center text-sm text-gray-700 border-b">{{ schedule.interviewers.join(', ') }}</td>
-                <td class="px-4 py-3 text-center text-sm text-gray-700 border-b">{{ schedule.interviewees.join(', ') }}</td>
+                <td class="px-4 py-3 text-center text-sm text-gray-700 border-b whitespace-pre-line">{{ schedule.interviewers.join('\n') }}</td>
+                <td class="px-4 py-3 text-center text-sm text-gray-700 border-b whitespace-pre-line">{{ getIntervieweeNames(schedule.interviewees) }}</td>
                 <td class="px-4 py-3 text-center border-b">
                   <button
                     @click="selectTimeSlot(schedule)"
@@ -250,6 +250,9 @@ watch(selectedDate, () => {
 const onStartInterview = () => {
   if (!canProceed.value || !selectedSchedule.value) return;
   
+  console.log('선택된 스케줄:', selectedSchedule.value);
+  console.log('전체 스케줄:', schedules.value);
+  
   // 면접 일정에서 지원자 정보 추출
   const candidateIds: number[] = [];
   const candidateNames: string[] = [];
@@ -260,12 +263,17 @@ const onStartInterview = () => {
     schedule.timeRange === selectedSchedule.value.timeRange
   );
   
+  console.log('찾은 스케줄 데이터:', scheduleData);
+  
   if (scheduleData && scheduleData.interviewees) {
     scheduleData.interviewees.forEach((interviewee: { name: string; id: number }) => {
       candidateNames.push(interviewee.name);
       candidateIds.push(interviewee.id);
     });
   }
+  
+  console.log('추출된 지원자 ID:', candidateIds);
+  console.log('추출된 지원자 이름:', candidateNames);
   
   // candidateIds가 비어있지 않은지 확인
   if (candidateIds.length === 0) {
@@ -297,6 +305,14 @@ const handleAdminLogin = () => {
 const logout = () => {
   // 메인 로그인 페이지로 이동
   router.push('/');
+};
+
+// 지원자 이름을 추출하는 함수
+const getIntervieweeNames = (interviewees: any[]): string => {
+  if (!interviewees || !Array.isArray(interviewees)) {
+    return '';
+  }
+  return interviewees.map((interviewee: any) => interviewee.name || '').join('\n');
 };
 
 onMounted(() => {

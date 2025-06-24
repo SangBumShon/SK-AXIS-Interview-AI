@@ -4,8 +4,8 @@ interface Interviewee {
 }
 
 interface InterviewSchedule {
-  interviewDate: number[];
-  timeRange: string;
+  interviewDate: number[]; // [YYYY, MM, DD]
+  timeRange: string;       // '09:00 - 10:00'
   roomName: string;
   interviewers: string[];
   interviewees: Interviewee[];
@@ -18,14 +18,15 @@ interface ScheduleResponse {
 
 interface ApiResponse {
   data: Array<{
+    interviewId: number;
     intervieweeId: number;
-    applicantName: string;
-    applicantId: number | null;
-    interviewDate: number[];
-    interviewStatus: string;
-    score: number;
-    interviewer: string;
-    interviewLocation: string;
+    name: string;
+    scheduledAt: number[]; // [YYYY, MM, DD, HH, mm]
+    status: string;
+    score: number | null;
+    interviewers: string;
+    roomNo: string;
+    comment: string | null;
     createdAt: number[];
   }>;
   totalCount: number;
@@ -33,53 +34,77 @@ interface ApiResponse {
 
 export const getInterviewSchedules = async (date: string): Promise<ScheduleResponse> => {
   try {
-    const response = await fetch(`http://3.38.218.18:8080/api/v1/interviews/simple?date=${date}`, {
+    const response = await fetch(`http://3.38.218.18:8080/api/v1/interviews/simple`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
       }
     });
 
-    const apiResponse: ApiResponse = await response.json();
-    
-    // API 응답을 기존 인터페이스에 맞게 변환
+    // Content-Type이 JSON이 아닐 경우 예외 처리
+    const contentType = response.headers.get('content-type');
+    if (!response.ok || !contentType || !contentType.includes('application/json')) {
+      return {
+        schedules: [],
+        message: '면접 일정 없음'
+      };
+    }
+
+    // JSON 파싱 시도, 실패하면 빈 배열 반환
+    let apiResponse: ApiResponse;
+    try {
+      apiResponse = await response.json();
+    } catch (e) {
+      return {
+        schedules: [],
+        message: '면접 일정 없음'
+      };
+    }
+
+    const selectedDate = date.split('-').map(Number); // ['2025','06','23'] -> [2025, 6, 23]
     const scheduleMap = new Map<string, InterviewSchedule>();
-    
+
     apiResponse.data.forEach(item => {
-      // 날짜 배열을 문자열로 변환
-      // const dateStr = item.interviewDate.join('-');
-      
-      // 시간대는 임시로 기본값 사용 (API에서 시간 정보가 없으므로)
-      const timeRange = '09:00 - 10:00'; // 기본값
-      
-      const key = `${item.interviewLocation}_${timeRange}`;
-      
+      const [year, month, day, hour, minute] = item.scheduledAt;
+
+      // 날짜가 선택한 날짜와 다르면 스킵
+      if (year !== selectedDate[0] || month !== selectedDate[1] || day !== selectedDate[2]) return;
+
+      // 시간대 계산
+      const startHour = hour.toString().padStart(2, '0');
+      const startMinute = minute.toString().padStart(2, '0');
+      const endHour = (hour + 1).toString().padStart(2, '0'); // 기본적으로 1시간 단위로 가정
+      const timeRange = `${startHour}:${startMinute} - ${endHour}:${startMinute}`;
+
+      const key = `${year}-${month}-${day}_${item.roomNo}_${timeRange}`;
+
       if (!scheduleMap.has(key)) {
         scheduleMap.set(key, {
-          interviewDate: item.interviewDate,
-          timeRange: timeRange,
-          roomName: item.interviewLocation,
-          interviewers: item.interviewer.split(', ').filter(name => name.trim()),
+          interviewDate: [year, month, day],
+          timeRange,
+          roomName: item.roomNo,
+          interviewers: item.interviewers.split(',').map(i => i.trim()),
           interviewees: []
         });
       }
-      
-      // 지원자 추가 (id와 name 모두 포함)
+
       const schedule = scheduleMap.get(key)!;
-      if (!schedule.interviewees.find(e => e.id === item.intervieweeId)) {
-        schedule.interviewees.push({
-          name: item.applicantName,
-          id: item.intervieweeId // 또는 applicantId
-        });
-      }
+      schedule.interviewees.push({
+        name: item.name,
+        id: item.intervieweeId
+      });
     });
-    
+
     return {
       schedules: Array.from(scheduleMap.values()),
       message: '면접 일정 조회 성공'
     };
+
   } catch (error) {
     console.error('면접 일정 조회 중 오류 발생:', error);
-    throw error;
+    return {
+      schedules: [],
+      message: '면접 일정 없음'
+    };
   }
 };

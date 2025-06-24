@@ -379,6 +379,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import * as echarts from 'echarts';
+import { ref as vueRef, computed as vueComputed } from 'vue';
 import DashboardMain from './DashboardMain.vue';
 import CandidateManage from './CandidateManage.vue';
 import InterviewCalendar from './InterviewCalendar.vue';
@@ -569,7 +570,26 @@ const sortedInterviews = computed(() => {
   });
 });
 
+// 필터된 지원자 목록
+const filteredCandidates = computed(() => {
+  let filtered = [...candidateList.value];
 
+  if (candidateFilters.value.status !== 'all') {
+    filtered = filtered.filter(c => c.status === candidateFilters.value.status);
+  }
+  if (candidateFilters.value.interviewDate) {
+    filtered = filtered.filter(c => c.interviewDate === candidateFilters.value.interviewDate);
+  }
+  if (candidateFilters.value.search) {
+    const search = candidateFilters.value.search.toLowerCase();
+    filtered = filtered.filter(c =>
+      c.name.toLowerCase().includes(search) ||
+      c.position.toLowerCase().includes(search)
+    );
+  }
+
+  return filtered;
+});
 
 // 현재 월/년 표시
 const currentMonthYear = computed(() => {
@@ -888,66 +908,114 @@ const showStatistics = () => {
 };
 
 // 시스템 설정 평가 기준 관련 변수 및 함수
-
-
-// const systemSettings_totalWeight = vueComputed(() => {
-//   return systemSettings_evaluationCriteria.value.reduce((sum, criterion) => sum + Number(criterion.weight), 0);
-// });
-// const systemSettings_validateWeights = () => {
-//   systemSettings_evaluationCriteria.value.forEach(criterion => {
-//     if (criterion.weight < 0) criterion.weight = 0;
-//     if (criterion.weight > 100) criterion.weight = 100;
-//   });
-// };
-// const systemSettings_validateSubWeights = (criterion: any) => {
-//   const totalSubWeight = criterion.subCriteria.reduce((sum: number, sub: any) => sum + Number(sub.weight), 0);
-//   if (totalSubWeight !== 100) {
-//     criterion.subCriteria.forEach((sub: any) => {
-//       if (sub.weight < 0) sub.weight = 0;
-//       if (sub.weight > 100) sub.weight = 100;
-//     });
-//   }
-// };
-// const systemSettings_resetWeights = () => {
-//   systemSettings_evaluationCriteria.value = systemSettings_evaluationCriteria.value.map(criterion => ({
-//     ...criterion,
-//     weight: 25,
-//     subCriteria: criterion.subCriteria.map((sub: any) => ({
-//       ...sub,
-//       weight: Math.floor(100 / criterion.subCriteria.length)
-//     }))
-//   }));
-// };
-// const systemSettings_saveWeights = () => {
-//   if (systemSettings_totalWeight.value !== 100) {
-//     alert('총 가중치가 100%가 되어야 합니다.');
-//     return;
-//   }
-//   // 저장 성공 메시지 표시
-//   const successModal = document.createElement('div');
-//   successModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
-//   successModal.innerHTML = `
-//     <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center relative animate-fadeIn">
-//       <div class="mb-6">
-//         <div class="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
-//           <i class="fas fa-check text-green-500 text-3xl"></i>
-//         </div>
-//         <h3 class="text-xl font-bold text-gray-900 mb-2">저장 완료</h3>
-//         <p class="text-gray-600">평가 기준이 성공적으로 저장되었습니다.</p>
-//       </div>
-//       <button class="w-full bg-red-600 text-white py-2 rounded-md font-medium hover:bg-red-700 transition-colors">
-//         확인
-//       </button>
-//     </div>
-//   `;
-//   document.body.appendChild(successModal);
-//   const closeButton = successModal.querySelector('button');
-//   if (closeButton) {
-//     closeButton.addEventListener('click', () => {
-//       document.body.removeChild(successModal);
-//     });
-//   }
-// };
+const systemSettings_evaluationCriteria = vueRef([
+  {
+    name: '인성',
+    description: '지원자의 성격, 태도, 가치관 등을 평가',
+    weight: 30,
+    icon: 'fa-user',
+    bgColor: 'bg-blue-100 text-blue-600',
+    subCriteria: [
+      { name: '성실성', weight: 35 },
+      { name: '책임감', weight: 35 },
+      { name: '팀워크', weight: 30 }
+    ]
+  },
+  {
+    name: '직무 적합도',
+    description: '직무 수행에 필요한 지식과 경험 평가',
+    weight: 40,
+    icon: 'fa-briefcase',
+    bgColor: 'bg-green-100 text-green-600',
+    subCriteria: [
+      { name: '전문 지식', weight: 40 },
+      { name: '실무 경험', weight: 35 },
+      { name: '문제 해결력', weight: 25 }
+    ]
+  },
+  {
+    name: '커뮤니케이션',
+    description: '의사소통 능력과 표현력 평가',
+    weight: 20,
+    icon: 'fa-comments',
+    bgColor: 'bg-yellow-100 text-yellow-600',
+    subCriteria: [
+      { name: '논리성', weight: 40 },
+      { name: '명확성', weight: 30 },
+      { name: '경청력', weight: 30 }
+    ]
+  },
+  {
+    name: '발전 가능성',
+    description: '학습 능력과 성장 잠재력 평가',
+    weight: 10,
+    icon: 'fa-chart-line',
+    bgColor: 'bg-purple-100 text-purple-600',
+    subCriteria: [
+      { name: '학습 의지', weight: 40 },
+      { name: '적응력', weight: 30 },
+      { name: '창의성', weight: 30 }
+    ]
+  }
+]);
+const systemSettings_totalWeight = vueComputed(() => {
+  return systemSettings_evaluationCriteria.value.reduce((sum, criterion) => sum + Number(criterion.weight), 0);
+});
+const systemSettings_validateWeights = () => {
+  systemSettings_evaluationCriteria.value.forEach(criterion => {
+    if (criterion.weight < 0) criterion.weight = 0;
+    if (criterion.weight > 100) criterion.weight = 100;
+  });
+};
+const systemSettings_validateSubWeights = (criterion: any) => {
+  const totalSubWeight = criterion.subCriteria.reduce((sum: number, sub: any) => sum + Number(sub.weight), 0);
+  if (totalSubWeight !== 100) {
+    criterion.subCriteria.forEach((sub: any) => {
+      if (sub.weight < 0) sub.weight = 0;
+      if (sub.weight > 100) sub.weight = 100;
+    });
+  }
+};
+const systemSettings_resetWeights = () => {
+  systemSettings_evaluationCriteria.value = systemSettings_evaluationCriteria.value.map(criterion => ({
+    ...criterion,
+    weight: 25,
+    subCriteria: criterion.subCriteria.map((sub: any) => ({
+      ...sub,
+      weight: Math.floor(100 / criterion.subCriteria.length)
+    }))
+  }));
+};
+const systemSettings_saveWeights = () => {
+  if (systemSettings_totalWeight.value !== 100) {
+    alert('총 가중치가 100%가 되어야 합니다.');
+    return;
+  }
+  // 저장 성공 메시지 표시
+  const successModal = document.createElement('div');
+  successModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+  successModal.innerHTML = `
+    <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center relative animate-fadeIn">
+      <div class="mb-6">
+        <div class="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
+          <i class="fas fa-check text-green-500 text-3xl"></i>
+        </div>
+        <h3 class="text-xl font-bold text-gray-900 mb-2">저장 완료</h3>
+        <p class="text-gray-600">평가 기준이 성공적으로 저장되었습니다.</p>
+      </div>
+      <button class="w-full bg-red-600 text-white py-2 rounded-md font-medium hover:bg-red-700 transition-colors">
+        확인
+      </button>
+    </div>
+  `;
+  document.body.appendChild(successModal);
+  const closeButton = successModal.querySelector('button');
+  if (closeButton) {
+    closeButton.addEventListener('click', () => {
+      document.body.removeChild(successModal);
+    });
+  }
+};
 
 onMounted(() => {
   // 컴포넌트 마운트 시 차트 초기화

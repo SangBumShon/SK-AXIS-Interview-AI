@@ -2,16 +2,12 @@
   <div class="min-h-screen bg-gray-50">
     <InterviewSetup
       v-if="$route.name === 'setup'"
-      :rooms="rooms"
-      :time-slots="timeSlots"
-      :people="people"
     />
     <router-view v-else />
   </div>
 </template>
 
 <script setup lang="ts">
-import { rooms, timeSlots, people } from './data/interviewData';
 import InterviewSetup from './components/InterviewSetup.vue';
 </script>
 

@@ -83,13 +83,12 @@ interface Interview {
   room: string;
   candidate: string;
   position: string;
-
   department: string;
   interviewers: string[];
   status: string;
   score: number | null;
 }
-defineProps<{
+const props = defineProps<{
   calendarDays: any[];
   currentMonthYear: string;
 }>();

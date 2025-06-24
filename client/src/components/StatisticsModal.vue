@@ -43,7 +43,7 @@
 </template>
 <script setup lang="ts">
 import { defineProps, defineEmits } from 'vue';
-defineProps<{
+const props = defineProps<{
   statisticsFilter: any;
 }>();
 const emits = defineEmits(['close']);

@@ -191,7 +191,7 @@ interface TableColumn {
   key: string;
   label: string;
 }
-defineProps<{
+const props = defineProps<{
   candidateList: any[];
   filters: any;
   tableColumns: TableColumn[];
