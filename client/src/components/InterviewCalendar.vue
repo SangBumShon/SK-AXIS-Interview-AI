@@ -88,7 +88,7 @@ interface Interview {
   status: string;
   score: number | null;
 }
-const props = defineProps<{
+defineProps<{
   calendarDays: any[];
   currentMonthYear: string;
 }>();
