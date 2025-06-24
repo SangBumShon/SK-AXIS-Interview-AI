@@ -21,7 +21,7 @@ class NonverbalData(BaseModel):
 
 class StartInterviewRequest(BaseModel):
     interviewee_ids: List[int]
-    interviewer_ids: List[int]
+    interview_ids: List[int]
 
 class Question(BaseModel):
     question_id: int
