@@ -30,7 +30,6 @@ class Question(BaseModel):
 
 class StartInterviewResponse(BaseModel):
     questions_per_interviewee: Dict[str, List[Question]]
-    status: str
 
 class EndInterviewRequest(BaseModel):
     interview_id: int

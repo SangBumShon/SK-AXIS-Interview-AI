@@ -48,13 +48,11 @@ async def start_interview(req: StartInterviewRequest):
             raise HTTPException(status_code=404, detail=f"{interviewee_id} 질문 없음")
         
         questions_per_interviewee[str(interviewee_id)] = questions
-
         # ✅ 질문 저장소에 등록
         QUESTION_STORE[interviewee_id] = questions
     
     return StartInterviewResponse(
-        questions_per_interviewee=questions_per_interviewee,
-        status="started"
+        questions_per_interviewee=questions_per_interviewee
     )
 
 @router.post("/end", response_model=EndInterviewResponse)
