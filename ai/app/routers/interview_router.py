@@ -1,6 +1,6 @@
 # app/routers/interview_router.py
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException
 import os
 from dotenv import load_dotenv
 
@@ -9,17 +9,16 @@ from app.schemas.interview import (
     StartInterviewResponse,
     EndInterviewRequest,
     EndInterviewResponse,
-    STTUploadResponse,
     Question
 )
 from app.services.internal_client import fetch_interviewee_questions
-from app.services.pipeline.graph_pipeline import final_report_flow_executor, interview_flow_executor
+from app.services.pipeline.graph_pipeline import final_report_flow_executor
 from app.schemas.state import InterviewState
 from app.state.store import INTERVIEW_STATE_STORE  # 전역 메모리 스토어
 from app.services.interview.nonverbal_service import evaluate
-from app.services.interview.stt_service import save_audio_file
+
 from app.state.question_store import QUESTION_STORE
-from app.services.interview.state_service import create_initial_state
+
 from app.services.interview.interview_end_processing_service import (
     process_last_audio_segment,
     save_nonverbal_counts
@@ -96,39 +95,5 @@ async def end_interview(req: EndInterviewRequest):
 
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=f"잘못된 요청 형식: {str(ve)}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/stt/upload", response_model=STTUploadResponse)
-async def upload_stt(
-    interviewee_id: int = Form(...),
-    audio: UploadFile = File(...),
-):
-    """
-    답변 단위 음성 파일 업로드 및 STT 파이프라인 실행
-    """
-    try:
-        # 1) 오디오 파일 저장
-        file_path = await save_audio_file(interviewee_id, audio)
-        if not file_path:
-            raise HTTPException(status_code=500, detail="파일 저장 실패")
-
-        # 2) 상태 가져오기 또는 새로 초기화
-        state = INTERVIEW_STATE_STORE.get(interviewee_id)
-        if state is None:
-            questions = QUESTION_STORE.get(interviewee_id, [])  # 질문이 없으면 빈 리스트
-            state = create_initial_state(interviewee_id, questions, file_path)
-        else:
-            state["audio_path"] = file_path
-
-        # 3) 파이프라인 실행
-        await interview_flow_executor(state)
-
-        # 4) 상태 저장
-        INTERVIEW_STATE_STORE[interviewee_id] = state
-
-        return STTUploadResponse(result="OK")
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
