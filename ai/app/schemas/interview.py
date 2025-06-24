@@ -25,7 +25,7 @@ class StartInterviewRequest(BaseModel):
 
 class Question(BaseModel):
     question_id: int
-    type: Literal["공통질문", "개별질문"]
+    type: str
     content: str
 
 class StartInterviewResponse(BaseModel):
