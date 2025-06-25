@@ -9,10 +9,11 @@ from app.schemas.interview import (
     StartInterviewResponse,
     EndInterviewRequest,
     EndInterviewResponse,
-    Question
+    Question,
+    NonverbalData
 )
 from app.services.internal_client import fetch_interviewee_questions
-from app.services.pipeline.graph_pipeline import final_report_flow_executor
+from app.services.pipeline.graph_pipeline import final_report_flow_executor, interview_flow_executor
 from app.schemas.state import InterviewState
 from app.state.store import INTERVIEW_STATE_STORE  # 전역 메모리 스토어
 from app.services.interview.nonverbal_service import evaluate
@@ -55,28 +56,33 @@ async def start_interview(req: StartInterviewRequest):
 
 @router.post("/end", response_model=EndInterviewResponse)
 async def end_interview(req: EndInterviewRequest):
+    """Swagger 명세에 맞춘 Map 구조 처리"""
     try:
-        for iv in req.interviewees:
-            state: InterviewState = INTERVIEW_STATE_STORE.get(iv.interviewee_id)
-            if not state:
-                raise HTTPException(status_code=404, detail=f"{iv.interviewee_id} 상태 없음")
+        for interviewee_id_str, nv in req.data.items():
+            interviewee_id = int(interviewee_id_str)
+            if not isinstance(nv, NonverbalData):
+                # Pydantic이 자동 변환하지만 타입 안전 차원에서 double-check
+                nv = NonverbalData(**nv)
 
-            # --- (1) 마지막 녹음 파일 처리 ---
-            # audio_path에 값이 남아 있으면 STT→Rewrite 파이프라인 실행
+            state: InterviewState = INTERVIEW_STATE_STORE.get(interviewee_id)
+            if not state:
+                raise HTTPException(status_code=404, detail=f"{interviewee_id} 상태 없음")
+
+            # (1) 마지막 녹음 파일 처리
             if state.get("audio_path"):
                 await interview_flow_executor(state)
-                # 처리 후 중복 방지를 위해 비워줍니다
-                state["audio_path"] = ""
+                state["audio_path"] = ""  # 중복 실행 방지
 
-            # --- (2) 비언어적 세부 카운트 저장 ---
+            # (2) 비언어적 카운트 저장 (timestamp 포함)
             state["nonverbal_counts"] = {
-                "posture": iv.posture.dict(),
-                "expression": iv.facial_expression.dict(),
-                "gaze": iv.gaze,
-                "gesture": iv.gesture,
+                "posture": nv.posture.dict(),
+                "expression": nv.facial_expression.dict(),
+                "gaze": nv.gaze,
+                "gesture": nv.gesture,
+                "timestamp": nv.timestamp,
             }
 
-            # --- (3) 최종 리포트(비언어 포함) 생성 ---
+            # (3) 최종 리포트 생성
             await final_report_flow_executor(state)
 
         return EndInterviewResponse(result="done", report_ready=True)

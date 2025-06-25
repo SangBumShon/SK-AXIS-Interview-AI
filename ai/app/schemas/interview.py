@@ -15,16 +15,16 @@ class Question(BaseModel):
 class StartInterviewResponse(BaseModel):
     questions_per_interviewee: Dict[str, List[Question]]
 
-class IntervieweeNonverbal(BaseModel):
-    interviewee_id: int
+class NonverbalData(BaseModel):
     posture: Posture
     facial_expression: FacialExpression
     gaze: int
     gesture: int
+    timestamp: int
 
 class EndInterviewRequest(BaseModel):
     interview_id: int
-    interviewees: List[IntervieweeNonverbal]
+    data: Dict[str, NonverbalData]
 
 class EndInterviewResponse(BaseModel):
     result: str
