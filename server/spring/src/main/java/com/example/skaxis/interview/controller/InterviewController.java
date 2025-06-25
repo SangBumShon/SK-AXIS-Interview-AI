@@ -3,6 +3,14 @@ package com.example.skaxis.interview.controller;
 import com.example.skaxis.interview.dto.*;
 import com.example.skaxis.interview.dto.interviewee.IntervieweeListResponseDto;
 import org.springframework.format.annotation.DateTimeFormat;
+import com.example.skaxis.question.dto.StartInterviewRequestDto;
+import com.example.skaxis.question.dto.StartInterviewResponseDto;
+import com.example.skaxis.question.dto.QuestionDto;
+import com.example.skaxis.question.model.Question;
+import com.example.skaxis.question.service.InternalQuestionService;
+import java.util.List;
+import java.util.HashMap;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.web.bind.annotation.*;
 
 import com.example.skaxis.interview.service.InterviewService;
@@ -42,6 +50,7 @@ public class InterviewController {
 
     private final InterviewService interviewService;
     private final IntervieweeService intervieweeService;
+    private final InternalQuestionService internalQuestionService;
 
     // 기존 면접 관련 메서드들
     @GetMapping("/all")
