@@ -602,9 +602,7 @@ const deleteAllInterviews = () => {
   showDeleteConfirm.value = false;
 };
 
-const triggerExcelUpload = () => {
-  // 엑셀 업로드 버튼/파일 input/함수 모두 제거
-};
+
 
 const handleExcelUpload = () => {
   // 엑셀 업로드 버튼/파일 input/함수 모두 제거
