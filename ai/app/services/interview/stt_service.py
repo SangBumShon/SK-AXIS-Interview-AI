@@ -1,5 +1,5 @@
 from pydub import AudioSegment
-import openai
+from openai import OpenAI
 import os
 from dotenv import load_dotenv
 from fastapi import UploadFile
@@ -16,7 +16,8 @@ load_dotenv(dotenv_path)
 openai_key = os.getenv("OPENAI_API_KEY")
 if not openai_key:
     raise ValueError("❌ OPENAI_API_KEY가 .env에 정의되지 않았습니다.")
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# OpenAI Python v1.x 클라이언트 초기화
+client = OpenAI(api_key=openai_key)
 
 # Whisper 모델 초기화
 model = whisper.load_model("base")
@@ -27,11 +28,12 @@ def transcribe_audio_file(file_path: str) -> str:
     Whisper API를 사용하여 주어진 오디오 파일을 텍스트로 전사함
     """
     with open(file_path, "rb") as f:
-        transcript = openai.Audio.transcribe(
+        transcript = client.audio.transcriptions.create(
             model="whisper-1",
             file=f,
             response_format="text"
         )
+    # response_format="text" 를 사용하면 문자열이 반환됩니다.
     return transcript.strip()
 
 async def process_audio_file(interviewee_id: int, audio_file: UploadFile) -> Optional[str]:

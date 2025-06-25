@@ -32,8 +32,8 @@ async def upload_stt(
         else:
             state["audio_path"] = file_path
 
-        # 3) 파이프라인 실행
-        await interview_flow_executor(state)
+        # 3) LangGraph 파이프라인 실행 (비동기)
+        state = await interview_flow_executor.ainvoke(state)
 
         # 4) 상태 저장
         INTERVIEW_STATE_STORE[interviewee_id] = state
