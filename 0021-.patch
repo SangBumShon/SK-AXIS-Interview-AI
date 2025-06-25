@@ -1,0 +1,668 @@
+From e2b3dab8ecf92c124e8242182ede70cb47e3d5b7 Mon Sep 17 00:00:00 2001
+From: miinae416 <miin416@naver.com>
+Date: Tue, 17 Jun 2025 15:36:17 +0900
+Subject: [PATCH 21/33] =?UTF-8?q?=ED=9A=8C=EC=9B=90=EA=B0=80=EC=9E=85,=20?=
+ =?UTF-8?q?=EA=B4=80=EB=A6=AC=EC=9E=90=20=EB=8C=80=EC=8B=9C=EB=B3=B4?=
+ =?UTF-8?q?=EB=93=9C=20=EC=88=98=EC=A0=95?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ client/package.json                        |   2 +-
+ client/src/components/AdminDashboard.vue   | 182 +++++++++-
+ client/src/components/InterviewerLogin.vue | 391 ++++++++++++++++-----
+ 3 files changed, 493 insertions(+), 82 deletions(-)
+
+diff --git a/client/package.json b/client/package.json
+index 4b0178e..6bf3dd6 100644
+--- a/client/package.json
++++ b/client/package.json
+@@ -13,7 +13,7 @@
+     "@fortawesome/fontawesome-free": "^6.4.2",
+     "autoprefixer": "^10.4.15",
+     "axios": "^1.10.0",
+-    "echarts": "^5.4.3",
++    "echarts": "^5.6.0",
+     "face-api.js": "^0.22.2",
+     "postcss": "^8.4.28",
+     "tailwindcss": "^3.3.3",
+diff --git a/client/src/components/AdminDashboard.vue b/client/src/components/AdminDashboard.vue
+index f080559..8602c33 100644
+--- a/client/src/components/AdminDashboard.vue
++++ b/client/src/components/AdminDashboard.vue
+@@ -23,7 +23,7 @@
+                 <i class="fas fa-calendar-alt w-5 text-gray-500"></i>
+                 <span class="ml-3">면접 일정</span>
+               </a>
+-              <a href="#" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg">
++              <a href="#" @click.prevent="showStatistics" class="flex items-center px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg">
+                 <i class="fas fa-chart-bar w-5 text-gray-500"></i>
+                 <span class="ml-3">통계 분석</span>
+               </a>
+@@ -361,12 +361,55 @@
+         </div>
+       </div>
+     </div>
++
++    <!-- 통계 분석 모달 -->
++    <div v-if="showStatisticsView" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
++      <div class="bg-white rounded-lg p-8 max-w-6xl w-full mx-4 relative animate-fadeIn overflow-auto max-h-[90vh]">
++        <button @click="showStatisticsView = false" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
++          <i class="fas fa-times"></i>
++        </button>
++        <div class="mb-8">
++          <div class="flex justify-between items-center mb-6">
++            <h2 class="text-2xl font-bold text-gray-900">면접 통계 분석</h2>
++            <div class="flex items-center gap-4">
++              <div class="relative">
++                <select v-model="statisticsFilter.period" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
++                  <option value="all">전체 기간</option>
++                  <option value="month">이번 달</option>
++                  <option value="quarter">이번 분기</option>
++                  <option value="year">올해</option>
++                </select>
++              </div>
++            </div>
++          </div>
++          <!-- Statistics Dashboard -->
++          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
++            <!-- 직무별 면접 현황 -->
++            <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
++              <h3 class="text-lg font-semibold mb-4 text-gray-800">직무별 면접 현황</h3>
++              <div class="h-80" ref="jobChartRef"></div>
++            </div>
++            <!-- 면접자 점수 분포 -->
++            <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
++              <h3 class="text-lg font-semibold mb-4 text-gray-800">면접자 점수 분포</h3>
++              <div class="h-80" ref="scoreDistributionChartRef"></div>
++            </div>
++            <!-- 역량별 평균 면접 점수 -->
++            <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
++              <h3 class="text-lg font-semibold mb-4 text-gray-800">역량별 평균 면접 점수</h3>
++              <div class="h-80" ref="avgScoreChartRef"></div>
++            </div>
++          </div>
++        </div>
++      </div>
++    </div>
+   </div>
+ </template>
+ 
+ <script setup lang="ts">
+-import { ref, computed } from 'vue';
++import { ref, computed, onMounted, watch } from 'vue';
+ import { useRouter } from 'vue-router';
++import * as echarts from 'echarts';
+ 
+ const router = useRouter();
+ 
+@@ -467,6 +510,18 @@ const showDeleteConfirm = ref(false);
+ const showCalendarView = ref(false);
+ const selectedInterview = ref<any>(null);
+ const currentDate = ref(new Date());
++const showStatisticsView = ref(false);
++const statisticsFilter = ref({
++  period: 'all'
++});
++
++const jobChartRef = ref(null);
++const scoreDistributionChartRef = ref(null);
++const avgScoreChartRef = ref(null);
++
++let jobChart: echarts.ECharts | null = null;
++let scoreDistributionChart: echarts.ECharts | null = null;
++let avgScoreChart: echarts.ECharts | null = null;
+ 
+ // 정렬된 면접 목록
+ const sortedInterviews = computed(() => {
+@@ -619,4 +674,127 @@ const showInterviewDetail = (interview: any) => {
+   selectedInterview.value = interview;
+ };
+ 
++// 통계 차트 초기화
++const initCharts = () => {
++  if (jobChartRef.value) {
++    jobChart = echarts.init(jobChartRef.value);
++    jobChart.setOption({
++      title: {
++        text: '직무별 면접 현황',
++        left: 'center'
++      },
++      tooltip: {
++        trigger: 'item'
++      },
++      legend: {
++        orient: 'vertical',
++        left: 'left'
++      },
++      series: [
++        {
++          type: 'pie',
++          radius: '50%',
++          data: [
++            { value: 35, name: '개발' },
++            { value: 25, name: '디자인' },
++            { value: 20, name: '마케팅' },
++            { value: 15, name: '영업' },
++            { value: 5, name: '기타' }
++          ],
++          emphasis: {
++            itemStyle: {
++              shadowBlur: 10,
++              shadowOffsetX: 0,
++              shadowColor: 'rgba(0, 0, 0, 0.5)'
++            }
++          }
++        }
++      ]
++    });
++  }
++
++  if (scoreDistributionChartRef.value) {
++    scoreDistributionChart = echarts.init(scoreDistributionChartRef.value);
++    scoreDistributionChart.setOption({
++      title: {
++        text: '면접자 점수 분포',
++        left: 'center'
++      },
++      tooltip: {
++        trigger: 'axis'
++      },
++      xAxis: {
++        type: 'category',
++        data: ['0-20', '21-40', '41-60', '61-80', '81-100']
++      },
++      yAxis: {
++        type: 'value'
++      },
++      series: [
++        {
++          data: [5, 15, 30, 25, 10],
++          type: 'bar'
++        }
++      ]
++    });
++  }
++
++  if (avgScoreChartRef.value) {
++    avgScoreChart = echarts.init(avgScoreChartRef.value);
++    avgScoreChart.setOption({
++      title: {
++        text: '역량별 평균 면접 점수',
++        left: 'center'
++      },
++      tooltip: {
++        trigger: 'axis'
++      },
++      radar: {
++        indicator: [
++          { name: '전문성', max: 100 },
++          { name: '의사소통', max: 100 },
++          { name: '문제해결', max: 100 },
++          { name: '팀워크', max: 100 },
++          { name: '리더십', max: 100 }
++        ]
++      },
++      series: [
++        {
++          type: 'radar',
++          data: [
++            {
++              value: [85, 75, 90, 80, 70],
++              name: '평균 점수'
++            }
++          ]
++        }
++      ]
++    });
++  }
++};
++
++// 통계 필터 변경 감지
++watch(statisticsFilter, () => {
++  // 여기에 필터 변경 시 차트 업데이트 로직 추가
++  updateCharts();
++}, { deep: true });
++
++// 차트 업데이트 함수
++const updateCharts = () => {
++  // 여기에 차트 데이터 업데이트 로직 추가
++};
++
++// 사이드바 통계 분석 링크 클릭 이벤트 핸들러
++const showStatistics = () => {
++  showStatisticsView.value = true;
++  // 차트가 이미 초기화되어 있지 않은 경우에만 초기화
++  if (!jobChart) {
++    initCharts();
++  }
++};
++
++onMounted(() => {
++  // 컴포넌트 마운트 시 차트 초기화
++  initCharts();
++});
+ </script>
+\ No newline at end of file
+diff --git a/client/src/components/InterviewerLogin.vue b/client/src/components/InterviewerLogin.vue
+index 51cf597..302c70c 100644
+--- a/client/src/components/InterviewerLogin.vue
++++ b/client/src/components/InterviewerLogin.vue
+@@ -1,99 +1,332 @@
+ <!-- src/components/InterviewerLogin.vue -->
+ <template>
+-    <div class="min-h-screen bg-white flex justify-center items-center relative">
+-      <button 
+-        @click="showAdminLogin = true"
+-        class="absolute top-4 right-4 text-gray-600 hover:text-gray-800 transition-colors cursor-pointer"
+-      >
+-        <i class="fas fa-cog text-2xl"></i>
+-      </button>
++  <div class="min-h-screen bg-white flex justify-center items-center relative">
++    <button 
++      @click="showAdminLogin = true"
++      class="absolute top-4 right-4 text-gray-600 hover:text-gray-800 transition-colors cursor-pointer"
++    >
++      <i class="fas fa-cog text-2xl"></i>
++    </button>
++    
++    <div class="w-full max-w-md bg-white rounded-lg shadow-lg p-8">
++      <div class="text-center mb-8">
++        <h1 class="text-4xl font-bold">
++          <span class="text-red-600">SK</span><span class="text-orange-500">AXIS</span>
++        </h1>
++      </div>
++      <div class="text-center mb-6">
++        <h2 class="text-2xl font-bold mb-2 text-gray-800">AI 면접 시스템</h2>
++        <p class="text-gray-600">{{ showRegistration ? '회원가입' : '면접관 로그인' }}</p>
++      </div>
+       
+-      <div class="w-full max-w-md bg-white rounded-lg shadow-lg p-8">
+-        <div class="text-center mb-8">
+-          <h1 class="text-4xl font-bold">
+-            <span class="text-red-600">SK</span><span class="text-orange-500">AXIS</span>
+-          </h1>
++      <!-- 로그인 폼 -->
++      <form v-if="!showRegistration" @submit.prevent="handleLogin" class="space-y-4">
++        <div>
++          <label class="block text-sm font-medium text-gray-700 mb-1">아이디</label>
++          <input
++            type="text"
++            v-model="loginForm.username"
++            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
++            required
++          />
+         </div>
+-        <div class="text-center mb-6">
+-          <h2 class="text-2xl font-bold mb-2 text-gray-800">AI 면접 시스템</h2>
+-          <p class="text-gray-600">면접관 로그인</p>
++        <div>
++          <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
++          <input
++            type="password"
++            v-model="loginForm.password"
++            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
++            required
++          />
+         </div>
+-        
+-        <form @submit.prevent="handleLogin" class="space-y-4">
+-          <div>
+-            <label class="block text-sm font-medium text-gray-700 mb-1">아이디</label>
+-            <input
+-              type="text"
+-              v-model="loginForm.username"
+-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+-              required
+-            />
+-          </div>
+-          <div>
+-            <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
+-            <input
+-              type="password"
+-              v-model="loginForm.password"
+-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
+-              required
+-            />
+-          </div>
+-          <div v-if="loginError" class="text-red-600 text-sm text-center">
+-            {{ loginError }}
+-          </div>
++        <div v-if="loginError" class="text-red-600 text-sm text-center">
++          {{ loginError }}
++        </div>
++        <button
++          type="submit"
++          class="w-full bg-red-600 text-white py-3 rounded-md font-medium hover:bg-red-700 transition-colors"
++        >
++          로그인
++        </button>
++        <div class="text-center mt-4">
+           <button
+-            type="submit"
+-            class="w-full bg-red-600 text-white py-3 rounded-md font-medium hover:bg-red-700 transition-colors"
++            @click.prevent="showRegistration = true"
++            class="text-gray-500 hover:text-gray-700 text-sm underline"
++          >
++            회원가입
++          </button>
++        </div>
++      </form>
++
++      <!-- 회원가입 폼 -->
++      <form v-else @submit.prevent="handleRegistration" class="space-y-4">
++        <div class="mb-6 flex items-center">
++          <button 
++            @click.prevent="showRegistration = false" 
++            class="text-gray-500 hover:text-gray-700 flex items-center gap-1"
+           >
+-            로그인
++            <i class="fas fa-arrow-left text-sm"></i>
++            <span class="text-sm">로그인으로 돌아가기</span>
+           </button>
+-        </form>
++        </div>
+         
+-        <div class="mt-6 text-center text-xs text-gray-500">
+-          <p>© 2025 SK AXIS. All rights reserved.</p>
+-          <p>2025년 6월 16일 최신 기준</p>
++        <div>
++          <label class="block text-sm font-medium text-gray-700 mb-1">이름</label>
++          <input
++            type="text"
++            v-model="registrationForm.name"
++            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
++            required
++          />
+         </div>
+-      </div>
++        <div>
++          <label class="block text-sm font-medium text-gray-700 mb-1">아이디</label>
++          <input
++            type="text"
++            v-model="registrationForm.username"
++            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
++            required
++          />
++        </div>
++        <div>
++          <label class="block text-sm font-medium text-gray-700 mb-1">이메일</label>
++          <input
++            type="email"
++            v-model="registrationForm.email"
++            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
++            required
++          />
++        </div>
++        <div>
++          <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
++          <input
++            type="password"
++            v-model="registrationForm.password"
++            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
++            required
++          />
++        </div>
++        <div>
++          <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호 확인</label>
++          <input
++            type="password"
++            v-model="registrationForm.confirmPassword"
++            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
++            required
++          />
++        </div>
++        <div>
++          <label class="block text-sm font-medium text-gray-700 mb-1">부서</label>
++          <select
++            v-model="registrationForm.department"
++            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500"
++            required
++          >
++            <option value="">부서 선택</option>
++            <option value="IT">IT 개발부</option>
++            <option value="HR">인사부</option>
++            <option value="Marketing">마케팅부</option>
++            <option value="Sales">영업부</option>
++            <option value="Finance">재무부</option>
++            <option value="Design">디자인팀</option>
++            <option value="Data">데이터팀</option>
++          </select>
++        </div>
++        <div v-if="registrationError" class="text-red-600 text-sm text-center">
++          {{ registrationError }}
++        </div>
++        <button
++          type="submit"
++          class="w-full bg-red-600 text-white py-3 rounded-md font-medium hover:bg-red-700 transition-colors"
++        >
++          회원가입
++        </button>
++      </form>
+       
+-      <!-- Admin Login Modal -->
+-      <AdminLoginModal 
+-        v-if="showAdminLogin"
+-        @close="showAdminLogin = false"
+-        @login="handleAdminLogin"
+-      />
++      <div class="mt-6 text-center text-xs text-gray-500">
++        <p>© 2025 SK AXIS. All rights reserved.</p>
++        <p>2025년 6월 17일 최신 기준</p>
++      </div>
+     </div>
+-  </template>
++    
++    <!-- Admin Login Modal -->
++    <AdminLoginModal 
++      v-if="showAdminLogin"
++      @close="showAdminLogin = false"
++      @login="handleAdminLogin"
++    />
++  </div>
++</template>
++
++<script setup lang="ts">
++import { ref } from 'vue'
++import { useRouter } from 'vue-router'
++import AdminLoginModal from './AdminLoginModal.vue'
++
++const router = useRouter()
++
++// 로그인 폼 데이터
++const loginForm = ref({
++  username: '',
++  password: ''
++})
++
++// 회원가입 폼 데이터
++const registrationForm = ref({
++  name: '',
++  username: '',
++  email: '',
++  password: '',
++  confirmPassword: '',
++  department: ''
++})
++
++// 상태 관리
++const loginError = ref('')
++const registrationError = ref('')
++const showAdminLogin = ref(false)
++const showRegistration = ref(false)
++
++// 로그인 처리
++const handleLogin = async () => {
++  try {
++    // 데모 계정 체크
++    if (loginForm.value.username === '123' && loginForm.value.password === '123') {
++      // 로그인 성공 시 InterviewSetup으로 이동
++      router.push('/setup')
++    } else {
++      loginError.value = '아이디 또는 비밀번호가 올바르지 않습니다.'
++    }
++  } catch (error) {
++    loginError.value = '로그인 중 오류가 발생했습니다.'
++  }
++}
++
++// 회원가입 처리
++const handleRegistration = () => {
++  // 에러 메시지 초기화
++  registrationError.value = ''
++  
++  // 폼 검증
++  if (!registrationForm.value.name.trim()) {
++    registrationError.value = '이름을 입력해주세요.'
++    return
++  }
++  
++  if (!registrationForm.value.username.trim()) {
++    registrationError.value = '아이디를 입력해주세요.'
++    return
++  }
+   
+-  <script setup lang="ts">
+-  import { ref } from 'vue'
+-  import { useRouter } from 'vue-router'
+-  import AdminLoginModal from './AdminLoginModal.vue'
++  if (registrationForm.value.username.length < 3) {
++    registrationError.value = '아이디는 3자 이상이어야 합니다.'
++    return
++  }
+   
+-  const router = useRouter()
++  if (!registrationForm.value.email.trim()) {
++    registrationError.value = '이메일을 입력해주세요.'
++    return
++  }
+   
+-  const loginForm = ref({
+-    username: '',
+-    password: ''
+-  })
++  // 이메일 형식 검증
++  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
++  if (!emailRegex.test(registrationForm.value.email)) {
++    registrationError.value = '올바른 이메일 형식을 입력해주세요.'
++    return
++  }
+   
+-  const loginError = ref('')
+-  const showAdminLogin = ref(false)
++  if (!registrationForm.value.password) {
++    registrationError.value = '비밀번호를 입력해주세요.'
++    return
++  }
+   
+-  const handleLogin = async () => {
+-    try {
+-      // 데모 계정 체크
+-      if (loginForm.value.username === '123' && loginForm.value.password === '123') {
+-        // 로그인 성공 시 InterviewSetup으로 이동
+-        router.push('/setup')
+-      } else {
+-        loginError.value = '아이디 또는 비밀번호가 올바르지 않습니다.'
+-      }
+-    } catch (error) {
+-      loginError.value = '로그인 중 오류가 발생했습니다.'
+-    }
++  if (registrationForm.value.password.length < 6) {
++    registrationError.value = '비밀번호는 6자 이상이어야 합니다.'
++    return
++  }
++  
++  if (registrationForm.value.password !== registrationForm.value.confirmPassword) {
++    registrationError.value = '비밀번호가 일치하지 않습니다.'
++    return
+   }
+   
+-  const handleAdminLogin = () => {
+-    router.push('/admin')
++  if (!registrationForm.value.department) {
++    registrationError.value = '부서를 선택해주세요.'
++    return
++  }
++  
++  // 회원가입 성공 처리
++  showSuccessModal()
++}
++
++// 성공 모달 표시
++const showSuccessModal = () => {
++  const successModal = document.createElement('div')
++  successModal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'
++  successModal.innerHTML = `
++    <div class="bg-white rounded-lg p-8 max-w-md w-full mx-4 text-center animate-fadeIn">
++      <div class="mb-6">
++        <div class="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
++          <i class="fas fa-check text-green-500 text-3xl"></i>
++        </div>
++        <h3 class="text-xl font-bold text-gray-900 mb-2">회원가입 완료</h3>
++        <p class="text-gray-600">회원가입이 성공적으로 완료되었습니다.<br>로그인 페이지로 이동합니다.</p>
++      </div>
++      <button class="w-full bg-red-600 text-white py-2 rounded-md font-medium hover:bg-red-700 transition-colors cursor-pointer">
++        확인
++      </button>
++    </div>
++  `
++  
++  // 애니메이션을 위한 스타일 추가
++  const style = document.createElement('style')
++  style.textContent = `
++    @keyframes fadeIn {
++      from { opacity: 0; transform: scale(0.9); }
++      to { opacity: 1; transform: scale(1); }
++    }
++    .animate-fadeIn {
++      animation: fadeIn 0.3s ease-out;
++    }
++  `
++  document.head.appendChild(style)
++  document.body.appendChild(successModal)
++  
++  // 확인 버튼 클릭 이벤트
++  const closeButton = successModal.querySelector('button')
++  if (closeButton) {
++    closeButton.addEventListener('click', () => {
++      document.body.removeChild(successModal)
++      document.head.removeChild(style)
++      
++      // 폼 초기화 및 로그인 화면으로 전환
++      registrationForm.value = {
++        name: '',
++        username: '',
++        email: '',
++        password: '',
++        confirmPassword: '',
++        department: ''
++      }
++      showRegistration.value = false
++      registrationError.value = ''
++      loginError.value = ''
++      
++      // 로그인 폼도 초기화
++      loginForm.value = {
++        username: '',
++        password: ''
++      }
++    })
+   }
+-  </script>
+\ No newline at end of file
++}
++
++// 관리자 로그인 처리
++const handleAdminLogin = () => {
++  router.push('/admin')
++}
++</script>
++
++<style scoped>
++/* 추가 스타일이 필요한 경우 여기에 작성 */
++</style>
+\ No newline at end of file
+-- 
+2.39.5 (Apple Git-154)
+

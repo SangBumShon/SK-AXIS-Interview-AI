@@ -1,0 +1,29 @@
+From 776dd1935f2676d16215685c3f0f69c371c9db42 Mon Sep 17 00:00:00 2001
+From: Jeonghyeon Park <fishbox0923@gmail.com>
+Date: Tue, 17 Jun 2025 16:46:06 +0900
+Subject: [PATCH 25/33] =?UTF-8?q?Vue=20Spring=20=EB=A1=9C=EA=B7=B8?=
+ =?UTF-8?q?=EC=9D=B8=20API=20=EC=97=B0=EA=B2=B0?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ client/src/components/AdminLoginModal.vue | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/client/src/components/AdminLoginModal.vue b/client/src/components/AdminLoginModal.vue
+index 7075d8f..dde7c9f 100644
+--- a/client/src/components/AdminLoginModal.vue
++++ b/client/src/components/AdminLoginModal.vue
+@@ -63,6 +63,8 @@
+         password: password.value
+       })
+     })
++    router.push('/admin');
++    emit('login');
+   } catch (error) {
+     console.error('로그인 중 오류 발생:', error);
+     error = '로그인에 실패했습니다. 다시 시도해주세요.';
+-- 
+2.39.5 (Apple Git-154)
+

@@ -571,6 +571,9 @@ const sortedInterviews = computed(() => {
 
 // 필터된 지원자 목록
 
+
+
+
 // 현재 월/년 표시
 const currentMonthYear = computed(() => {
   const year = currentDate.value.getFullYear();
@@ -888,6 +891,8 @@ const showStatistics = () => {
 };
 
 // 시스템 설정 평가 기준 관련 변수 및 함수
+
+
 
 
 onMounted(() => {

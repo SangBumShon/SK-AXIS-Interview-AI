@@ -2,12 +2,6 @@ package com.example.skaxis.interview.controller;
 
 import com.example.skaxis.interview.dto.*;
 import com.example.skaxis.interview.dto.interviewee.IntervieweeListResponseDto;
-import com.example.skaxis.question.dto.QuestionDto;
-import com.example.skaxis.question.dto.StartInterviewRequestDto;
-import com.example.skaxis.question.dto.StartInterviewResponseDto;
-import com.example.skaxis.question.model.Question;
-import com.example.skaxis.question.service.InternalQuestionService;
-import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,8 +11,6 @@ import com.example.skaxis.interview.service.IntervieweeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
@@ -50,7 +42,6 @@ public class InterviewController {
 
     private final InterviewService interviewService;
     private final IntervieweeService intervieweeService;
-    private final InternalQuestionService internalQuestionService; // 추가
 
     // 기존 면접 관련 메서드들
     @GetMapping("/all")
@@ -164,7 +155,7 @@ public class InterviewController {
         }
     }
     
-    @GetMapping("schedule/all")
+    @GetMapping("/schedule/all")
     @Transactional(readOnly = true)
     public ResponseEntity<?> getAllInterviewSchedules(
             @RequestParam(required = false) String status) {

@@ -99,7 +99,6 @@ export const getInterviewSchedules = async (date: string): Promise<ScheduleRespo
       schedules: Array.from(scheduleMap.values()),
       message: '면접 일정 조회 성공'
     };
-
   } catch (error) {
     console.error('면접 일정 조회 중 오류 발생:', error);
     return {

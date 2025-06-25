@@ -1,0 +1,26 @@
+tree c40a3db8672300d915075ef77d4fb3311289892e
+parent 80ab55d7c7b0e28514fd13fab677310e8c1d867f
+parent 6bc388e0e40eb0278a39e6432dffb8252edf784d
+author wochae <101040879+wochae@users.noreply.github.com> 1749543420 +0900
+committer GitHub <noreply@github.com> 1749543420 +0900
+gpgsig -----BEGIN PGP SIGNATURE-----
+ 
+ wsFcBAABCAAQBQJoR+n8CRC1aQ7uu5UhlAAA18EQAJtOnAjag8K/7xITcYoVP+6z
+ J1xQg6Joa4vuC6Mn+zHvKs/bz/PjAIKpMutnEOEYEuIiCNmUGFqL0HzuEUDrrzz4
+ yKOAwgHzUbrUPUiISEdSe7t5Rb4kBkqoIkpdoF95qraHLybBXIpbkQGhyeqH2eFE
+ VEDLri+X38nQpq5myqcqHm4SZ76npl+CdlrR69P7O61WBFYBtFshABsAMtEJoS0Y
+ zki6zzvndDuPZA035oyfRCt3F2G86FLHTQpqqoUcrbekeHJMSZA4IsTFobZBvUxg
+ 4a0nyA2lgZDhgoev2y3ZOxEGYI35c1FJrGsJZbbMxxJypJ8lBVb1KUUH1T36mTOx
+ tkSCS06cC8SNGbcdtEzmW0UlnItP4XmGAi8Xk1Hz/4eHqRd2ut8qqsY1Pmj3XwzA
+ js3BUDnz/W8L99/d5DnF+I6fG35xu3YHdWf3dalGjO8NF36LBMbh29BcrTg3xdXY
+ jI7j9YPcI0ML+dZUBTlsG8dm7GSXgsUgMTUSQ+9P10Q3oaU1nBfRF1ol/TlgJdjV
+ IhaVDdcWcmrB7m8U0h79jVSPNLtJt1Mhvbl+vn85qUJCv8DaS2OaQVD1w2nPUMie
+ 4gttVTYGvOOJ1cZhLFq9+gTEqVMBk2Dre1QHWAwOtulDEyOS7riqE5kbJlskD9hC
+ bOTa7DK1uDekJRR59Nck
+ =xqkJ
+ -----END PGP SIGNATURE-----
+ 
+
+Merge pull request #30 from SK-AXIS/fix/interviewSetupError
+
+[Fix] : 인터뷰셋업 창에서 인가없이 일정가져오기, 더미 데이터 주석, 실제 api 에서 데이터바인딩

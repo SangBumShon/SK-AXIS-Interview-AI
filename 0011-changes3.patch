@@ -1,0 +1,25 @@
+From 2a3876299b47ad990d3834a28fc9b03131620697 Mon Sep 17 00:00:00 2001
+From: SangBumShon <core5630@naver.com>
+Date: Thu, 12 Jun 2025 14:55:14 +0900
+Subject: [PATCH 11/33] changes3
+
+---
+ client/src/components/PoseMiniWidget.vue | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/client/src/components/PoseMiniWidget.vue b/client/src/components/PoseMiniWidget.vue
+index 0c3e3a7..74758ac 100644
+--- a/client/src/components/PoseMiniWidget.vue
++++ b/client/src/components/PoseMiniWidget.vue
+@@ -25,7 +25,7 @@ import {
+ } from '@mediapipe/tasks-vision'
+ 
+ // 1. WebSocket 연결
+-const wsUrl = 'ws://localhost:9000'   // 서버 주소에 맞게 수정
++const wsUrl = `ws://localhost:8000/api/v1/ws/nonverbal`// 서버 주소에 맞게 수정
+ let ws = null
+ function connectWebSocket() {
+   ws = new WebSocket(wsUrl)
+-- 
+2.39.5 (Apple Git-154)
+
