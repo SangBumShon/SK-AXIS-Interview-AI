@@ -33,7 +33,8 @@ async def upload_stt(
             state["audio_path"] = file_path
 
         # 3) LangGraph 파이프라인 실행 (비동기)
-        state = await interview_flow_executor.ainvoke(state)
+        # LangGraph 기본 recursion_limit(25)을 초과할 수 있어 확장
+        state = await interview_flow_executor.ainvoke(state, config={"recursion_limit": 50})
 
         # 4) 상태 저장
         INTERVIEW_STATE_STORE[interviewee_id] = state
