@@ -40,3 +40,4 @@ aiofiles
 langgraph
 fpdf2
 scipy
+langchain_openai 

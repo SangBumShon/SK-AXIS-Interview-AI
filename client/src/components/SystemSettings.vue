@@ -15,7 +15,7 @@
       <p class="text-gray-600 mb-6">각 평가 항목의 가중치를 설정합니다. 모든 항목의 합은 100%여야 합니다.</p>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div v-for="(criterion, index) in evaluationCriteria" :key="index" class="bg-gray-50 rounded-lg p-6 col-span-1">
-          <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded-full flex items-center justify-center" :class="criterion.bgColor">
                 <i class="fas" :class="criterion.icon"></i>
@@ -25,33 +25,50 @@
                 <p class="text-sm text-gray-500">{{ criterion.description }}</p>
               </div>
             </div>
-            <div class="flex items-center gap-4">
-              <div class="relative">
-                <input 
-                  type="number" 
-                  v-model="criterion.weight" 
-                  @input="validateWeights"
-                  class="w-24 px-3 py-2 border border-gray-300 rounded-md text-right"
-                  min="0"
-                  max="100"
-                >
+            <div class="spinbox-group">
+              <input 
+                type="number" 
+                v-model="criterion.weight" 
+                @input="validateWeights"
+                class="spinbox-input"
+                min="0"
+                max="100"
+              >
+              <div class="spinbox-btns">
+                <button type="button" @click="incrementWeight(criterion)" class="spinbox-btn spinbox-btn-up">
+                  <i class="fas fa-chevron-up"></i>
+                </button>
+                <button type="button" @click="decrementWeight(criterion)" class="spinbox-btn spinbox-btn-down">
+                  <i class="fas fa-chevron-down"></i>
+                </button>
               </div>
             </div>
           </div>
-          <div class="space-y-3">
-            <div v-for="(subCriterion, subIndex) in criterion.subCriteria" :key="subIndex" class="flex items-center justify-between">
+          <div class="space-y-3 mt-4 flex flex-col">
+            <div v-for="(subCriterion, subIndex) in criterion.subCriteria" :key="subIndex" class="flex items-center justify-between gap-2">
               <span class="text-gray-700">{{ subCriterion.name }}</span>
-              <div class="relative">
+              <div class="spinbox-group">
                 <input 
                   type="number" 
                   v-model="subCriterion.weight" 
                   @input="validateSubWeights(criterion)"
-                  class="w-20 px-3 py-1 border border-gray-300 rounded-md text-right text-sm"
+                  class="spinbox-input spinbox-input-sub"
                   min="0"
                   max="100"
                 >
+                <div class="spinbox-btns">
+                  <button type="button" @click="incrementSubWeight(criterion, subCriterion)" class="spinbox-btn spinbox-btn-up">
+                    <i class="fas fa-chevron-up"></i>
+                  </button>
+                  <button type="button" @click="decrementSubWeight(criterion, subCriterion)" class="spinbox-btn spinbox-btn-down">
+                    <i class="fas fa-chevron-down"></i>
+                  </button>
+                </div>
               </div>
             </div>
+          </div>
+          <div v-if="subCriteriaSums[index] !== 100" class="text-red-500 text-sm mt-2">
+            합계가 100이 아닙니다. (현재: {{ subCriteriaSums[index] }})
           </div>
         </div>
       </div>
@@ -68,8 +85,8 @@
           </button>
           <button 
             @click="saveWeights" 
-            :disabled="totalWeight !== 100"
-            :class="{'opacity-50 cursor-not-allowed': totalWeight !== 100}"
+            :disabled="!canSave"
+            :class="{'opacity-50 cursor-not-allowed': !canSave}"
             class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
           >
             저장하기
@@ -134,6 +151,15 @@ const evaluationCriteria = ref([
 const totalWeight = computed(() => {
   return evaluationCriteria.value.reduce((sum, criterion) => sum + Number(criterion.weight), 0);
 });
+const subCriteriaSums = computed(() =>
+  evaluationCriteria.value.map(criterion =>
+    criterion.subCriteria.reduce((sum, sub) => sum + Number(sub.weight), 0)
+  )
+);
+const canSave = computed(() =>
+  totalWeight.value === 100 &&
+  subCriteriaSums.value.every(sum => sum === 100)
+);
 const validateWeights = () => {
   evaluationCriteria.value.forEach(criterion => {
     if (criterion.weight < 0) criterion.weight = 0;
@@ -189,6 +215,30 @@ const saveWeights = () => {
     });
   }
 };
+const incrementWeight = (criterion: any) => {
+  if (criterion.weight < 100) {
+    criterion.weight++;
+    validateWeights();
+  }
+};
+const decrementWeight = (criterion: any) => {
+  if (criterion.weight > 0) {
+    criterion.weight--;
+    validateWeights();
+  }
+};
+const incrementSubWeight = (criterion: any, subCriterion: any) => {
+  if (subCriterion.weight < 100) {
+    subCriterion.weight++;
+    validateSubWeights(criterion);
+  }
+};
+const decrementSubWeight = (criterion: any, subCriterion: any) => {
+  if (subCriterion.weight > 0) {
+    subCriterion.weight--;
+    validateSubWeights(criterion);
+  }
+};
 </script>
 <style scoped>
 /* 필요한 스타일 */
@@ -203,5 +253,62 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 .animate-fadeIn {
   animation: fadeIn 0.3s ease-in-out;
+}
+.spinbox-group {
+  display: flex;
+  align-items: stretch;
+}
+.spinbox-input {
+  width: 6rem;
+  min-width: 3.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem 0 0 0.375rem;
+  text-align: right;
+  background: #fff;
+  font-size: 1rem;
+  outline: none;
+}
+.spinbox-btns {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #d1d5db;
+  border-left: none;
+  border-radius: 0 0.375rem 0.375rem 0;
+  background: #f9fafb;
+  overflow: hidden;
+  height: 100%;
+}
+.spinbox-btn {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  width: 2rem;
+  min-height: 1.25rem;
+  color: #6b7280;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 0.85rem;
+}
+.spinbox-btn-up {
+  border-bottom: 1px solid #e5e7eb;
+}
+.spinbox-btn:active, .spinbox-btn:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+.spinbox-btn i {
+  font-size: 0.85rem;
+}
+/* 소분류 input은 더 작게 */
+.spinbox-input.spinbox-input-sub {
+  width: 4.5rem;
+  font-size: 0.95rem;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
 }
 </style> 

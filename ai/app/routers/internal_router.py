@@ -12,7 +12,7 @@ router = APIRouter(tags=["Internal"])
 @router.post(
     "/internal/interviewees/questions",
     response_model=MultipleIntervieweesResponse,
-    summary="다중 지원자 질문 5개 조회 (FastAPI → Spring Boot)",
+    summary="다중 지원자 질문 5개 조회 (FastAPI to Spring Boot)",
 )
 async def get_multiple_interviewee_questions(req: MultipleIntervieweesRequest):
     """
@@ -32,7 +32,5 @@ async def get_multiple_interviewee_questions(req: MultipleIntervieweesRequest):
                 status_code=404,
                 detail=f"지원자 {interviewee_id}의 질문을 찾을 수 없습니다."
             )
-        # raw_questions는 List[Dict] 형태로 받아오므로, Pydantic Question 모델로 가정
-        questions_per_interviewee[str(interviewee_id)] = raw_questions
 
-    return MultipleIntervieweesResponse(questions_per_interviewee=questions_per_interviewee)
+        return MultipleIntervieweesResponse(questions_per_interviewee=questions_per_interviewee)

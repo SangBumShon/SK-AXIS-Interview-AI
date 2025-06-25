@@ -2,7 +2,7 @@
 
 from app.schemas.state import InterviewState
 from app.services.pipeline.graph_pipeline import interview_flow_executor
-from app.schemas.interview import NonverbalData
+from app.schemas.nonverbal import NonverbalData
 
 async def process_last_audio_segment(state: InterviewState) -> None:
     if state.get("audio_path"):

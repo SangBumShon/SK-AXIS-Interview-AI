@@ -123,7 +123,7 @@
           </button>
           <label class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap cursor-pointer flex items-center gap-2">
             <i class="fas fa-file-upload"></i> 엑셀 업로드
-            <input type="file" accept=".xlsx,.xls" class="hidden" @change="$emit('handleExcelUpload', $event)">
+            <input type="file" accept=".xlsx,.xls" class="hidden" @change="handleExcelUpload">
           </label>
           <button @click="$emit('downloadExcel')" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap cursor-pointer flex items-center gap-2">
             <i class="fas fa-file-download"></i> 엑셀 다운로드
@@ -205,6 +205,35 @@ const emits = defineEmits([
   'sortBy',
   'viewDetails'
 ]);
+
+// 엑셀 업로드 처리 함수
+function handleExcelUpload(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  fetch('http://3.38.218.18:8080/api/v1/uploads/interview-schedule', {
+    method: 'POST',
+    body: formData
+  })
+    .then(response => {
+      if (!response.ok) {
+        alert('엑셀 업로드 실패: ' + response.statusText);
+        return;
+      }
+      alert('엑셀 업로드 성공!');
+    })
+    .catch(error => {
+      alert('엑셀 업로드 중 오류 발생: ' + (error as Error).message);
+    })
+    .finally(() => {
+      (event.target as HTMLInputElement).value = '';
+    });
+}
+
 function getStatusText(status: string) {
   switch (status) {
     case 'completed': return '평가 완료';

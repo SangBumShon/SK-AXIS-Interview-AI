@@ -41,13 +41,15 @@
           </div>
         </div>
         <div class="p-6 border-t border-gray-200">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
-              <i class="fas fa-user text-gray-500"></i>
-            </div>
-            <div>
-              <p class="text-sm font-medium text-gray-900">관리자</p>
-              <p class="text-xs text-gray-500">admin@skaxis.com</p>
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center">
+                <i class="fas fa-user text-gray-500"></i>
+              </div>
+              <div>
+                <p class="text-sm font-medium text-gray-900">관리자</p>
+                <p class="text-xs text-gray-500">admin@skaxis.com</p>
+              </div>
             </div>
           </div>
         </div>
@@ -326,6 +328,48 @@
       </div>
     </div>
 
+    <!-- 통계 분석 모달 -->
+    <div v-if="showStatisticsView" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-8 max-w-6xl w-full mx-4 relative animate-fadeIn overflow-auto max-h-[90vh]">
+        <button @click="showStatisticsView = false" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
+          <i class="fas fa-times"></i>
+        </button>
+        <div class="mb-8">
+          <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-900">면접 통계 분석</h2>
+            <div class="flex items-center gap-4">
+              <div class="relative">
+                <select v-model="statisticsFilter.period" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+                  <option value="all">전체 기간</option>
+                  <option value="month">이번 달</option>
+                  <option value="quarter">이번 분기</option>
+                  <option value="year">올해</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <!-- Statistics Dashboard -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- 직무별 면접 현황 -->
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+              <h3 class="text-lg font-semibold mb-4 text-gray-800">직무별 면접 현황</h3>
+              <div class="h-80" ref="jobChartRef"></div>
+            </div>
+            <!-- 면접자 점수 분포 -->
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+              <h3 class="text-lg font-semibold mb-4 text-gray-800">면접자 점수 분포</h3>
+              <div class="h-80" ref="scoreDistributionChartRef"></div>
+            </div>
+            <!-- 역량별 평균 면접 점수 -->
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+              <h3 class="text-lg font-semibold mb-4 text-gray-800">역량별 평균 면접 점수</h3>
+              <div class="h-80" ref="avgScoreChartRef"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 고정 위치 버튼 -->
     <div v-if="activeView === 'candidates'" class="fixed bottom-8 right-8 z-50">
       <button class="px-6 py-3 bg-orange-500 text-white rounded-lg shadow-lg hover:bg-orange-600 transition-colors">적용</button>
@@ -384,77 +428,22 @@ const tableColumns = [
 ];
 
 // 면접 데이터
-const interviews = ref([
-  {
-    id: 1,
-    date: '2025-06-16',
-    time: '09:00 ~ 10:00',
-    room: '1호실',
-    candidate: '홍길동',
-    position: '소프트웨어 엔지니어',
-    department: 'IT 개발부',
-    interviewers: ['김민수', '이지원', '박성훈'],
-    status: 'completed',
-    score: 92
-  },
-  {
-    id: 2,
-    date: '2025-06-16',
-    time: '10:30 ~ 11:30',
-    room: '2호실',
-    candidate: '이지은',
-    position: '프론트엔드 개발자',
-    department: 'IT 개발부',
-    interviewers: ['최영희', '정태우', '강미란'],
-    status: 'in_progress',
-    score: null
-  },
-  {
-    id: 3,
-    date: '2025-06-17',
-    time: '09:00 ~ 10:00',
-    room: '1호실',
-    candidate: '박준호',
-    position: '백엔드 개발자',
-    department: 'IT 개발부',
-    interviewers: ['김민수', '이지원', '최영희'],
-    status: 'pending',
-    score: null
-  },
-  {
-    id: 4,
-    date: '2025-06-18',
-    time: '14:00 ~ 15:00',
-    room: '3호실',
-    candidate: '김서연',
-    position: 'UI/UX 디자이너',
-    department: '디자인팀',
-    interviewers: ['박성훈', '강미란', '정태우'],
-    status: 'pending',
-    score: null
-  },
-  {
-    id: 5,
-    date: '2025-06-19',
-    time: '11:00 ~ 12:00',
-    room: '2호실',
-    candidate: '정민우',
-    position: '데이터 엔지니어',
-    department: '데이터팀',
-    interviewers: ['김민수', '최영희', '이지원'],
-    status: 'pending',
-    score: null
-  }
-]);
+interface Interview {
+  id: number;
+  date: string;
+  time: string;
+  room: string;
+  candidate: string;
+  position: string;
+  department: string;
+  interviewers: string[];
+  status: string;
+  score: number | null;
+}
+const interviews = ref<Interview[]>([]);
 
 // 지원자 목록 데이터
-const candidateList = ref<Array<{ id: number; name: string; position: string; interviewers: string[]; status: string; interviewDate: string; score: number | null; interviewTime: string; room: string }>>([
-  { id: 1, name: '홍길동', position: '소프트웨어 엔지니어', interviewers: ['김민수', '이지원'], status: '서류 합격', interviewDate: '2025-06-20', score: null, interviewTime: '09:00 ~ 10:00', room: '1호실' },
-  { id: 2, name: '김철수', position: '프론트엔드 개발자', interviewers: ['박성훈'], status: '면접 예정', interviewDate: '2025-06-21', score: null, interviewTime: '', room: '2호실' },
-  { id: 3, name: '이영희', position: '백엔드 개발자', interviewers: ['최영희', '정태우'], status: '최종 합격', interviewDate: '2025-06-15', score: 92, interviewTime: '', room: '1호실' },
-  { id: 4, name: '박지민', position: 'UI/UX 디자이너', interviewers: ['강미란'], status: '면접 완료', interviewDate: '2025-06-16', score: 88, interviewTime: '', room: '3호실' },
-  { id: 5, name: '최수진', position: '데이터 엔지니어', interviewers: ['김민수'], status: '서류 합격', interviewDate: '2025-06-22', score: null, interviewTime: '', room: '2호실' }
-]);
+const candidateList = ref<any[]>([]);
 
 // 모달 상태
 const showDeleteConfirm = ref(false);
@@ -606,30 +595,310 @@ const viewDetails = (id: number) => {
   if (interview) {
     selectedInterview.value = interview;
   }
-  function handleExcelUpload(event: Event) {
-    const input = event.target as HTMLInputElement;
-    if (input.files && input.files[0]) {
-      const file = input.files[0];
-      // 실제 업로드 구현 필요
-      alert('엑셀 업로드: ' + file.name);
-      input.value = '';
+};
+
+const deleteAllInterviews = () => {
+  interviews.value = [];
+  showDeleteConfirm.value = false;
+};
+
+const triggerExcelUpload = () => {
+  // 엑셀 업로드 버튼/파일 input/함수 모두 제거
+};
+
+const handleExcelUpload = () => {
+  // 엑셀 업로드 버튼/파일 input/함수 모두 제거
+};
+
+const downloadExcel = () => {
+  console.log('Excel download requested');
+  // 엑셀 다운로드 로직 추가
+};
+
+const prevMonth = () => {
+  currentDate.value = new Date(currentDate.value.getFullYear(), currentDate.value.getMonth() - 1, 1);
+};
+
+const nextMonth = () => {
+  currentDate.value = new Date(currentDate.value.getFullYear(), currentDate.value.getMonth() + 1, 1);
+};
+
+const getInterviewClass = (interview: any) => {
+  switch (interview.status) {
+    case 'completed': return 'bg-green-100 text-green-800';
+    case 'pending': return 'bg-yellow-100 text-yellow-800';
+    case 'in_progress': return 'bg-blue-100 text-blue-800';
+    default: return 'bg-gray-100 text-gray-800';
+  }
+};
+
+// 캘린더에서 면접 일정 클릭 시 상세 정보 표시 함수
+const showInterviewDetail = (interview: any) => {
+  selectedInterview.value = interview;
+};
+
+// 지원자 관리 함수들
+const addNewCandidate = () => {
+  isEditingCandidate.value = false;
+  candidateForm.value = {
+    id: 0,
+    name: '',
+    position: '',
+    interviewersString: '',
+    status: '',
+    interviewDate: '',
+    score: null,
+    interviewTime: '',
+    room: ''
+  };
+  showCandidateModal.value = true;
+};
+
+const editCandidate = (candidate: any) => {
+  isEditingCandidate.value = true;
+  candidateForm.value = { ...candidate };
+  showCandidateModal.value = true;
+};
+
+const deleteCandidate = (candidate: any) => {
+  deletingCandidate.value = candidate;
+  showCandidateDeleteModal.value = true;
+};
+
+const confirmDeleteCandidate = () => {
+  if (deletingCandidate.value) {
+    candidateList.value = candidateList.value.filter(c => c.id !== deletingCandidate.value.id);
+    deletingCandidate.value = null;
+    showCandidateDeleteModal.value = false;
+  }
+};
+
+const closeCandidateModal = () => {
+  showCandidateModal.value = false;
+  candidateForm.value = {
+    id: 0,
+    name: '',
+    position: '',
+    interviewersString: '',
+    status: '',
+    interviewDate: '',
+    score: null,
+    interviewTime: '',
+    room: ''
+  };
+};
+
+const saveCandidateForm = () => {
+  const interviewersArr = candidateForm.value.interviewersString
+    ? candidateForm.value.interviewersString.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+  if (isEditingCandidate.value) {
+    // 수정
+    const index = candidateList.value.findIndex(c => c.id === candidateForm.value.id);
+    if (index !== -1) {
+      candidateList.value[index] = {
+        ...candidateForm.value,
+        interviewers: interviewersArr
+      };
     }
+  } else {
+    // 추가
+    const newId = Math.max(...candidateList.value.map(c => c.id)) + 1;
+    candidateList.value.push({
+      ...candidateForm.value,
+      id: newId,
+      interviewers: interviewersArr
+    });
   }
-  function downloadExcel() {
-    // 실제 다운로드 구현 필요
-    alert('엑셀 다운로드');
-  }
-  const showDeleteConfirm = ref(false);
+  closeCandidateModal();
+};
 
-  // 전체 삭제 함수
-  function deleteAllInterviews() {
-    // TODO: API 호출하여 전체 데이터 삭제
-    showDeleteConfirm.value = false;
-    // 삭제 후 목록 새로고침
-    // refreshInterviews();
+// 통계 차트 초기화
+const initCharts = () => {
+  if (jobChartRef.value) {
+    jobChart = echarts.init(jobChartRef.value);
+    jobChart.setOption({
+      title: {
+        text: '직무별 면접 현황',
+        left: 'center'
+      },
+      tooltip: {
+        trigger: 'item'
+      },
+      legend: {
+        orient: 'vertical',
+        left: 'left'
+      },
+      series: [
+        {
+          type: 'pie',
+          radius: '50%',
+          data: [
+            { value: 35, name: '개발' },
+            { value: 25, name: '디자인' },
+            { value: 20, name: '마케팅' },
+            { value: 15, name: '영업' },
+            { value: 5, name: '기타' }
+          ],
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 10,
+              shadowOffsetX: 0,
+              shadowColor: 'rgba(0, 0, 0, 0.5)'
+            }
+          }
+        }
+      ]
+    });
   }
-  </script>
 
-  <style scoped>
-  /* 관리자 대시보드에 맞는 스타일만 남기세요 */
-  </style>
+  if (scoreDistributionChartRef.value) {
+    scoreDistributionChart = echarts.init(scoreDistributionChartRef.value);
+    scoreDistributionChart.setOption({
+      title: {
+        text: '면접자 점수 분포',
+        left: 'center'
+      },
+      tooltip: {
+        trigger: 'axis'
+      },
+      xAxis: {
+        type: 'category',
+        data: ['0-20', '21-40', '41-60', '61-80', '81-100']
+      },
+      yAxis: {
+        type: 'value'
+      },
+      series: [
+        {
+          data: [5, 15, 30, 25, 10],
+          type: 'bar'
+        }
+      ]
+    });
+  }
+
+  if (avgScoreChartRef.value) {
+    avgScoreChart = echarts.init(avgScoreChartRef.value);
+    avgScoreChart.setOption({
+      title: {
+        text: '역량별 평균 면접 점수',
+        left: 'center'
+      },
+      tooltip: {
+        trigger: 'axis'
+      },
+      radar: {
+        indicator: [
+          { name: '전문성', max: 100 },
+          { name: '의사소통', max: 100 },
+          { name: '문제해결', max: 100 },
+          { name: '팀워크', max: 100 },
+          { name: '리더십', max: 100 }
+        ]
+      },
+      series: [
+        {
+          type: 'radar',
+          data: [
+            {
+              value: [85, 75, 90, 80, 70],
+              name: '평균 점수'
+            }
+          ]
+        }
+      ]
+    });
+  }
+};
+
+// 통계 필터 변경 감지
+watch(statisticsFilter, () => {
+  // 여기에 필터 변경 시 차트 업데이트 로직 추가
+  updateCharts();
+}, { deep: true });
+
+// 차트 업데이트 함수
+const updateCharts = () => {
+  // 여기에 차트 데이터 업데이트 로직 추가
+};
+
+// 사이드바 통계 분석 링크 클릭 이벤트 핸들러
+const showStatistics = () => {
+  showStatisticsView.value = true;
+  // 차트가 이미 초기화되어 있지 않은 경우에만 초기화
+  if (!jobChart) {
+    initCharts();
+  }
+};
+
+onMounted(async () => {
+  // 기존 차트 초기화 등 유지
+  initCharts();
+  // 면접자 목록 불러오기
+  try {
+    const response = await fetch('http://3.38.218.18:8080/api/v1/interviews/simple');
+    if (!response.ok) throw new Error('서버 오류');
+    const result = await response.json();
+    interviews.value = result.data.map((item: any) => {
+      let date = '';
+      let time = '';
+      if (Array.isArray(item.scheduledAt) && item.scheduledAt.length >= 5) {
+        date = `${item.scheduledAt[0]}-${String(item.scheduledAt[1]).padStart(2, '0')}-${String(item.scheduledAt[2]).padStart(2, '0')}`;
+        time = `${String(item.scheduledAt[3]).padStart(2, '0')}:${String(item.scheduledAt[4]).padStart(2, '0')}`;
+      }
+      return {
+        id: item.interviewId,
+        date,
+        time,
+        room: item.roomNo,
+        candidate: item.name,
+        position: '',
+        department: '',
+        interviewers: item.interviewers ? (item.interviewers as string).split(',').map((s: any) => s.trim()) : [],
+        status: item.status,
+        score: item.score
+      }
+    });
+    // candidateList도 동일하게 변환
+    candidateList.value = result.data.map((item: any) => {
+      let interviewDate = '';
+      let interviewTime = '';
+      if (Array.isArray(item.scheduledAt) && item.scheduledAt.length >= 5) {
+        interviewDate = `${item.scheduledAt[0]}-${String(item.scheduledAt[1]).padStart(2, '0')}-${String(item.scheduledAt[2]).padStart(2, '0')}`;
+        interviewTime = `${String(item.scheduledAt[3]).padStart(2, '0')}:${String(item.scheduledAt[4]).padStart(2, '0')}`;
+      }
+      return {
+        id: item.intervieweeId,
+        name: item.name,
+        position: '',
+        interviewers: item.interviewers ? (item.interviewers as string).split(',').map((s: any) => s.trim()) : [],
+        status: item.status,
+        interviewDate,
+        score: item.score,
+        interviewTime,
+        room: item.roomNo
+      }
+    });
+  } catch (e) {
+    alert('면접자 목록을 불러오지 못했습니다.');
+  }
+});
+</script>
+
+<style scoped>
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+</style>
