@@ -74,7 +74,7 @@ public class IntervieweeService {
         try {
             // InterviewService를 통해 해당 날짜의 면접 일정 조회
             List<Interview> interviews = interviewService.findInterviewsByDate(date);
-            
+
             // 해당 날짜의 면접에 참여하는 면접 대상자들을 Interview를 통해 조회
             List<Interviewee> interviewees = new ArrayList<>();
             for (Interview interview : interviews) {
@@ -89,7 +89,7 @@ public class IntervieweeService {
                     }
                 }
             }
-            
+
             // 데이터베이스에서 해당 날짜의 면접실 정보 동적 생성
             // InterviewService를 통해 조회
             List<String> roomIds = interviewService.findDistinctRoomIdsByDate(date);
@@ -176,7 +176,7 @@ public class IntervieweeService {
 
     private List<TimeSlotDto> createTimeSlots(List<Interview> interviews, List<Interviewee> interviewees) {
         Map<String, TimeSlotDto> timeSlotMap = new HashMap<>();
-        
+
         // 면접별로 시간대 생성
         for (Interview interview : interviews) {
             String timeRange = formatTimeRange(interview.getScheduledAt());
@@ -232,7 +232,7 @@ public class IntervieweeService {
                 }
             }
         }
-        
+
         return people;
     }
 
@@ -245,7 +245,7 @@ public class IntervieweeService {
 
     private String formatTimeRange(LocalDateTime scheduledAt) {
         if (scheduledAt == null) return "시간 미정";
-        
+
         DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm");
         String startTime = scheduledAt.format(timeFormatter);
         String endTime = scheduledAt.plusHours(1).format(timeFormatter); // 1시간 후를 종료 시간으로 가정

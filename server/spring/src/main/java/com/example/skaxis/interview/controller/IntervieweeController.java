@@ -25,7 +25,6 @@ import java.time.LocalDate;
 @RequiredArgsConstructor
 @Tag(name = "면접 대상자 관리", description = "면접 대상자 정보 및 일정 관리 API")
 public class IntervieweeController {
-    
     private final IntervieweeService intervieweeService;
 
     @GetMapping("/simple")

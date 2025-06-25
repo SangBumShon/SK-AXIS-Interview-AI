@@ -48,6 +48,9 @@ server/.vscode/*
 server/!.vscode/extensions.json
 server/venv
 
+# Upload directories
+ai/uploads/
+
 # Output directories
 server/output/*
 ai/output/*
@@ -286,6 +289,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.env.local
 
 # Spyder project settings
 .spyderproject

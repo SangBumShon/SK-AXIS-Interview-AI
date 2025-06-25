@@ -1,6 +1,6 @@
 # app/routers/interview_router.py
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException
 import os
 from dotenv import load_dotenv
 
@@ -9,14 +9,19 @@ from app.schemas.interview import (
     StartInterviewResponse,
     EndInterviewRequest,
     EndInterviewResponse,
-    STTUploadResponse
+    Question
 )
 from app.services.internal_client import fetch_interviewee_questions
-from app.services.pipeline.graph_pipeline import final_report_flow_executor, interview_flow_executor
+from app.services.pipeline.graph_pipeline import final_report_flow_executor
 from app.schemas.state import InterviewState
 from app.state.store import INTERVIEW_STATE_STORE  # 전역 메모리 스토어
 from app.services.interview.nonverbal_service import evaluate
-from app.services.interview.stt_service import save_audio_file
+from app.state.question_store import QUESTION_STORE
+
+from app.services.interview.interview_end_processing_service import (
+    process_last_audio_segment,
+    save_nonverbal_counts
+)
 
 # 환경 변수 로드
 load_dotenv()
@@ -41,22 +46,10 @@ async def start_interview(req: StartInterviewRequest):
         if not questions:
             raise HTTPException(status_code=404, detail=f"{interviewee_id} 질문 없음")
         questions_per_interviewee[str(interviewee_id)] = questions
-
-        # 2) 상태 초기화 (questions 포함)
-        INTERVIEW_STATE_STORE[interviewee_id] = {
-            "interviewee_id": interviewee_id,
-            "questions": questions,               # ← 여기에 추가
-            "audio_path": "",
-            "stt": {"done": False, "segments": []},
-            "rewrite": {"done": False, "items": []},
-            "evaluation": {"done": False, "results": {}},
-            "report": {"pdf_path": ""},
-            "decision_log": [],
-        }
+        QUESTION_STORE[interviewee_id] = questions
 
     return StartInterviewResponse(
-        questions_per_interviewee=questions_per_interviewee,
-        status="started"
+        questions_per_interviewee=questions_per_interviewee
     )
 
 
@@ -87,43 +80,6 @@ async def end_interview(req: EndInterviewRequest):
             await final_report_flow_executor(state)
 
         return EndInterviewResponse(result="done", report_ready=True)
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.post("/stt/upload", response_model=STTUploadResponse)
-async def upload_stt(
-    interviewee_id: int = Form(...),
-    audio: UploadFile = File(...)
-):
-    """
-    답변 단위 음성 파일 업로드
-    
-    Args:
-        interviewee_id: 면접자 ID
-        audio: 웹 브라우저에서 생성한 WebM 음성 파일
-        
-    Returns:
-        STTUploadResponse: 업로드 결과
-    """
-    try:
-        # 1) 오디오 파일 저장
-        file_path = await save_audio_file(interviewee_id, audio)
-        if not file_path:
-            raise HTTPException(status_code=500, detail="파일 저장 실패")
-
-        # 2) 상태 저장소에서 해당 면접자의 상태 찾기
-        state = INTERVIEW_STATE_STORE.get(interviewee_id)
-        if state is None:
-            raise HTTPException(status_code=404, detail=f"Interviewee {interviewee_id} 상태 없음")
-
-        # 3) 최신 audio_path만 갱신
-        state["audio_path"] = file_path
-
-        # 4) STT → Rewrite (언어적 처리) 파이프라인 실행
-        await interview_flow_executor(state)
-
-        return STTUploadResponse(result="OK")
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
