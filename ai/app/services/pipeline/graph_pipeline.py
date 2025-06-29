@@ -35,14 +35,15 @@ JUDGE_PROMPT = """
 # ───────────────────────────────────────────────────
 # 1) STT 노드: audio_path → raw text
 # ───────────────────────────────────────────────────
+
 def stt_node(state: InterviewState) -> InterviewState:
+    print("[LangGraph] 🧠 stt_node 진입")
     audio_path = state.get("audio_path")
     raw = transcribe_audio_file(audio_path)
     ts = datetime.now().isoformat()
-
     state.setdefault("stt", {"done": False, "segments": []})
     state["stt"]["segments"].append({"raw": raw, "timestamp": ts})
-
+    print(f"[LangGraph] ✅ STT 완료: {raw[:30]}...")
     state.setdefault("decision_log", []).append({
         "step": "stt_node",
         "result": "success",
@@ -55,19 +56,39 @@ def stt_node(state: InterviewState) -> InterviewState:
 # 2) Rewrite 에이전트: raw → rewritten
 # ───────────────────────────────────────────────────
 async def rewrite_agent(state: InterviewState) -> InterviewState:
+    print("[LangGraph] ✏️ rewrite_agent 진입")
     raw = state["stt"]["segments"][-1]["raw"]
     rewritten, _ = await rewrite_answer(raw)
     item = {"raw": raw, "rewritten": rewritten}
 
-    state.setdefault("rewrite", {"done": False, "items": []})
-    state["rewrite"]["items"].append(item)
+    prev = state.get("rewrite", {})
+    prev_retry = prev.get("retry_count", 0)
+    prev_force = prev.get("force_ok", False)
+    prev_final = prev.get("final", [])
 
+    # retry_count가 3 이상이면 더 이상 증가시키지 않음
+    if prev_retry >= 3:
+        retry_count = prev_retry
+    elif prev.get("items") and "ok" in prev["items"][0] and not prev["items"][0]["ok"]:
+        retry_count = prev_retry + 1
+    else:
+        retry_count = prev_retry
+
+    state["rewrite"] = {
+        "items":       [item],
+        "retry_count": retry_count,
+        "force_ok":    prev_force,
+        "final":       prev_final,
+        "done":        False
+    }
+
+    print(f"[LangGraph] ✅ rewrite 결과: {rewritten[:30]}... (retry_count={retry_count})")
     ts = datetime.now().isoformat()
     state.setdefault("decision_log", []).append({
-        "step": "rewrite_agent",
+        "step":   "rewrite_agent",
         "result": "processing",
-        "time": ts,
-        "details": {"raw_preview": raw[:30]}
+        "time":   ts,
+        "details": {"raw_preview": raw[:30], "retry_count": retry_count}
     })
     return state
 
@@ -75,81 +96,108 @@ async def rewrite_agent(state: InterviewState) -> InterviewState:
 # 3) Rewrite 재시도 조건: 최대 3회
 # ───────────────────────────────────────────────────
 def should_retry_rewrite(state: InterviewState) -> Literal["retry", "done"]:
-    items = state.get("rewrite", {}).get("items", [])
-    all_passed = all(item.get("ok", False) for item in items)
-    retry_count = state.get("rewrite", {}).get("retry_count", 0)
+    rw    = state.get("rewrite", {})
+    items = rw.get("items", [])
+    retry = rw.get("retry_count", 0)
 
-    if not all_passed and retry_count < 3:
-        state["rewrite"]["retry_count"] = retry_count + 1
+    if not items:
         return "retry"
+
+    last = items[-1]
+    print(f"🧪 retry_count={retry}, ok={last.get('ok', 'not_judged')}")
+
+    # 아직 판정되지 않은 경우 (ok 키가 없음)
+    if "ok" not in last:
+        print(f"🧪 아직 판정되지 않음, done")
+        return "done"
+
+    # 성공한 경우
+    if last.get("ok", False):
+        print(f"🧪 성공, done")
+        return "done"
+
+    # 실패한 경우, 재시도 여부 결정
+    if retry < 3:
+        print(f"🔁 Rewrite 재시도: {retry + 1}회차")
+        return "retry"
+
+    # 최대 재시도 도달
+    print("🛑 최대 재시도 도달. rewrite 강제 통과 예정")
     return "done"
 
 # ───────────────────────────────────────────────────
 # 4) Rewrite 검증 에이전트
 # ───────────────────────────────────────────────────
 async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
-    if not state.get("rewrite", {}).get("items"):
+    print("[LangGraph] 🧪 rewrite_judge_agent 진입")
+    rewrite = state.get("rewrite", {})
+    items   = rewrite.get("items", [])
+    force   = rewrite.get("force_ok", False)
+
+    if not items:
         state.setdefault("decision_log", []).append({
-            "step": "rewrite_judge_agent",
+            "step":   "rewrite_judge_agent",
             "result": "error",
-            "time": datetime.now().isoformat(),
-            "details": {"error": "No rewrite items found"}
+            "time":   datetime.now().isoformat(),
+            "details":{"error":"No rewrite items found"}
         })
         return state
 
-    for item in state["rewrite"]["items"]:
+    for item in items:
         if "ok" in item:
             continue
 
-        raw = item["raw"]
-        rewritten = item["rewritten"]
-        prompt = JUDGE_PROMPT.format(raw=raw, rewritten=rewritten)
-
+        prompt = JUDGE_PROMPT.format(raw=item["raw"], rewritten=item["rewritten"])
         try:
             start = datetime.now().timestamp()
-            response = openai.ChatCompletion.create(
+            resp  = openai.ChatCompletion.create(
                 model="gpt-4o",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0,
-                max_tokens=512
+                messages=[{"role":"user","content":prompt}],
+                temperature=0, max_tokens=512
             )
             elapsed = datetime.now().timestamp() - start
-            result = json.loads(response.choices[0].message.content.strip())
+            result  = json.loads(resp.choices[0].message.content.strip())
 
-            item["ok"] = result.get("ok", False)
+            item["ok"]          = result.get("ok", False)
             item["judge_notes"] = result.get("judge_notes", [])
 
+            # 강제 통과 플래그 처리
+            if not item["ok"] and force:
+                print("⚠️ rewrite 실패 항목 강제 ok 처리됨")
+                item["ok"] = True
+                item["judge_notes"].append("자동 통과 (재시도 3회 초과)")
+
             if item["ok"]:
-                state.setdefault("rewrite", {}).setdefault("final", []).append({
-                    "raw": raw,
-                    "rewritten": rewritten,
+                rewrite.setdefault("final", []).append({
+                    "raw":       item["raw"],
+                    "rewritten": item["rewritten"],
                     "timestamp": datetime.now().isoformat()
                 })
 
             state.setdefault("decision_log", []).append({
-                "step": "rewrite_judge_agent",
-                "result": f'ok={item["ok"]}',
-                "time": datetime.now().isoformat(),
-                "details": {
-                    "notes": item["judge_notes"],
-                    "elapsed_sec": round(elapsed, 2)
-                }
+                "step":   "rewrite_judge_agent",
+                "result": f"ok={item['ok']}",
+                "time":   datetime.now().isoformat(),
+                "details":{"notes":item["judge_notes"],"elapsed_sec":round(elapsed,2)}
             })
+            print(f"[LangGraph] ✅ 판정 결과: ok={item['ok']}")
 
         except Exception as e:
-            item["ok"] = False
+            item["ok"]          = False
             item["judge_notes"] = [f"judge error: {e}"]
             state.setdefault("decision_log", []).append({
-                "step": "rewrite_judge_agent",
-                "result": "error",
-                "time": datetime.now().isoformat(),
-                "details": {"error": str(e)}
+                "step":"rewrite_judge_agent",
+                "result":"error",
+                "time":datetime.now().isoformat(),
+                "details":{"error":str(e)}
             })
 
-    if all("ok" in item for item in state["rewrite"]["items"]):
-        state["rewrite"]["done"] = True
+    # 마지막 항목이 ok=True면 완료 표시
+    if rewrite["items"][-1].get("ok", False):
+        rewrite["done"] = True
 
     return state
+
 
 # ───────────────────────────────────────────────────
 # 5) Nonverbal 평가 에이전트
@@ -213,14 +261,19 @@ async def nonverbal_evaluation_agent(state: InterviewState) -> InterviewState:
 # ───────────────────────────────────────────────────
 def should_retry_evaluation(state: InterviewState) -> Literal["retry", "continue"]:
     eval_info = state.get("evaluation", {})
-    if not eval_info.get("ok", False):
-        retry = eval_info.get("retry_count", 0)
-        print(f"[should_retry_evaluation] retry={retry}, ok={eval_info.get('ok', False)}")
-        if retry < 3:
-            state["evaluation"]["retry_count"] = retry + 1
-            print("[should_retry_evaluation] Will retry evaluation.")
-            return "retry"
-    print("[should_retry_evaluation] Continue to next step.")
+    retry = eval_info.get("retry_count", 0)
+
+    # 아직 판정 전이면 continue
+    if "ok" not in eval_info:
+        print("[should_retry_evaluation] Not judged yet, continue")
+        return "continue"
+
+    # 판정 실패 + 재시도 횟수 남았으면 retry
+    if not eval_info.get("ok", False) and retry < 3:
+        print(f"[should_retry_evaluation] Will retry. retry_count={retry + 1}")
+        return "retry"
+
+    print(f"[should_retry_evaluation] Continue to next step. ok={eval_info.get('ok')}, retry_count={retry}")
     return "continue"
 
 # ───────────────────────────────────────────────────
@@ -231,13 +284,26 @@ async def evaluation_agent(state: InterviewState) -> InterviewState:
     full_answer = "\n".join(item["rewritten"] for item in rewritten_items)
     results = await evaluate_keywords_from_full_answer(full_answer)
 
-    state["evaluation"] = {"done": True, "results": results}
+    prev_eval = state.get("evaluation", {})
+    prev_retry = prev_eval.get("retry_count", 0)
+    # 이전 판정이 실패(ok=False)였을 때만 retry_count 증가
+    if "ok" in prev_eval and prev_eval.get("ok") is False:
+        retry_count = prev_retry + 1
+    else:
+        retry_count = prev_retry
+
+    state["evaluation"] = {
+        "done": True,
+        "results": results,
+        "retry_count": retry_count,
+        "ok": False  # 판정 전이므로 False로 초기화
+    }
     ts = datetime.now().isoformat()
     state.setdefault("decision_log", []).append({
         "step": "evaluation_agent",
         "result": "done",
         "time": ts,
-        "details": {}
+        "details": {"retry_count": retry_count}
     })
     return state
 
@@ -254,18 +320,19 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
             "details": {"error": "No evaluation results found"}
         })
         print("[judge] No evaluation results found, will retry.")
+        state["evaluation"]["ok"] = False  # 명시적으로 False로
         return state
 
     judge_notes = []
     is_valid = True
 
-    # 항목 수 검증 (각 키워드에 3개)
+    # 1. 항목 수 검증 (각 키워드에 3개)
     for kw, criteria in results.items():
         if len(criteria) != 3:
             judge_notes.append(f"Keyword '{kw}' has {len(criteria)} criteria (expected 3)")
             is_valid = False
 
-    # 점수 범위 검증 (1~5)
+    # 2. 점수 범위 검증 (1~5)
     for criteria in results.values():
         for data in criteria.values():
             s = data.get("score", 0)
@@ -273,7 +340,7 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
                 judge_notes.append(f"Invalid score {s}")
                 is_valid = False
 
-    # 총점 검증
+    # 3. 총점 검증
     total = sum(sum(c.get("score", 0) for c in crit.values()) for crit in results.values())
     max_score = len(results) * 3 * 5
     if total > max_score:
@@ -288,6 +355,72 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
         "max_score": max_score
     }
     state["evaluation"]["ok"] = is_valid
+
+    # === 내용 검증 LLM 호출 추가 ===
+    try:
+        CONTENT_VALIDATION_PROMPT = """
+시스템: 당신은 AI 면접 평가 결과의 검증 전문가입니다.
+
+아래는 지원자의 답변, 그리고 그 답변에 대한 키워드별 평가 결과입니다.
+
+[지원자 답변]
+{answer}
+
+[평가 결과]
+{evaluation}
+
+[평가 기준]
+{criteria}
+
+평가 결과는 다음과 같은 구조입니다:
+- 각 키워드별로 3개의 평가항목이 있습니다.
+- 각 평가항목에는 1~5점의 점수와, 그 점수의 사유(설명)가 있습니다.
+- 각 점수별로 평가 기준이 명확히 정의되어 있습니다.
+
+아래를 검증하세요:
+1. 각 키워드의 각 평가항목별 점수와 사유가 실제 답변 내용과 논리적으로 맞는지, 그리고 평가 기준에 부합하는지 확인하세요.
+2. 점수와 사유가 답변 내용과 어울리지 않거나, 평가 기준에 맞지 않으면 그 이유를 구체적으로 지적하세요.
+
+아래 형식의 JSON으로만 답변하세요.
+
+{{
+  "ok": (true 또는 false),
+  "judge_notes": [
+    "키워드 'Proactive'의 '선제적 문제 인식과 행동' 항목 점수(5점)는 답변에서 사전 예방적 행동이 구체적으로 드러나지 않아 과하게 평가되었습니다.",
+    "키워드 'Professional'의 '전문성 기반 성과 창출력' 항목 사유가 답변 내용과 평가 기준(5점)에 부합하지 않습니다."
+  ]
+}}
+"""
+        rewritten_items = state.get("rewrite", {}).get("items", [])
+        answer = "\n".join(item["rewritten"] for item in rewritten_items)
+        evaluation = json.dumps(state.get("evaluation", {}).get("results", {}), ensure_ascii=False)
+        criteria = json.dumps({
+            **EVAL_CRITERIA_WITH_ALL_SCORES,
+            **TECHNICAL_EVAL_CRITERIA_WITH_ALL_SCORES,
+            **DOMAIN_EVAL_CRITERIA_WITH_ALL_SCORES
+        }, ensure_ascii=False)
+
+        prompt = CONTENT_VALIDATION_PROMPT.format(
+            answer=answer,
+            evaluation=evaluation,
+            criteria=criteria
+        )
+
+        response = openai.ChatCompletion.create(
+            model="gpt-4o",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            max_tokens=1024
+        )
+        result = json.loads(response.choices[0].message.content.strip())
+        state["evaluation"]["content_judge"] = result
+        print(f"[LangGraph] ✅ 내용 검증 결과: ok={result.get('ok')}, notes={result.get('judge_notes')}")
+    except Exception as e:
+        state["evaluation"]["content_judge"] = {
+            "ok": False,
+            "judge_notes": [f"content judge error: {e}"]
+        }
+        print(f"[LangGraph] ❌ 내용 검증 오류: {e}")
 
     ts = datetime.now().isoformat()
     state.setdefault("decision_log", []).append({

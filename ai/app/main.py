@@ -18,7 +18,9 @@ app = FastAPI(
 # ─── CORS 설정 (필요하다면) ───
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000",      # Vue 개발 서버
+    allow_origins=[
+        "http://localhost",
+        "http://localhost:3000",      # Vue 개발 서버
         "http://localhost:8080",      # 다른 포트
         "http://127.0.0.1:3000",
         "http://127.0.0.1:8080",

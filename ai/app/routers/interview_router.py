@@ -70,7 +70,7 @@ async def end_interview(req: EndInterviewRequest):
 
             # (1) 마지막 녹음 파일 처리
             if state.get("audio_path"):
-                await interview_flow_executor(state)
+                state = await interview_flow_executor.ainvoke(state, config={"recursion_limit": 10})
                 state["audio_path"] = ""  # 중복 실행 방지
 
             # (2) 비언어적 카운트 저장 (timestamp 포함)
@@ -83,7 +83,7 @@ async def end_interview(req: EndInterviewRequest):
             }
 
             # (3) 최종 리포트 생성
-            await final_report_flow_executor(state)
+            state = await final_report_flow_executor.ainvoke(state, config={"recursion_limit": 10})
 
         return EndInterviewResponse(result="done", report_ready=True)
 
