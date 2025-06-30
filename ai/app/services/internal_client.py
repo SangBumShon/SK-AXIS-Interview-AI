@@ -3,7 +3,7 @@
 import httpx
 from typing import List, Dict
 
-SPRINGBOOT_BASE_URL = "http://localhost:8080/api/v1"
+SPRINGBOOT_BASE_URL = "http://3.38.218.18:8080/api/v1"
 
 async def fetch_interviewee_questions(interviewee_id: int) -> List[Dict]:
     """

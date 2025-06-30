@@ -6,6 +6,11 @@ from typing import Literal, Dict, Any
 import os
 import json
 import openai
+from dotenv import load_dotenv
+
+# 환경 변수 로드
+load_dotenv()
+RESULT_DIR = os.getenv("RESULT_DIR", "./result")
 
 from app.services.interview.stt_service import transcribe_audio_file
 from app.services.interview.rewrite_service import rewrite_answer
@@ -503,7 +508,7 @@ async def pdf_node(state: InterviewState) -> InterviewState:
     # 경로 준비
     cid = state["interviewee_id"]
     ts  = datetime.now().strftime("%Y%m%d%H%M%S")
-    out = "./results"; os.makedirs(out, exist_ok=True)
+    out = RESULT_DIR; os.makedirs(out, exist_ok=True)
     chart = f"{out}/{cid}_chart_{ts}.png"
     pdfp  = f"{out}/{cid}_report_{ts}.pdf"
 

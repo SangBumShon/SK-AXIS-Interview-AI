@@ -43,7 +43,7 @@ defineExpose({
 
 // 녹음 관련 상태 - 면접자별 개별 관리
 const recorderMap = ref({})  // { [id]: { mediaRecorder, audioChunks, stream } }
-const MOUTH_CLOSED_THRESHOLD = 3000 // 3초
+const MOUTH_CLOSED_THRESHOLD = 5000 // 5초
 
 const video = ref(null)
 const canvas = ref(null)
@@ -111,7 +111,7 @@ function detectSpeaking(landmarks) {
   if (!topLip || !bottomLip || !leftMouth || !rightMouth) return false
   const mouthOpen = Math.abs(topLip.y - bottomLip.y)
   const mouthWidth = Math.abs(leftMouth.x - rightMouth.x)
-  return mouthOpen > 20 && mouthWidth > 25
+  return mouthOpen > 10 && mouthWidth > 20
 }
 
 async function startRecording(personIndex) {
