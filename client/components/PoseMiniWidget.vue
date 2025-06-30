@@ -155,7 +155,7 @@ async function startRecording(personIndex) {
       formData.append('interviewee_id', state.id.toString())
       
       try {
-        const response = await fetch('http//:localhost:8000/api/v1/stt/upload', {
+        const response = await fetch('http://localhost:8000/api/v1/stt/upload', {
           method: 'POST',
           body: formData
         })
