@@ -15,7 +15,7 @@ RESULT_DIR = os.getenv("RESULT_DIR", "./result")
 from app.services.interview.stt_service import transcribe_audio_file
 from app.services.interview.rewrite_service import rewrite_answer
 from app.services.interview.evaluation_service import evaluate_keywords_from_full_answer
-from app.services.interview.report_service import create_radar_chart, generate_pdf
+from app.services.interview.report_service import create_radar_chart, generate_pdf, generate_json_pdf
 from app.schemas.nonverbal import Posture, FacialExpression, NonverbalData
 from app.services.interview.nonverbal_service import evaluate
 from app.schemas.state import InterviewState
@@ -443,105 +443,52 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
 
 
 # ───────────────────────────────────────────────────
-# 9) PDF 생성 노드
+# 9) PDF 생성 노드 (JSON 버전)
 # ───────────────────────────────────────────────────
 async def pdf_node(state: InterviewState) -> InterviewState:
     """
-    최종 리포트 노드:
-    - 언어45% + 도메인·직무45% + 비언어10% 가중치로
-    - 총점 100점 기준 계산 후 PDF 생성
+    최종 리포트 노드 (JSON 버전):
+    - state["raw_report_json"]이 있으면, 해당 json을 PDF로 그대로 출력
+    - 없으면 아무 작업도 하지 않음
     """
-    from app.services.interview.report_service import create_radar_chart, generate_pdf
     from datetime import datetime
+    import os
 
-    # rewrite된 답변
-    answers = [i["rewritten"] for i in state["rewrite"]["final"]]
-    # 평가 결과
-    eval_res = state["evaluation"]["results"]
-    # 비언어 분리
-    nv = eval_res.pop("비언어적", {"score":0, "reason":""})
-    nv_score  = nv["score"]
-    nv_reason = nv["reason"]
+    # 외부에서 전달받은 json이 state["raw_report_json"]에 있다고 가정
+    raw_json = state.get("raw_report_json")
+    if not raw_json:
+        # 아무 작업도 하지 않음
+        return state
 
-    # 키워드별 원점수·사유 집계
-    keyword_results = {
-        kw: {
-            "score": sum(x.get("score",0) for x in crit.values()),
-            "reasons": "\n".join(x.get("reason","") for x in crit.values())
-        }
-        for kw, crit in eval_res.items()
-    }
-
-    # 일반키워드 vs 도메인·직무 분리
-    general_categories_list = ["SUPEX", "V", "WBE", "Passionate", "Proactive", "Professional", "People"]
-    job_domain_categories_list = ["기술/직무", "도메인 전문성"]
-
-    sum_gen = 0
-    for cat in general_categories_list:
-        if cat in keyword_results:
-            sum_gen += keyword_results[cat]["score"]
-
-    sum_jd = 0
-    for cat in job_domain_categories_list:
-        if cat in keyword_results:
-            sum_jd += keyword_results[cat]["score"]
-
-    # 영역별 100점 스케일
-    # 최대 점수
-    max_gen_score = len(general_categories_list) * 3 * 5  # 7 categories * 3 criteria/cat * 5 points/criteria = 105
-    max_jd_score = len(job_domain_categories_list) * 3 * 5   # 2 categories * 3 criteria/cat * 5 points/criteria = 30
-    max_nv_score = 15 # 비언어적 요소의 최대 점수는 15점으로 가정
-
-    area_scores = {
-        "언어적 요소": round(sum_gen / max_gen_score * 100),
-        "직무·도메인":    round(sum_jd  / max_jd_score * 100),
-        "비언어적 요소": round(nv_score / max_nv_score * 100),
-    }
-    weights = {"언어적 요소":"45%", "직무·도메인":"45%", "비언어적 요소":"10%"}
-
-    # 최종 100점 환산
-    total_score = round(
-        area_scores["언어적 요소"]   * 0.45 +
-        area_scores["직무·도메인"]    * 0.45 +
-        area_scores["비언어적 요소"]  * 0.10
-    )
-
-    # 경로 준비
-    cid = state["interviewee_id"]
-    ts  = datetime.now().strftime("%Y%m%d%H%M%S")
+    applicant_id = raw_json.get("applicant_id")
+    interview_datetime = raw_json.get("interview_datetime")
+    report_title = raw_json.get("report_title")
+    ts = datetime.now().strftime("%Y%m%d%H%M%S")
     out = RESULT_DIR; os.makedirs(out, exist_ok=True)
-    chart = f"{out}/{cid}_chart_{ts}.png"
-    pdfp  = f"{out}/{cid}_report_{ts}.pdf"
+    pdf_path = f"{out}/{applicant_id}_report_{ts}.pdf"
 
     try:
-        create_radar_chart(keyword_results, chart)
-        generate_pdf(
-            keyword_results=keyword_results,
-            chart_path=chart,
-            output_path=pdfp,
-            interviewee_id=cid,
-            answers=answers,
-            nonverbal_score=nv_score,
-            nonverbal_reason=nv_reason,
-            total_score=total_score,
-            area_scores=area_scores,
-            weights=weights
+        generate_json_pdf(
+            json_data=raw_json,
+            output_path=pdf_path,
+            applicant_id=applicant_id,
+            interview_datetime=interview_datetime,
+            report_title=report_title
         )
         state.setdefault("report", {}).setdefault("pdf", {})["generated"] = True
-        state["report"]["pdf"]["path"]  = pdfp
-        state["report"]["pdf"]["score"] = total_score
+        state["report"]["pdf"]["path"] = pdf_path
         state.setdefault("decision_log", []).append({
-            "step":"pdf_node","result":"generated",
+            "step": "pdf_node", "result": "generated",
             "time": datetime.now().isoformat(),
-            "details":{"path":pdfp,"score":total_score}
+            "details": {"path": pdf_path}
         })
     except Exception as e:
         state.setdefault("report", {}).setdefault("pdf", {})["generated"] = False
         state["report"]["pdf"]["error"] = str(e)
         state.setdefault("decision_log", []).append({
-            "step":"pdf_node","result":"error",
+            "step": "pdf_node", "result": "error",
             "time": datetime.now().isoformat(),
-            "details":{"error":str(e)}
+            "details": {"error": str(e)}
         })
 
     return state

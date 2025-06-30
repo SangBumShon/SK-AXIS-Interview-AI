@@ -6,7 +6,6 @@ from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI
 
 from .routers.interview_router import router as interview_router
-from .routers.internal_router import router as internal_router
 from .routers.stt_router import router as stt_router
 
 app = FastAPI(
@@ -33,7 +32,6 @@ app.add_middleware(
 
 # ─── API 라우터 등록 ───
 app.include_router(interview_router, prefix="/api/v1")
-app.include_router(internal_router, prefix="/api/v1")
 app.include_router(stt_router, prefix="/api/v1")
 
 
