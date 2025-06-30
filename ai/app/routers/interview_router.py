@@ -60,12 +60,21 @@ async def end_interview(req: EndInterviewRequest):
     try:
         for interviewee_id_str, nv in req.data.items():
             interviewee_id = int(interviewee_id_str)
+            print(f"[DEBUG] interviewee_id: {interviewee_id}")
+            print(f"[DEBUG] 원본 nv 데이터: {nv}")
             if not isinstance(nv, NonverbalData):
-                # Pydantic이 자동 변환하지만 타입 안전 차원에서 double-check
+                print("[DEBUG] NonverbalData로 변환 시도")
                 nv = NonverbalData(**nv)
+            print(f"[DEBUG] 변환된 nv 데이터: {nv}")
+            print(f"[DEBUG] posture: {nv.posture}")
+            print(f"[DEBUG] facial_expression: {nv.facial_expression}")
+            print(f"[DEBUG] gaze: {nv.gaze}")
+            print(f"[DEBUG] gesture: {nv.gesture}")
+            print(f"[DEBUG] timestamp: {nv.timestamp}")
 
             state: InterviewState = INTERVIEW_STATE_STORE.get(interviewee_id)
             if not state:
+                print(f"[DEBUG] 상태 없음: {interviewee_id}")
                 raise HTTPException(status_code=404, detail=f"{interviewee_id} 상태 없음")
 
             # (1) 마지막 녹음 파일 처리
@@ -81,6 +90,7 @@ async def end_interview(req: EndInterviewRequest):
                 "gesture": nv.gesture,
                 "timestamp": nv.timestamp,
             }
+            print(f"[DEBUG] state['nonverbal_counts']: {state['nonverbal_counts']}")
 
             # (3) 최종 리포트 생성
             state = await final_report_flow_executor.ainvoke(state, config={"recursion_limit": 10})
@@ -88,4 +98,5 @@ async def end_interview(req: EndInterviewRequest):
         return EndInterviewResponse(result="done", report_ready=True)
 
     except Exception as e:
+        print(f"[DEBUG] Exception: {e}")
         raise HTTPException(status_code=500, detail=str(e))

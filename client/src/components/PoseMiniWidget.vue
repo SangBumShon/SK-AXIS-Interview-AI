@@ -411,6 +411,19 @@ onMounted(async () => {
     const currentData = {}
     faceStates.value.forEach((state, index) => {
       const id = props.intervieweeIds[index]
+
+      // === [추가] 표정 카운트 누적 ===
+      // 현재 표정 카운트 값을 누적 히스토리에 push
+      accumulatedNonverbalData.value[id].facial_expression_history.push({
+        ...state.expression,
+        timestamp: Date.now()
+      })
+      // 누적 후, 1초 카운트 초기화
+      Object.keys(state.expression).forEach(key => {
+        state.expression[key] = 0
+      })
+      state.expressionTotal = 0
+
       // 누적값 합산
       const acc = accumulatedNonverbalData.value[id]
       // 표정 누적 합산

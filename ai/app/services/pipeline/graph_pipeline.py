@@ -285,8 +285,8 @@ def should_retry_evaluation(state: InterviewState) -> Literal["retry", "continue
 # 7) LLM 키워드 평가 에이전트
 # ───────────────────────────────────────────────────
 async def evaluation_agent(state: InterviewState) -> InterviewState:
-    rewritten_items = state.get("rewrite", {}).get("items", [])
-    full_answer = "\n".join(item["rewritten"] for item in rewritten_items)
+    final_items = state.get("rewrite", {}).get("final", [])
+    full_answer = "\n".join(item["rewritten"] for item in final_items)
     results = await evaluate_keywords_from_full_answer(full_answer)
 
     prev_eval = state.get("evaluation", {})
@@ -396,8 +396,8 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
   ]
 }}
 """
-        rewritten_items = state.get("rewrite", {}).get("items", [])
-        answer = "\n".join(item["rewritten"] for item in rewritten_items)
+        final_items = state.get("rewrite", {}).get("final", [])
+        answer = "\n".join(item["rewritten"] for item in final_items)
         evaluation = json.dumps(state.get("evaluation", {}).get("results", {}), ensure_ascii=False)
         criteria = json.dumps({
             **EVAL_CRITERIA_WITH_ALL_SCORES,
@@ -454,7 +454,7 @@ async def pdf_node(state: InterviewState) -> InterviewState:
     from datetime import datetime
 
     # rewrite된 답변
-    answers = [i["rewritten"] for i in state["rewrite"]["items"]]
+    answers = [i["rewritten"] for i in state["rewrite"]["final"]]
     # 평가 결과
     eval_res = state["evaluation"]["results"]
     # 비언어 분리
