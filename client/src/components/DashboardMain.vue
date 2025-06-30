@@ -134,7 +134,7 @@
         <table class="min-w-full">
           <thead class="bg-gray-50">
             <tr>
-              <th v-for="column in tableColumns" :key="column.key"
+              <th v-for="column in visibleTableColumns" :key="column.key"
                   @click="$emit('sortBy', column.key)"
                   class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100">
                 {{ column.label }} <i class="fas fa-sort ml-1"></i>
@@ -142,13 +142,12 @@
             </tr>
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
-            <tr v-for="interview in sortedInterviews" :key="interview.id" class="hover:bg-gray-50">
+            <tr v-for="interview in pagedInterviews" :key="interview.id" class="hover:bg-gray-50">
               <td class="px-6 py-4 whitespace-nowrap">{{ interview.date }}</td>
               <td class="px-6 py-4 whitespace-nowrap">{{ interview.time }}</td>
               <td class="px-6 py-4 whitespace-nowrap">{{ interview.room }}</td>
               <td class="px-6 py-4 whitespace-nowrap">{{ interview.candidate }}</td>
               <td class="px-6 py-4 whitespace-nowrap">{{ interview.position }}</td>
-              <td class="px-6 py-4 whitespace-nowrap">{{ interview.department }}</td>
               <td class="px-6 py-4 whitespace-nowrap">{{ interview.interviewers.join(', ') }}</td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <span :class="{
@@ -171,10 +170,39 @@
         </table>
       </div>
     </div>
+    <!-- 페이지네이션 및 페이지당 개수 선택 UI -->
+    <div class="relative px-4 pb-4">
+      <div class="absolute left-0 top-0 flex items-center gap-2">
+        <label for="itemsPerPageDashboard" class="text-sm text-gray-500">페이지당</label>
+        <select id="itemsPerPageDashboard" v-model.number="itemsPerPage" class="px-2 py-1 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <option :value="5">5</option>
+          <option :value="10">10</option>
+          <option :value="15">15</option>
+        </select>
+        <span class="text-sm text-gray-500">개 보기</span>
+      </div>
+      <div class="flex justify-center items-center gap-2 w-full">
+        <button @click="goToPage(1)" :disabled="currentPage === 1" class="px-3 py-1 rounded-full border shadow-sm transition-colors duration-150" :class="currentPage === 1 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-blue-100'">
+          <i class="fas fa-angle-double-left"></i>
+        </button>
+        <button @click="goToPage(currentPage - 1)" :disabled="currentPage === 1" class="px-3 py-1 rounded-full border shadow-sm transition-colors duration-150" :class="currentPage === 1 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-blue-100'">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        <span v-for="page in visiblePages" :key="page">
+          <button @click="goToPage(page)" :class="page === currentPage ? 'bg-red-500 text-white' : 'bg-white text-gray-700 hover:bg-red-100'" class="px-3 py-1 rounded-full border mx-1 shadow-sm transition-colors duration-150">{{ page }}</button>
+        </span>
+        <button @click="goToPage(currentPage + 1)" :disabled="currentPage === totalPages || totalPages === 0" class="px-3 py-1 rounded-full border shadow-sm transition-colors duration-150" :class="currentPage === totalPages || totalPages === 0 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-blue-100'">
+          <i class="fas fa-chevron-right"></i>
+        </button>
+        <button @click="goToPage(totalPages)" :disabled="currentPage === totalPages || totalPages === 0" class="px-3 py-1 rounded-full border shadow-sm transition-colors duration-150" :class="currentPage === totalPages || totalPages === 0 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-blue-100'">
+          <i class="fas fa-angle-double-right"></i>
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 <script setup lang="ts">
-import { defineProps, defineEmits } from 'vue';
+import { defineProps, defineEmits, ref, computed, watch } from 'vue';
 interface Interview {
   id: number;
   date: string;
@@ -191,7 +219,7 @@ interface TableColumn {
   key: string;
   label: string;
 }
-defineProps<{
+const props = defineProps<{
   candidateList: any[];
   filters: any;
   tableColumns: TableColumn[];
@@ -205,6 +233,42 @@ const emits = defineEmits([
   'sortBy',
   'viewDetails'
 ]);
+
+// 페이징 관련 상태 (템플릿에서 직접 사용)
+const itemsPerPage = ref(5);
+const currentPage = ref(1);
+const pagedInterviews = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage.value;
+  return props.sortedInterviews.slice(start, start + itemsPerPage.value);
+});
+const totalPages = computed(() => Math.ceil(props.sortedInterviews.length / itemsPerPage.value));
+function goToPage(page: number) {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page;
+  }
+}
+watch(itemsPerPage, () => {
+  currentPage.value = 1;
+});
+
+// 최대 5개만 보이는 페이지네이션 계산
+const visiblePages = computed(() => {
+  const total = totalPages.value;
+  const current = currentPage.value;
+  if (total <= 5) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 3) {
+    return [1, 2, 3, 4, 5];
+  }
+  if (current >= total - 2) {
+    return [total - 4, total - 3, total - 2, total - 1, total].filter(p => p > 0);
+  }
+  return [current - 2, current - 1, current, current + 1, current + 2];
+});
+
+// '지원 부서' 컬럼을 제외한 컬럼만 사용
+const visibleTableColumns = computed(() => props.tableColumns.filter(col => col.key !== 'department'));
 
 // 엑셀 업로드 처리 함수
 function handleExcelUpload(event: Event) {

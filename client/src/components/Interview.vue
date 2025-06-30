@@ -86,6 +86,7 @@
       class="fixed bottom-4 right-4 bg-gray-900 rounded-lg overflow-hidden shadow-lg z-50 flex items-center justify-center"
       style="width:480px; aspect-ratio:4/3; pointer-events:none;">
       <PoseMiniWidget 
+        ref="poseMiniWidgetRef"
         :intervieweeNames="candidates"
         :intervieweeIds="candidateIds"
         @updateNonverbalData="handleNonverbalData"
@@ -133,6 +134,9 @@ const emit = defineEmits<Emits>()
 const router = useRouter()
 const route = useRoute()
 const isAnalyzing = ref(false)
+
+// PoseMiniWidget ref 추가
+const poseMiniWidgetRef = ref<InstanceType<typeof PoseMiniWidget> | null>(null)
 
 // 비언어적 데이터 저장소
 const nonverbalData = ref<Record<number, any>>({})
@@ -218,6 +222,11 @@ const endSession = async () => {
   try {
     isAnalyzing.value = true
     console.log('면접 종료...', { nonverbalData: nonverbalData.value })
+
+    // PoseMiniWidget 감지 중단
+    if (poseMiniWidgetRef.value) {
+      poseMiniWidgetRef.value.stopDetection()
+    }
 
     // FastAPI 서버에 면접 종료 요청
     const rawNonverbalData = JSON.parse(JSON.stringify(nonverbalData.value))

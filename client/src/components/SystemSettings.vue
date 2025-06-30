@@ -101,50 +101,40 @@ import { ref, computed } from 'vue';
 const evaluationCriteria = ref([
   {
     name: '인성',
-    description: '지원자의 성격, 태도, 가치관 등을 평가',
-    weight: 30,
+    description: 'SUPEX, VWBE, Passionate, Proactive, Professional, People',
+    weight: 45,
     icon: 'fa-user',
     bgColor: 'bg-blue-100 text-blue-600',
     subCriteria: [
-      { name: '성실성', weight: 35 },
-      { name: '책임감', weight: 35 },
-      { name: '팀워크', weight: 30 }
+      { name: 'SUPEX', weight: 16.67 },
+      { name: 'VWBE', weight: 16.67 },
+      { name: 'Passionate', weight: 16.67 },
+      { name: 'Proactive', weight: 16.67 },
+      { name: 'Professional', weight: 16.67 },
+      { name: 'People', weight: 16.65 }
     ]
   },
   {
-    name: '직무 적합도',
-    description: '직무 수행에 필요한 지식과 경험 평가',
-    weight: 40,
+    name: '직무/도메인',
+    description: '직무 역량, 도메인 이해도',
+    weight: 45,
     icon: 'fa-briefcase',
     bgColor: 'bg-green-100 text-green-600',
     subCriteria: [
-      { name: '전문 지식', weight: 40 },
-      { name: '실무 경험', weight: 35 },
-      { name: '문제 해결력', weight: 25 }
+      { name: '직무 역량', weight: 50 },
+      { name: '도메인 이해도', weight: 50 }
     ]
   },
   {
-    name: '커뮤니케이션',
-    description: '의사소통 능력과 표현력 평가',
-    weight: 20,
+    name: '비언어적',
+    description: '표정, 태도, 자세 등',
+    weight: 10,
     icon: 'fa-comments',
     bgColor: 'bg-yellow-100 text-yellow-600',
     subCriteria: [
-      { name: '논리성', weight: 40 },
-      { name: '명확성', weight: 30 },
-      { name: '경청력', weight: 30 }
-    ]
-  },
-  {
-    name: '발전 가능성',
-    description: '학습 능력과 성장 잠재력 평가',
-    weight: 10,
-    icon: 'fa-chart-line',
-    bgColor: 'bg-purple-100 text-purple-600',
-    subCriteria: [
-      { name: '학습 의지', weight: 40 },
-      { name: '적응력', weight: 30 },
-      { name: '창의성', weight: 30 }
+      { name: '표정', weight: 34 },
+      { name: '태도', weight: 33 },
+      { name: '자세', weight: 33 }
     ]
   }
 ]);

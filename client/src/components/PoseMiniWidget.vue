@@ -38,7 +38,11 @@ const emit = defineEmits(['updateNonverbalData'])
 // 부모 컴포넌트에서 접근 가능하도록 누적 데이터 노출
 defineExpose({
   getAccumulatedNonverbalData: () => accumulatedNonverbalData.value,
-  getCurrentNonverbalData: () => nonverbalData.value
+  getCurrentNonverbalData: () => nonverbalData.value,
+  stopDetection: () => {
+    active = false
+    console.log('[감지 중단] PoseMiniWidget 감지가 중단되었습니다.')
+  }
 })
 
 // 녹음 관련 상태 - 면접자별 개별 관리
@@ -151,7 +155,7 @@ async function startRecording(personIndex) {
       formData.append('interviewee_id', state.id.toString())
       
       try {
-        const response = await fetch('http://localhost:8000/api/v1/stt/upload', {
+        const response = await fetch('http//:localhost:8000/api/v1/stt/upload', {
           method: 'POST',
           body: formData
         })

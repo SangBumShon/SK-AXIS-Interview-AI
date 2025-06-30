@@ -1,8 +1,8 @@
 <template>
-  <div class="fixed inset-0 bg-white z-50 overflow-auto">
-    <div class="flex h-full">
-      <!-- 사이드바 -->
-      <div class="w-64 bg-white border-r border-gray-200 h-full shadow-sm flex flex-col justify-between">
+  <div class="bg-white z-50 min-h-screen">
+    <div class="flex min-h-screen">
+      <!-- 사이드바: 항상 고정 -->
+      <div class="w-64 bg-white border-r border-gray-200 h-screen shadow-sm flex flex-col justify-between fixed left-0 top-0 z-40">
         <div>
           <div class="p-6">
             <div class="flex items-center gap-2 mb-8">
@@ -55,8 +55,8 @@
         </div>
       </div>
       
-      <!-- 메인 콘텐츠 -->
-      <div class="flex-1 overflow-auto">
+      <!-- 메인 콘텐츠: 사이드바 오른쪽에 위치, 스크롤 가능 -->
+      <div class="flex-1 ml-64">
         <DashboardMain
           v-if="activeView === 'dashboard'"
           :candidateList="candidateList"
@@ -369,11 +369,6 @@
         </div>
       </div>
     </div>
-
-    <!-- 고정 위치 버튼 -->
-    <div v-if="activeView === 'candidates'" class="fixed bottom-8 right-8 z-50">
-      <button class="px-6 py-3 bg-orange-500 text-white rounded-lg shadow-lg hover:bg-orange-600 transition-colors">적용</button>
-    </div>
   </div>
 </template>
 
@@ -601,8 +596,6 @@ const deleteAllInterviews = () => {
   interviews.value = [];
   showDeleteConfirm.value = false;
 };
-
-
 
 const handleExcelUpload = () => {
   // 엑셀 업로드 버튼/파일 input/함수 모두 제거
