@@ -110,33 +110,13 @@ _overall_prompt = PromptTemplate(
 """
 )
 
-# 3) 자세 평가
-async def evaluate_posture(posture: Posture) -> Tuple[float, str, str, str]:
+# 3) 표정 평가만 남기고 나머지 함수 제거
+async def evaluate(nonverbal: FacialExpression) -> float:
     data = {
-        "leg_spread": posture.leg_spread,
-        "leg_shake": posture.leg_shake,
-        "head_down": posture.head_down
-    }
-    prompt = _posture_prompt.format(posture_data=data)
-    resp = await _llm.ainvoke(prompt)
-    try:
-        res = json.loads(resp.content)
-        if "score" not in res:
-            raise KeyError("LLM 응답에 'score' 키가 없습니다.")
-        return res["score"], res["feedback"], res["analysis"], resp.content
-    except json.JSONDecodeError as e:
-        raise ValueError(f"LLM 응답을 JSON으로 파싱할 수 없습니다: {resp.content}") from e
-    except KeyError as e:
-        raise ValueError(f"LLM 응답에 필수 키가 없습니다: {resp.content}") from e
-
-# 4) 표정 평가
-async def evaluate_facial_expression(facial: FacialExpression) -> Tuple[float, str, str, str]:
-    data = {
-        "smile": facial.smile,
-        "neutral": facial.neutral,
-        "embarrassed": facial.embarrassed,
-        "tearful": facial.tearful,
-        "frown": facial.frown
+        "smile": nonverbal.smile,
+        "neutral": nonverbal.neutral,
+        "frown": nonverbal.frown,
+        "angry": nonverbal.angry
     }
     prompt = _facial_prompt.format(facial_data=data)
     resp = await _llm.ainvoke(prompt)
@@ -144,40 +124,8 @@ async def evaluate_facial_expression(facial: FacialExpression) -> Tuple[float, s
         res = json.loads(resp.content)
         if "score" not in res:
             raise KeyError("LLM 응답에 'score' 키가 없습니다.")
-        return res["score"], res["feedback"], res["analysis"], resp.content
+        return res["score"]
     except json.JSONDecodeError as e:
         raise ValueError(f"LLM 응답을 JSON으로 파싱할 수 없습니다: {resp.content}") from e
     except KeyError as e:
         raise ValueError(f"LLM 응답에 필수 키가 없습니다: {resp.content}") from e
-
-# 5) 종합 평가
-async def evaluate(nonverbal: NonverbalData) -> NonverbalScore:
-    # (1) 자세
-    p_score, p_fb, p_an, p_raw_llm = await evaluate_posture(nonverbal.posture)
-    # (2) 표정
-    f_score, f_fb, f_an, f_raw_llm = await evaluate_facial_expression(nonverbal.facial_expression)
-    # (3) 종합 LLM 평가
-    prompt = _overall_prompt.format(posture_analysis=p_an, facial_analysis=f_an)
-    resp = await _llm.ainvoke(prompt)
-    try:
-        over = json.loads(resp.content)
-        if "score" not in over:
-            raise KeyError("LLM 응답에 'score' 키가 없습니다.")
-    except json.JSONDecodeError as e:
-        raise ValueError(f"LLM 응답을 JSON으로 파싱할 수 없습니다: {resp.content}") from e
-    except KeyError as e:
-        raise ValueError(f"LLM 응답에 필수 키가 없습니다: {resp.content}") from e
-    # (4) 직접 계산
-    overall_score = round(p_score * 0.6 + f_score * 0.4, 2)
-    feedback = {"자세": p_fb, "표정": f_fb, "종합": over.get("feedback", "")}    
-    return NonverbalScore(
-        interviewee_id=nonverbal.interviewee_id,
-        posture_score=p_score,
-        facial_score=f_score,
-        overall_score=overall_score,
-        feedback=feedback,
-        detailed_analysis=over.get("analysis", ""),
-        posture_raw_llm_response=p_raw_llm,
-        facial_raw_llm_response=f_raw_llm,
-        overall_raw_llm_response=resp.content
-    )

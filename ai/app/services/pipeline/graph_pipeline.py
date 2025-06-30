@@ -205,7 +205,7 @@ async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
 
 
 # ───────────────────────────────────────────────────
-# 5) Nonverbal 평가 에이전트
+# 5) Nonverbal 평가 에이전트 (표정만 평가)
 # ───────────────────────────────────────────────────
 async def nonverbal_evaluation_agent(state: InterviewState) -> InterviewState:
     ts = datetime.now().isoformat()
@@ -215,43 +215,21 @@ async def nonverbal_evaluation_agent(state: InterviewState) -> InterviewState:
             state.decision_log.append("Nonverbal data not available for evaluation.")
             return state
 
-        posture = Posture.parse_obj(counts["posture"])
-        facial  = FacialExpression.parse_obj(counts["facial_expression"])
-        gaze    = counts.get("gaze", 0)
-        gesture = counts.get("gesture", 0)
-
-        nv = NonverbalData(
-            interviewee_id=state["interviewee_id"],
-            posture=posture,
-            facial_expression=facial,
-            gaze=gaze,
-            gesture=gesture
-        )
-        nv_score = await evaluate(nv)
-
-        pts = int(round(nv_score.overall_score * 15))
-        reason = nv_score.detailed_analysis or nv_score.feedback.get("종합", "")
-
+        facial = FacialExpression.parse_obj(counts["expression"])
+        score = await evaluate(facial)
+        pts = int(round(score * 15))
         state.setdefault("evaluation", {}).setdefault("results", {})["비언어적"] = {
             "score": pts,
-            "reason": reason
+            "reason": "표정 기반 평가"
         }
         state.setdefault("decision_log", []).append({
             "step": "nonverbal_evaluation",
             "result": "success",
             "time": ts,
             "details": {
-                "score": pts,
-                "feedback": nv_score.feedback,
-                "analysis": nv_score.detailed_analysis,
-                "raw_llm_responses": {
-                    "posture": nv_score.posture_raw_llm_response,
-                    "facial": nv_score.facial_raw_llm_response,
-                    "overall": nv_score.overall_raw_llm_response
-                }
+                "score": pts
             }
         })
-
     except Exception as e:
         state.setdefault("decision_log", []).append({
             "step": "nonverbal_evaluation",
@@ -264,9 +242,14 @@ async def nonverbal_evaluation_agent(state: InterviewState) -> InterviewState:
 # ───────────────────────────────────────────────────
 # 6) 평가 재시도 조건: 최대 3회
 # ───────────────────────────────────────────────────
-def should_retry_evaluation(state: InterviewState) -> Literal["retry", "continue"]:
+def should_retry_evaluation(state: InterviewState) -> Literal["retry", "continue", "done"]:
     eval_info = state.get("evaluation", {})
     retry = eval_info.get("retry_count", 0)
+
+    # 평가 결과가 아예 없으면 done
+    if not eval_info.get("results"):
+        print("[should_retry_evaluation] No evaluation results, done.")
+        return "done"
 
     # 아직 판정 전이면 continue
     if "ok" not in eval_info:
@@ -325,8 +308,8 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
             "time": datetime.now().isoformat(),
             "details": {"error": "No evaluation results found"}
         })
-        print("[judge] No evaluation results found, will retry.")
-        state["evaluation"]["ok"] = False  # 명시적으로 False로
+        print("[judge] No evaluation results found, will stop.")
+        state["evaluation"]["ok"] = True  # 더 이상 retry/continue 안 하도록 True로 설정
         return state
 
     judge_notes = []
@@ -577,7 +560,7 @@ final_builder.add_edge("nonverbal_eval", "evaluation_agent")
 final_builder.add_edge("evaluation_agent", "evaluation_judge_agent")
 final_builder.add_conditional_edges(
     "evaluation_judge_agent", should_retry_evaluation,
-    {"retry":"evaluation_agent", "continue":"pdf_node"}
+    {"retry":"evaluation_agent", "continue":"pdf_node", "done":"__end__"}
 )
 # final_builder.add_channel("decision_log", LastValue())
 final_report_flow_executor = final_builder.compile()
