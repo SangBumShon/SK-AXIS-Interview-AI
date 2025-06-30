@@ -31,7 +31,8 @@ def transcribe_audio_file(file_path: str) -> str:
         transcript = client.audio.transcriptions.create(
             model="whisper-1",
             file=f,
-            response_format="text"
+            response_format="text",
+            language="ko"
         )
     # response_format="text" 를 사용하면 문자열이 반환됩니다.
     return transcript.strip()
@@ -55,7 +56,7 @@ async def process_audio_file(interviewee_id: int, audio_file: UploadFile) -> Opt
             buffer.write(content)
         
         # Whisper로 STT 처리
-        result = model.transcribe(temp_path)
+        result = model.transcribe(temp_path, language="ko")
         
         # 임시 파일 삭제
         os.remove(temp_path)
