@@ -82,12 +82,9 @@ async def end_interview(req: EndInterviewRequest):
                 state = await interview_flow_executor.ainvoke(state, config={"recursion_limit": 10})
                 state["audio_path"] = ""  # 중복 실행 방지
 
-            # (2) 비언어적 카운트 저장 (timestamp 포함)
+            # (2) 비언어적 카운트 저장 (expression만 사용, timestamp 포함)
             state["nonverbal_counts"] = {
-                "posture": nv.posture.dict(),
                 "expression": nv.facial_expression.dict(),
-                "gaze": nv.gaze,
-                "gesture": nv.gesture,
                 "timestamp": nv.timestamp,
             }
             print(f"[DEBUG] state['nonverbal_counts']: {state['nonverbal_counts']}")
