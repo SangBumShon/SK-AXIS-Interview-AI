@@ -211,7 +211,11 @@ const startSession = async () => {
     // 질문 데이터 저장
     questionsPerInterviewee.value = result.questionsPerInterviewee || {}
     emit('startSession')  // 면접 시작 이벤트 발생
-    // isAnalyzing.value = false; // 로딩 모달 제거
+
+    // === 감지 시작 명령 추가 ===
+    if (poseMiniWidgetRef.value) {
+      poseMiniWidgetRef.value.startDetection()
+    }
   } catch (error: unknown) {
     // isAnalyzing.value = false; // 로딩 모달 제거
     alert('면접 시작 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : String(error)))

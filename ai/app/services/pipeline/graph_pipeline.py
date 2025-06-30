@@ -303,6 +303,7 @@ async def evaluation_agent(state: InterviewState) -> InterviewState:
         "retry_count": retry_count,
         "ok": False  # 판정 전이므로 False로 초기화
     }
+    state["done"] = True  # 파이프라인 전체 종료 신호 추가
     ts = datetime.now().isoformat()
     state.setdefault("decision_log", []).append({
         "step": "evaluation_agent",
