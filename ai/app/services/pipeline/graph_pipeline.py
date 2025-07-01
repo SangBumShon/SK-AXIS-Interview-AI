@@ -694,6 +694,10 @@ async def excel_node(state: InterviewState) -> InterviewState:
         scheduled_at = None
         async with httpx.AsyncClient() as client:
             resp = await client.get(f"{SPRINGBOOT_BASE_URL}/interviews/simple")
+            print(f"[DEBUG] /interviews/simple status: {resp.status_code}")
+            print(f"[DEBUG] /interviews/simple response: {resp.text}")
+            if resp.status_code != 200:
+                raise RuntimeError(f"API 호출 실패: status={resp.status_code}, body={resp.text}")
             data = resp.json().get("data", [])
             for item in data:
                 if item["intervieweeId"] == applicant_id:
@@ -704,6 +708,9 @@ async def excel_node(state: InterviewState) -> InterviewState:
                     if scheduled and len(scheduled) >= 5:
                         scheduled_at = f"{scheduled[0]:04d}-{scheduled[1]:02d}-{scheduled[2]:02d} {scheduled[3]:02d}:{scheduled[4]:02d}"
                     break
+
+        if applicant_name is None:
+            raise ValueError(f"지원자 정보를 찾을 수 없습니다. applicant_id={applicant_id}")
 
         # 2. 답변 합치기
         all_answers = "\n".join([item["rewritten"] for item in rewrite_final])

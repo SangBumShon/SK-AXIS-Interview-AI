@@ -61,8 +61,13 @@ async def end_interview(req: EndInterviewRequest):
             
             # state가 없는 경우 스킵
             state: InterviewState = INTERVIEW_STATE_STORE.get(interviewee_id)
+            print(f"[TRACE] INTERVIEW_STATE_STORE 조회: interviewee_id={interviewee_id}, state type={type(state)}, value={state}")
             if not state:
                 print(f"[INFO] Skipping interviewee {interviewee_id} - No state found")
+                skipped_ids.append(interviewee_id)
+                continue
+            if not isinstance(state, dict):
+                print(f"[ERROR] [INTERVIEW_ROUTER] state가 dict가 아님! interviewee_id={interviewee_id}, 실제 타입: {type(state)}, 값: {state}")
                 skipped_ids.append(interviewee_id)
                 continue
 
