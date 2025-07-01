@@ -17,9 +17,9 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # ──────────────── 🧠 평가 기준 사전(JSON) 생성 ────────────────
 _all_criteria = {
-    **EVAL_CRITERIA_WITH_ALL_SCORES,  # SUPEX, V, WBE 등
-    "기술/직무": TECHNICAL_EVAL_CRITERIA_WITH_ALL_SCORES,
-    "도메인 전문성": DOMAIN_EVAL_CRITERIA_WITH_ALL_SCORES
+    **EVAL_CRITERIA_WITH_ALL_SCORES,  # SUPEX, VWBE, Passionate, Proactive, Professional, People
+    **TECHNICAL_EVAL_CRITERIA_WITH_ALL_SCORES,  # 실무 기술/지식의 깊이, 문제 해결 적용력, 학습 및 발전 가능성
+    **DOMAIN_EVAL_CRITERIA_WITH_ALL_SCORES  # 도메인 맥락 이해도, 실제 사례 기반 적용 능력, 전략적 사고력
 }
 _criteria_block = json.dumps(_all_criteria, ensure_ascii=False, indent=2)
 
@@ -39,10 +39,10 @@ SYSTEM_PROMPT = f"""
     "실패 극복 및 지속적 개선 노력": {{"score": 4, "quotes": ["..."], "reason": "..."}},
     "창의적 전략 실행을 통한 한계 극복": {{"score": 3, "quotes": ["..."], "reason": "..."}}
   }},
-  "V": {{
-    "자기주도적 실행 의지": {{"score": 5, "quotes": ["..."], "reason": "..."}},
-    "책임감 있는 태도": {{"score": 4, "quotes": ["..."], "reason": "..."}},
-    "자율적 참여와 지속성": {{"score": 3, "quotes": ["..."], "reason": "..."}}
+  "VWBE": {{
+    "자기주도적 문제 인지 및 목표 설정": {{"score": 5, "quotes": ["..."], "reason": "..."}},
+    "심층적 사고 및 몰입": {{"score": 4, "quotes": ["..."], "reason": "..."}},
+    "주체적 실행 판단 및 지속성": {{"score": 3, "quotes": ["..."], "reason": "..."}}
   }},
   "기술/직무": {{
     "실무 기술/지식의 깊이": {{"score": 5, "quotes": ["..."], "reason": "..."}},
