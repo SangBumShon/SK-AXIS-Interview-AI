@@ -673,37 +673,6 @@ async def pdf_node(state: InterviewState) -> InterviewState:
         print(f"[LangGraph] ❌ PDF 생성 실패: {e}")
 
     return state
-
-
-# LangGraph 빌더
-interview_builder = StateGraph(InterviewState)
-interview_builder.add_node("stt_node", stt_node)
-interview_builder.add_node("rewrite_agent", rewrite_agent)
-interview_builder.add_node("rewrite_judge_agent", rewrite_judge_agent)
-interview_builder.set_entry_point("stt_node")
-interview_builder.add_edge("stt_node", "rewrite_agent")
-interview_builder.add_edge("rewrite_agent", "rewrite_judge_agent")
-interview_builder.add_conditional_edges(
-    "rewrite_judge_agent", should_retry_rewrite,
-    {"retry":"rewrite_agent", "done":"__end__"}
-)
-interview_flow_executor = interview_builder.compile()
-
-final_builder = StateGraph(InterviewState)
-final_builder.add_node("nonverbal_eval", nonverbal_evaluation_agent)
-final_builder.add_node("evaluation_agent", evaluation_agent)
-final_builder.add_node("evaluation_judge_agent", evaluation_judge_agent)
-final_builder.add_node("pdf_node", pdf_node)
-final_builder.set_entry_point("nonverbal_eval")
-final_builder.add_edge("nonverbal_eval", "evaluation_agent")
-final_builder.add_edge("evaluation_agent", "evaluation_judge_agent")
-final_builder.add_conditional_edges(
-    "evaluation_judge_agent", should_retry_evaluation,
-    {"retry":"evaluation_agent", "continue":"pdf_node"}
-)
-# final_builder.add_channel("decision_log", LastValue())
-final_report_flow_executor = final_builder.compile()
-
 # ───────────────────────────────────────────────────
 # Excel Node: 지원자 ID로 이름 조회 후 엑셀 생성
 # ───────────────────────────────────────────────────
