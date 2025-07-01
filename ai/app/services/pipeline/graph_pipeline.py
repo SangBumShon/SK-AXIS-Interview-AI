@@ -313,14 +313,14 @@ async def evaluation_agent(state: InterviewState) -> InterviewState:
     if final_items:
         for idx, item in enumerate(final_items):
             print(f"[DEBUG] 📝 final[{idx}]: {item.get('rewritten', '')[:100]}")
+        full_answer = "\n".join(item["rewritten"] for item in final_items)
     else:
-        print("[DEBUG] ⚠️ final_items가 비어있음. raw 텍스트 사용")
-    # final_items가 비어있으면 raw 텍스트 사용
-    stt_segments = state.get("stt", {}).get("segments", [])
-    if stt_segments:
-        full_answer = stt_segments[-1].get("raw", "답변 내용이 없습니다.")
-    else:
-        full_answer = "답변 내용이 없습니다."
+        print("[DEBUG] ⚠️ final_items가 비어있음. 모든 STT 원본 답변을 합쳐서 평가")
+        stt_segments = state.get("stt", {}).get("segments", [])
+        if stt_segments:
+            full_answer = "\n".join(seg.get("raw", "답변 내용이 없습니다.") for seg in stt_segments)
+        else:
+            full_answer = "답변 내용이 없습니다."
     
     print(f"[DEBUG] 📄 평가할 답변: {full_answer[:100]}...")
     
@@ -673,6 +673,7 @@ async def pdf_node(state: InterviewState) -> InterviewState:
         print(f"[LangGraph] ❌ PDF 생성 실패: {e}")
 
     return state
+
 # ───────────────────────────────────────────────────
 # Excel Node: 지원자 ID로 이름 조회 후 엑셀 생성
 # ───────────────────────────────────────────────────
@@ -680,53 +681,57 @@ async def excel_node(state: InterviewState) -> InterviewState:
     import os
     from datetime import datetime
 
-    applicant_id = state.get("interviewee_id")
-    rewrite_final = state.get("rewrite", {}).get("final", [])
-    total_score = state.get("evaluation", {}).get("judge", {}).get("total_score")
+    try:
+        applicant_id = state.get("interviewee_id")
+        rewrite_final = state.get("rewrite", {}).get("final", [])
+        total_score = state.get("evaluation", {}).get("judge", {}).get("total_score")
 
-    # 1. 지원자 정보 조회
-    SPRINGBOOT_BASE_URL = os.getenv("SPRING_API_URL", "http://localhost:8080/api/v1")
-    applicant_name = None
-    interviewers = None
-    room_no = None
-    scheduled_at = None
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(f"{SPRINGBOOT_BASE_URL}/interviews/simple")
-        data = resp.json().get("data", [])
-        for item in data:
-            if item["intervieweeId"] == applicant_id:
-                applicant_name = item["name"]
-                interviewers = item.get("interviewers", "")  # 예: '면접관A,면접관B'
-                room_no = item.get("roomNo", "")
-                scheduled = item.get("scheduledAt", [])
-                if scheduled and len(scheduled) >= 5:
-                    # [YYYY, MM, DD, HH, mm]
-                    scheduled_at = f"{scheduled[0]:04d}-{scheduled[1]:02d}-{scheduled[2]:02d} {scheduled[3]:02d}:{scheduled[4]:02d}"
-                break
+        # 1. 지원자 정보 조회
+        SPRINGBOOT_BASE_URL = os.getenv("SPRING_API_URL", "http://localhost:8080/api/v1")
+        applicant_name = None
+        interviewers = None
+        room_no = None
+        scheduled_at = None
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"{SPRINGBOOT_BASE_URL}/interviews/simple")
+            data = resp.json().get("data", [])
+            for item in data:
+                if item["intervieweeId"] == applicant_id:
+                    applicant_name = item["name"]
+                    interviewers = item.get("interviewers", "")
+                    room_no = item.get("roomNo", "")
+                    scheduled = item.get("scheduledAt", [])
+                    if scheduled and len(scheduled) >= 5:
+                        scheduled_at = f"{scheduled[0]:04d}-{scheduled[1]:02d}-{scheduled[2]:02d} {scheduled[3]:02d}:{scheduled[4]:02d}"
+                    break
 
-    # 2. 답변 합치기
-    all_answers = "\n".join([item["rewritten"] for item in rewrite_final])
+        # 2. 답변 합치기
+        all_answers = "\n".join([item["rewritten"] for item in rewrite_final])
 
-    # 3. 엑셀 생성
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "면접 결과"
-    ws.append(["지원자ID", "이름", "면접관", "면접실", "면접일시", "답변(모두)", "총점"])
-    ws.append([applicant_id, applicant_name, interviewers, room_no, scheduled_at, all_answers, total_score])
+        # 3. 엑셀 생성
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "면접 결과"
+        ws.append(["지원자ID", "이름", "면접관", "면접실", "면접일시", "답변(모두)", "총점"])
+        ws.append([applicant_id, applicant_name, interviewers, room_no, scheduled_at, all_answers, total_score])
 
-    out_dir = os.getenv("RESULT_DIR", "./result")
-    os.makedirs(out_dir, exist_ok=True)
-    ts = datetime.now().strftime("%Y%m%d%H%M%S")
-    excel_path = f"{out_dir}/{applicant_id}_result_{ts}.xlsx"
-    wb.save(excel_path)
+        out_dir = os.getenv("RESULT_DIR", "./result")
+        os.makedirs(out_dir, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d%H%M%S")
+        excel_path = f"{out_dir}/{applicant_id}_result_{ts}.xlsx"
+        wb.save(excel_path)
+        print(f"[LangGraph] ✅ Excel 생성 완료: {excel_path}")
 
-    state.setdefault("report", {}).setdefault("excel", {})["path"] = excel_path
-    state.setdefault("decision_log", []).append({
-        "step": "excel_node",
-        "result": "generated",
-        "time": datetime.now().isoformat(),
-        "details": {"path": excel_path}
-    })
+        state.setdefault("report", {}).setdefault("excel", {})["path"] = excel_path
+        state.setdefault("decision_log", []).append({
+            "step": "excel_node",
+            "result": "generated",
+            "time": datetime.now().isoformat(),
+            "details": {"path": excel_path}
+        })
+    except Exception as e:
+        print(f"[LangGraph] ❌ Excel 생성 실패: {e}")
+        state.setdefault("report", {}).setdefault("excel", {})["error"] = str(e)
     return state
 
 # LangGraph 빌더
