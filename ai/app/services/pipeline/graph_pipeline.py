@@ -454,14 +454,27 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
     # 2. 점수 범위 검증 (1~5)
     for criteria in results.values():
         for data in criteria.values():
-            # 문제 발생 부분
-            s = data.get("score", 0)
+            print(f"[DEBUG] evaluation_judge_agent - data type: {type(data)}, value: {data}")
+            if isinstance(data, dict):
+                s = data.get("score", 0)
+            elif isinstance(data, int):
+                s = data
+            else:
+                s = 0
             if not (1 <= s <= 5):
                 judge_notes.append(f"Invalid score {s}")
                 is_valid = False
 
     # 3. 총점 검증
-    total = sum(sum(c.get("score", 0) for c in crit.values()) for crit in results.values())
+    total = 0
+    for crit in results.values():
+        for c in crit.values():
+            if isinstance(c, dict):
+                total += c.get("score", 0)
+            elif isinstance(c, int):
+                total += c
+            else:
+                total += 0
     max_score = len(results) * 3 * 5
     if total > max_score:
         judge_notes.append(f"Total {total} exceeds max {max_score}")
