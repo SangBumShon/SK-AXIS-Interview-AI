@@ -72,6 +72,8 @@ def safe_get(d, key, default=None, context=""):
 
 def stt_node(state: InterviewState) -> InterviewState:
     print("[LangGraph] 🧠 stt_node 진입")
+    # 파이프라인 전체 시작 시각 기록
+    # state["_pipeline_start_time"] = datetime.now(KST).timestamp()
     audio_path = safe_get(state, "audio_path", context="stt_node")
     raw = transcribe_audio_file(audio_path)
     if not raw or not str(raw).strip():
@@ -715,15 +717,45 @@ async def score_summary_agent(state):
     verbal_reason = response.choices[0].message.content.strip().splitlines()[:8]
     print(f"[DEBUG] summary_text(LLM 요약): {verbal_reason}")
 
+    # 각 키워드별 총점 계산
+    keyword_scores = {}
+    for keyword, criteria in evaluation_results.items():
+        if keyword == "비언어적":
+            continue
+        total = 0
+        for crit in criteria.values():
+            if isinstance(crit, dict):
+                total += crit.get("score", 0)
+            elif isinstance(crit, int):
+                total += crit
+        keyword_scores[keyword] = total
+
     # state에 저장
     state["summary"] = {
         "weights": weights,
         "verbal_score": verbal_score,
         "verbal_reason": verbal_reason,
         "nonverbal_score": weights["비언어적 요소"],
-        "nonverbal_reason": nonverbal_reason
+        "nonverbal_reason": nonverbal_reason,
+        "keyword_scores": keyword_scores
     }
     print(f"[LangGraph] ✅ 영역별 점수/요약 저장: {json.dumps(state['summary'], ensure_ascii=False, indent=2)}")
+
+    # 전체 state 디버깅 출력
+    # print("[DEBUG] ===== 전체 state 출력 (summary_agent 종료 후) =====")
+    # try:
+    #     print(json.dumps(state, ensure_ascii=False, indent=2))
+    # except Exception as e:
+    #     print(f"[DEBUG] state 전체 출력 중 오류: {e}")
+    # print("[DEBUG] ==========================================")
+
+    # 파이프라인 전체 소요 시간 측정
+    # start_ts = state.get("_pipeline_start_time")
+    # if start_ts:
+    #     elapsed = datetime.now(KST).timestamp() - start_ts
+    #     print(f"[DEBUG] 파이프라인 전체 소요 시간: {elapsed:.2f}초 (STT 업로드~summary)")
+    # else:
+    #     print("[DEBUG] 파이프라인 시작 시각 정보가 없습니다.")
     return state
 
 

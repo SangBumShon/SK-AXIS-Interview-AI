@@ -237,10 +237,11 @@
 
 <script setup lang="ts">
 import { ref, computed, defineProps, defineEmits, onMounted, onUnmounted, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import axios from 'axios';
 
 const router = useRouter();
+const route = useRoute();
 
 // 카테고리별 기본 아이콘/색상 세팅
 const competencyConfig = [
@@ -265,16 +266,47 @@ const emit = defineEmits(['close', 'download']);
 const tab = ref(props.initialTab ?? 0);
 const result = computed(() => props.interviewResults[tab.value]);
 
+const candidateIds = computed(() => {
+  const raw = route.query.candidateIds;
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    // 쿼리스트링이 여러 번 들어온 경우 (edge case)
+    return raw.flatMap(item => {
+      if (!item) return [];
+      try {
+        const arr = JSON.parse(String(item));
+        if (Array.isArray(arr)) return arr.map(Number).filter(n => !isNaN(n));
+        return String(item).split(',').map(Number).filter(n => !isNaN(n));
+      } catch {
+        return String(item).split(',').map(Number).filter(n => !isNaN(n));
+      }
+    });
+  }
+  try {
+    // JSON 배열 문자열
+    const arr = JSON.parse(String(raw));
+    if (Array.isArray(arr)) return arr.map(Number).filter(n => !isNaN(n));
+  } catch {
+    // 쉼표로 구분된 문자열
+    return String(raw).split(',').map(Number).filter(n => !isNaN(n));
+  }
+  return [];
+});
+
 // 폴링 관련 변수 및 함수
 let pollingInterval: any = null;
 
 async function fetchAllResults() {
-  const ids = props.selectedCandidates.join(',');
+  if (!candidateIds.value.length) {
+    console.error('candidateIds가 비어있음');
+    return;
+  }
+  const ids = candidateIds.value.join(',');
   const response = await axios.get(`http://localhost:8000/api/v1/results?interviewee_ids=${ids}`);
   const results = response.data.results;
-  for (let i = 0; i < props.selectedCandidates.length; i++) {
-    const candidateId = props.selectedCandidates[i];
-    const found = results.find((r: any) => r.interviewee_id == candidateId);
+  for (let i = 0; i < candidateIds.value.length; i++) {
+    const candidateId = candidateIds.value[i];
+    const found = results.find((r: any) => Number(r.interviewee_id) === candidateId);
     if (found) {
       props.interviewResults[i] = found;
     }
@@ -282,8 +314,13 @@ async function fetchAllResults() {
 }
 
 async function checkAllInterviewComplete() {
+  if (!candidateIds.value.length) {
+    console.error('candidateIds가 비어있음');
+    return;
+  }
   try {
-    const ids = props.selectedCandidates.join(',');
+    const ids = candidateIds.value.join(',');
+    console.log('[statuses API 호출] interviewee_ids:', ids);
     const response = await axios.get(`http://localhost:8000/api/v1/results/statuses?interviewee_ids=${ids}`);
     const statuses = response.data;
     // 모두 DONE인지 확인
@@ -397,6 +434,9 @@ function emitDownload() {
 
 // 드롭다운 외부 클릭시 닫기
 onMounted(() => {
+  console.log('[InterviewResult.vue] selectedCandidates(이름):', props.selectedCandidates);
+  console.log('[InterviewResult.vue] route.query.candidateIds:', route.query.candidateIds);
+  console.log('[InterviewResult.vue] candidateIds(ID):', candidateIds.value);
   startPolling();
   document.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;

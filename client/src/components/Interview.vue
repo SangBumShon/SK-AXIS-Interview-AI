@@ -284,10 +284,13 @@ const endSession = async () => {
     emit('endSession')  // 면접 종료 이벤트 발생
 
     // 결과 페이지로 이동
+    console.log('[면접 종료] 결과 페이지 이동 candidates:', props.candidates);
+    console.log('[면접 종료] 결과 페이지 이동 candidateIds:', props.candidateIds);
     router.push({
       name: 'result',
       query: {
         candidates: JSON.stringify(props.candidates),
+        candidateIds: JSON.stringify(props.candidateIds),
         tab: '0'
       }
     })
