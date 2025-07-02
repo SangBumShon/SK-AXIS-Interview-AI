@@ -800,7 +800,7 @@ final_builder = StateGraph(InterviewState)
 final_builder.add_node("nonverbal_eval", nonverbal_evaluation_agent)
 final_builder.add_node("evaluation_agent", evaluation_agent)
 final_builder.add_node("evaluation_judge_agent", evaluation_judge_agent)
-final_builder.add_node("pdf_node", pdf_node)
+final_builder.add_node("score_summary_agent", score_summary_agent)
 # final_builder.add_node("excel_node", excel_node)
 final_builder.set_entry_point("nonverbal_eval")
 final_builder.add_edge("nonverbal_eval", "evaluation_agent")
@@ -808,7 +808,7 @@ final_builder.add_edge("evaluation_agent", "evaluation_judge_agent")
 # final_builder.add_edge("pdf_node", "excel_node")
 final_builder.add_conditional_edges(
     "evaluation_judge_agent", should_retry_evaluation,
-    {"retry":"evaluation_agent", "continue":"pdf_node", "done":"__end__"}
+    {"retry":"evaluation_agent", "continue":"score_summary_agent", "done":"__end__"}
 )
 # final_builder.add_channel("decision_log", LastValue())
 final_report_flow_executor = final_builder.compile()
