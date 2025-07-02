@@ -50,22 +50,18 @@ async def start_interview(req: StartInterviewRequest):
 
 @router.post("/end", response_model=EndInterviewResponse)
 async def end_interview(req: EndInterviewRequest):
-    """Swagger 명세에 맞춘 Map 구조 처리"""
     processed_count = 0
     skipped_ids = []
-    
+
     try:
         for interviewee_id_str, nv in req.data.items():
             interviewee_id = int(interviewee_id_str)
             print(f"[DEBUG] Processing interviewee_id: {interviewee_id}")
-            
-            # state가 없는 경우 스킵
-            state: InterviewState = INTERVIEW_STATE_STORE.get(interviewee_id)
+
+            state = INTERVIEW_STATE_STORE.get(interviewee_id)
             print(f"[TRACE] INTERVIEW_STATE_STORE 조회: interviewee_id={interviewee_id}, state type={type(state)}, value={state}")
-            if not state:
-                print(f"[INFO] Skipping interviewee {interviewee_id} - No state found")
-                skipped_ids.append(interviewee_id)
-                continue
+
+            # ✅ 반드시 먼저 타입 확인
             if not isinstance(state, dict):
                 print(f"[ERROR] [INTERVIEW_ROUTER] state가 dict가 아님! interviewee_id={interviewee_id}, 실제 타입: {type(state)}, 값: {state}")
                 skipped_ids.append(interviewee_id)
@@ -77,11 +73,13 @@ async def end_interview(req: EndInterviewRequest):
             print(f"[DEBUG] 변환된 nv 데이터: {nv}")
 
             # (1) 마지막 녹음 파일 처리
-            if state.get("audio_path"):
+            audio_path = state.get("audio_path")
+            if audio_path:  # ✅ 안전하게 접근
+                print(f"[DEBUG] audio_path 존재함: {audio_path}")
                 state = await interview_flow_executor.ainvoke(state, config={"recursion_limit": 10})
                 state["audio_path"] = ""  # 중복 실행 방지
 
-            # (2) 비언어적 카운트 저장 (expression만 사용, timestamp 포함)
+            # (2) 비언어적 데이터 저장
             state["nonverbal_counts"] = {
                 "expression": nv.facial_expression.dict(),
                 "timestamp": nv.timestamp,
@@ -90,13 +88,15 @@ async def end_interview(req: EndInterviewRequest):
 
             # (3) 최종 리포트 생성
             state = await final_report_flow_executor.ainvoke(state, config={"recursion_limit": 10})
+            INTERVIEW_STATE_STORE[interviewee_id] = state  # ⚠️ 상태 갱신
+
             processed_count += 1
 
         if processed_count == 0:
             print("[WARNING] No interviewees were processed")
             return EndInterviewResponse(
-                result="partial", 
-                report_ready=False, 
+                result="partial",
+                report_ready=False,
                 message=f"No states found for any interviewees. Skipped IDs: {skipped_ids}"
             )
 
@@ -107,5 +107,7 @@ async def end_interview(req: EndInterviewRequest):
         )
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"[DEBUG] Exception: {e}")
         raise HTTPException(status_code=500, detail=str(e))

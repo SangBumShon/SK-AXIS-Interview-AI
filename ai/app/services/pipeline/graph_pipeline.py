@@ -9,6 +9,7 @@ import openai
 from dotenv import load_dotenv
 import openpyxl
 import httpx
+import pytz
 
 # 환경 변수 로드
 load_dotenv()
@@ -43,11 +44,41 @@ JUDGE_PROMPT = """
 # 1) STT 노드: audio_path → raw text
 # ───────────────────────────────────────────────────
 
+KST = pytz.timezone('Asia/Seoul')
+
+def print_state_summary(state, node_name):
+    summary = {
+        "stt_segments": len(state.get("stt", {}).get("segments", [])),
+        "stt_type": type(state.get("stt", {})).__name__,
+        "rewrite_final": len(state.get("rewrite", {}).get("final", [])),
+        "rewrite_type": type(state.get("rewrite", {})).__name__,
+        "evaluation_keys": list(state.get("evaluation", {}).keys()) if isinstance(state.get("evaluation", {}), dict) else [],
+        "evaluation_type": type(state.get("evaluation", {})).__name__,
+        "nonverbal_counts": state.get("nonverbal_counts", {}),
+        "nonverbal_counts_type": type(state.get("nonverbal_counts", {})).__name__,
+        "report_keys": list(state.get("report", {}).keys()) if "report" in state and isinstance(state["report"], dict) else [],
+        "report_type": type(state.get("report", {})).__name__ if "report" in state else None,
+        "decision_log_len": len(state.get("decision_log", [])),
+        "decision_log_type": type(state.get("decision_log", [])).__name__
+    }
+    print(f"[DEBUG] [{node_name}] state summary: {summary}")
+
+def safe_get(d, key, default=None, context=""):
+    try:
+        return d.get(key, default)
+    except Exception as e:
+        print(f"[ERROR] [{context}] get('{key}') 예외 발생: {e}")
+        return default
+
 def stt_node(state: InterviewState) -> InterviewState:
     print("[LangGraph] 🧠 stt_node 진입")
-    audio_path = state.get("audio_path")
+    audio_path = safe_get(state, "audio_path", context="stt_node")
     raw = transcribe_audio_file(audio_path)
-    ts = datetime.now().isoformat()
+    if not raw or not str(raw).strip():
+        raw = "없음"
+    ts = datetime.now(KST).isoformat()
+    stt = safe_get(state, "stt", {}, context="stt_node")
+    stt_segments = safe_get(stt, "segments", [], context="stt_node")
     state.setdefault("stt", {"done": False, "segments": []})
     state["stt"]["segments"].append({"raw": raw, "timestamp": ts})
     print(f"[LangGraph] ✅ STT 완료: {raw[:30]}...")
@@ -57,6 +88,7 @@ def stt_node(state: InterviewState) -> InterviewState:
         "time": ts,
         "details": {"segment_preview": raw[:30]}
     })
+    print_state_summary(state, "stt_node")
     return state
 
 # ───────────────────────────────────────────────────
@@ -64,14 +96,20 @@ def stt_node(state: InterviewState) -> InterviewState:
 # ───────────────────────────────────────────────────
 async def rewrite_agent(state: InterviewState) -> InterviewState:
     print("[LangGraph] ✏️ rewrite_agent 진입")
-    raw = state["stt"]["segments"][-1]["raw"]
+    stt = safe_get(state, "stt", {}, context="rewrite_agent")
+    stt_segments = safe_get(stt, "segments", [], context="rewrite_agent")
+    raw = stt_segments[-1]["raw"] if stt_segments else "없음"
+    if not raw or not str(raw).strip():
+        raw = "없음"
     rewritten, _ = await rewrite_answer(raw)
+    if not rewritten or not str(rewritten).strip():
+        rewritten = "없음"
     item = {"raw": raw, "rewritten": rewritten}
 
-    prev = state.get("rewrite", {})
-    prev_retry = prev.get("retry_count", 0)
-    prev_force = prev.get("force_ok", False)
-    prev_final = prev.get("final", [])
+    prev = safe_get(state, "rewrite", {}, context="rewrite_agent")
+    prev_retry = safe_get(prev, "retry_count", 0, context="rewrite_agent")
+    prev_force = safe_get(prev, "force_ok", False, context="rewrite_agent")
+    prev_final = safe_get(prev, "final", [], context="rewrite_agent")
 
     # retry_count가 3 이상이면 더 이상 증가시키지 않음
     if prev_retry >= 3:
@@ -90,47 +128,21 @@ async def rewrite_agent(state: InterviewState) -> InterviewState:
     }
 
     print(f"[LangGraph] ✅ rewrite 결과: {rewritten[:30]}... (retry_count={retry_count})")
-    ts = datetime.now().isoformat()
+    ts = datetime.now(KST).isoformat()
     state.setdefault("decision_log", []).append({
         "step":   "rewrite_agent",
         "result": "processing",
         "time":   ts,
         "details": {"raw_preview": raw[:30], "retry_count": retry_count}
     })
+    print_state_summary(state, "rewrite_agent")
     return state
 
 # ───────────────────────────────────────────────────
-# 3) Rewrite 재시도 조건: 최대 3회
+# 3) Rewrite 재시도 조건: 최대 3회 → 단 1회만 수행
 # ───────────────────────────────────────────────────
 def should_retry_rewrite(state: InterviewState) -> Literal["retry", "done"]:
-    rw    = state.get("rewrite", {})
-    items = rw.get("items", [])
-    retry = rw.get("retry_count", 0)
-
-    if not items:
-        return "retry"
-
-    last = items[-1]
-    print(f"🧪 retry_count={retry}, ok={last.get('ok', 'not_judged')}")
-
-    # 아직 판정되지 않은 경우 (ok 키가 없음)
-    if "ok" not in last:
-        print(f"🧪 아직 판정되지 않음, done")
-        return "done"
-
-    # 성공한 경우
-    if last.get("ok", False):
-        print(f"🧪 성공, done")
-        return "done"
-
-    # 실패한 경우, 재시도 여부 결정
-    if retry < 3:
-        print(f"🔁 Rewrite 재시도: {retry + 1}회차")
-        return "retry"
-
-    # 최대 재시도 도달 - 강제 통과 플래그 설정
-    print("🛑 최대 재시도 도달. rewrite 강제 통과 예정")
-    state["rewrite"]["force_ok"] = True
+    # 항상 done 반환 (재시도 없음)
     return "done"
 
 # ───────────────────────────────────────────────────
@@ -138,15 +150,15 @@ def should_retry_rewrite(state: InterviewState) -> Literal["retry", "done"]:
 # ───────────────────────────────────────────────────
 async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
     print("[LangGraph] 🧪 rewrite_judge_agent 진입")
-    rewrite = state.get("rewrite", {})
-    items   = rewrite.get("items", [])
-    force   = rewrite.get("force_ok", False)
+    rewrite = safe_get(state, "rewrite", {}, context="rewrite_judge_agent")
+    items   = safe_get(rewrite, "items", [])
+    force   = safe_get(rewrite, "force_ok", False, context="rewrite_judge_agent")
 
     if not items:
         state.setdefault("decision_log", []).append({
             "step":   "rewrite_judge_agent",
             "result": "error",
-            "time":   datetime.now().isoformat(),
+            "time":   datetime.now(KST).isoformat(),
             "details":{"error":"No rewrite items found"}
         })
         return state
@@ -161,13 +173,13 @@ async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
         print(f"리라이팅: {item['rewritten'][:100]}...")
         
         try:
-            start = datetime.now().timestamp()
+            start = datetime.now(KST).timestamp()
             resp  = openai.chat.completions.create(
                 model="gpt-4o",
                 messages=[{"role":"user","content":prompt}],
                 temperature=0, max_tokens=512
             )
-            elapsed = datetime.now().timestamp() - start
+            elapsed = datetime.now(KST).timestamp() - start
             
             # LLM 응답 로그
             llm_response = resp.choices[0].message.content.strip()
@@ -198,29 +210,38 @@ async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
                 item["judge_notes"].append("자동 통과 (재시도 3회 초과)")
 
             if item["ok"]:
-                rewrite.setdefault("final", []).append({
-                    "raw":       item["raw"],
-                    "rewritten": item["rewritten"],
-                    "timestamp": datetime.now().isoformat()
-                })
-                print(f"[DEBUG] ✅ final에 추가됨: {item['rewritten'][:50]}...")
+                # 중복된 rewritten 답변이 이미 final에 있으면 추가하지 않음
+                rewritten = item["rewritten"]
+                if not any(f["rewritten"] == rewritten for f in rewrite.get("final", [])):
+                    rewrite.setdefault("final", []).append({
+                        "raw":       item["raw"],
+                        "rewritten": rewritten,
+                        "timestamp": datetime.now(KST).isoformat()
+                    })
+                    print(f"[DEBUG] ✅ final에 추가됨: {item['rewritten'][:50]}...")
+                else:
+                    print(f"[DEBUG] ⚠️ 중복된 답변(final)에 추가하지 않음: {item['rewritten'][:50]}...")
 
             # 강제 통과 플래그가 설정되어 있으면 final에 추가
             if force and not item.get("ok", False):
                 print("⚠️ 강제 통과 플래그로 인해 final에 추가")
-                rewrite.setdefault("final", []).append({
-                    "raw":       item["raw"],
-                    "rewritten": item["rewritten"],
-                    "timestamp": datetime.now().isoformat()
-                })
+                rewritten = item["rewritten"]
+                if not any(f["rewritten"] == rewritten for f in rewrite.get("final", [])):
+                    rewrite.setdefault("final", []).append({
+                        "raw":       item["raw"],
+                        "rewritten": rewritten,
+                        "timestamp": datetime.now(KST).isoformat()
+                    })
+                    print(f"[DEBUG] ✅ 강제 통과로 final에 추가됨: {item['rewritten'][:50]}...")
+                else:
+                    print(f"[DEBUG] ⚠️ 강제 통과 중복(final)에 추가하지 않음: {item['rewritten'][:50]}...")
                 item["ok"] = True
                 item["judge_notes"].append("강제 통과 (재시도 3회 초과)")
-                print(f"[DEBUG] ✅ 강제 통과로 final에 추가됨: {item['rewritten'][:50]}...")
 
             state.setdefault("decision_log", []).append({
                 "step":   "rewrite_judge_agent",
                 "result": f"ok={item['ok']}",
-                "time":   datetime.now().isoformat(),
+                "time":   datetime.now(KST).isoformat(),
                 "details":{"notes":item["judge_notes"],"elapsed_sec":round(elapsed,2)}
             })
             print(f"[LangGraph] ✅ 판정 결과: ok={item['ok']}")
@@ -233,7 +254,7 @@ async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
             state.setdefault("decision_log", []).append({
                 "step":"rewrite_judge_agent",
                 "result":"error",
-                "time":datetime.now().isoformat(),
+                "time":datetime.now(KST).isoformat(),
                 "details":{"error":str(e)}
             })
 
@@ -241,6 +262,7 @@ async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
     if rewrite["items"][-1].get("ok", False):
         rewrite["done"] = True
 
+    print_state_summary(state, "rewrite_judge_agent")
     return state
 
 
@@ -248,16 +270,35 @@ async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
 # 5) Nonverbal 평가 에이전트 (표정만 평가)
 # ───────────────────────────────────────────────────
 async def nonverbal_evaluation_agent(state: InterviewState) -> InterviewState:
-    ts = datetime.now().isoformat()
+    ts = datetime.now(KST).isoformat()
     try:
-        counts = state.get("nonverbal_counts", {})
-        if not counts:
+        counts = safe_get(state, "nonverbal_counts", {}, context="nonverbal_evaluation_agent")
+        print(f"[DEBUG] nonverbal_counts: {counts}")
+        # 구조 체크
+        if not counts or not isinstance(counts, dict):
+            print("[WARNING] nonverbal_counts가 dict가 아님 또는 비어있음. 비언어적 평가를 건너뜀.")
             state.decision_log.append("Nonverbal data not available for evaluation.")
             return state
-
-        facial = FacialExpression.parse_obj(counts["expression"])
+        if "expression" not in counts or not isinstance(counts["expression"], dict):
+            print("[WARNING] nonverbal_counts['expression']가 dict가 아님 또는 없음. 비언어적 평가를 건너뜀.")
+            state.decision_log.append("Nonverbal expression data not available for evaluation.")
+            return state
+        # expression 내부 키 체크
+        exp = counts["expression"]
+        required_keys = ["smile", "neutral", "frown", "angry"]
+        for k in required_keys:
+            if k not in exp or not isinstance(exp[k], int):
+                print(f"[WARNING] nonverbal_counts['expression']에 {k}가 없거나 int가 아님: {exp}")
+        facial = FacialExpression.parse_obj(exp)
+        print(f"[DEBUG] facial_expression: {facial}")
         score = await evaluate(facial)
+        print(f"[DEBUG] 비언어적 평가 결과(score): {score}")
         pts = int(round(score * 15))
+        if pts == 0:
+            print("[WARNING] 비언어적 평가 점수가 0입니다. 프론트/데이터 전달/LLM 프롬프트를 확인하세요.")
+        evaluation = safe_get(state, "evaluation", {}, context="nonverbal_evaluation_agent")
+        results = safe_get(evaluation, "results", {}, context="nonverbal_evaluation_agent")
+        results["비언어적"] = {"score": pts, "reason": "표정 기반 평가"}
         state.setdefault("evaluation", {}).setdefault("results", {})["비언어적"] = {
             "score": pts,
             "reason": "표정 기반 평가"
@@ -270,45 +311,31 @@ async def nonverbal_evaluation_agent(state: InterviewState) -> InterviewState:
                 "score": pts
             }
         })
+        print(f"[DEBUG] nonverbal_evaluation_agent - state['evaluation']['results']['비언어적']: {state.get('evaluation', {}).get('results', {}).get('비언어적')}")
     except Exception as e:
+        print(f"[ERROR] 비언어적 평가 중 예외 발생: {e}")
         state.setdefault("decision_log", []).append({
             "step": "nonverbal_evaluation",
             "result": "error",
             "time": ts,
             "details": {"error": str(e)}
         })
+    print_state_summary(state, "nonverbal_evaluation_agent")
     return state
 
 # ───────────────────────────────────────────────────
-# 6) 평가 재시도 조건: 최대 3회
+# 6) 평가 재시도 조건: 최대 3회 → 단 1회만 수행
 # ───────────────────────────────────────────────────
 def should_retry_evaluation(state: InterviewState) -> Literal["retry", "continue", "done"]:
-    eval_info = state.get("evaluation", {})
-    retry = eval_info.get("retry_count", 0)
-
-    # 평가 결과가 아예 없으면 done
-    if not eval_info.get("results"):
-        print("[should_retry_evaluation] No evaluation results, done.")
-        return "done"
-
-    # 아직 판정 전이면 continue
-    if "ok" not in eval_info:
-        print("[should_retry_evaluation] Not judged yet, continue")
-        return "continue"
-
-    # 판정 실패 + 재시도 횟수 남았으면 retry
-    if not eval_info.get("ok", False) and retry < 3:
-        print(f"[should_retry_evaluation] Will retry. retry_count={retry + 1}")
-        return "retry"
-
-    print(f"[should_retry_evaluation] Continue to next step. ok={eval_info.get('ok')}, retry_count={retry}")
+    # 항상 continue 반환 (재시도 없음, 바로 다음 단계로)
     return "continue"
 
 # ───────────────────────────────────────────────────
 # 7) LLM 키워드 평가 에이전트
 # ───────────────────────────────────────────────────
 async def evaluation_agent(state: InterviewState) -> InterviewState:
-    final_items = state.get("rewrite", {}).get("final", [])
+    rewrite = safe_get(state, "rewrite", {}, context="evaluation_agent:rewrite")
+    final_items = safe_get(rewrite, "final", [], context="evaluation_agent:rewrite.final")
     print(f"[DEBUG] 📝 evaluation_agent - final_items 개수: {len(final_items)}")
     if final_items:
         for idx, item in enumerate(final_items):
@@ -324,12 +351,40 @@ async def evaluation_agent(state: InterviewState) -> InterviewState:
     
     print(f"[DEBUG] 📄 평가할 답변: {full_answer[:100]}...")
     
-    results = await evaluate_keywords_from_full_answer(full_answer)
+    # 평가 기준 키 목록을 가져옴
+    all_criteria = {**EVAL_CRITERIA_WITH_ALL_SCORES, **TECHNICAL_EVAL_CRITERIA_WITH_ALL_SCORES, **DOMAIN_EVAL_CRITERIA_WITH_ALL_SCORES}
 
-    prev_eval = state.get("evaluation", {})
-    prev_retry = prev_eval.get("retry_count", 0)
-    # 이전 판정이 실패(ok=False)였을 때만 retry_count 증가
-    if "ok" in prev_eval and prev_eval.get("ok") is False:
+    # 평가 결과를 정제하는 함수 (quotes 필드까지 보장)
+    def normalize_results(results):
+        normalized = {}
+        for keyword, criteria in all_criteria.items():
+            kw_result = results.get(keyword, {}) if isinstance(results, dict) else {}
+            normalized[keyword] = {}
+            for crit_name in criteria.keys():
+                val = kw_result.get(crit_name) if isinstance(kw_result, dict) else None
+                if isinstance(val, dict):
+                    score = val.get("score", 1)
+                    reason = val.get("reason", "평가 사유없음")
+                    quotes = val.get("quotes", [])
+                    if not isinstance(quotes, list):
+                        quotes = []
+                    normalized[keyword][crit_name] = {
+                        "score": score,
+                        "reason": reason,
+                        "quotes": quotes
+                    }
+                elif isinstance(val, int):
+                    normalized[keyword][crit_name] = {"score": val, "reason": "평가 사유없음", "quotes": []}
+                else:
+                    normalized[keyword][crit_name] = {"score": 1, "reason": "평가 사유없음", "quotes": []}
+        return normalized
+
+    results = await evaluate_keywords_from_full_answer(full_answer)
+    results = normalize_results(results)
+
+    prev_eval = safe_get(state, "evaluation", {}, context="evaluation_agent:evaluation")
+    prev_retry = safe_get(prev_eval, "retry_count", 0, context="evaluation_agent:evaluation.retry_count")
+    if "ok" in prev_eval and safe_get(prev_eval, "ok", context="evaluation_agent:evaluation.ok") is False:
         retry_count = prev_retry + 1
     else:
         retry_count = prev_retry
@@ -341,25 +396,27 @@ async def evaluation_agent(state: InterviewState) -> InterviewState:
         "ok": False  # 판정 전이므로 False로 초기화
     }
     state["done"] = True  # 파이프라인 전체 종료 신호 추가
-    ts = datetime.now().isoformat()
+    ts = datetime.now(KST).isoformat()
     state.setdefault("decision_log", []).append({
         "step": "evaluation_agent",
         "result": "done",
         "time": ts,
         "details": {"retry_count": retry_count}
     })
+    print_state_summary(state, "evaluation_agent")
     return state
 
 # ───────────────────────────────────────────────────
 # 8) 평가 검증 에이전트
 # ───────────────────────────────────────────────────
 async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
-    results = state.get("evaluation", {}).get("results", {})
+    evaluation = safe_get(state, "evaluation", {}, context="evaluation_judge_agent:evaluation")
+    results = safe_get(evaluation, "results", {}, context="evaluation_judge_agent:evaluation.results")
     if not results:
         state.setdefault("decision_log", []).append({
             "step": "evaluation_judge_agent",
             "result": "error",
-            "time": datetime.now().isoformat(),
+            "time": datetime.now(KST).isoformat(),
             "details": {"error": "No evaluation results found"}
         })
         print("[judge] No evaluation results found, will stop.")
@@ -378,6 +435,7 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
     # 2. 점수 범위 검증 (1~5)
     for criteria in results.values():
         for data in criteria.values():
+            # 문제 발생 부분
             s = data.get("score", 0)
             if not (1 <= s <= 5):
                 judge_notes.append(f"Invalid score {s}")
@@ -434,7 +492,7 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
   ]
 }}
 """
-        final_items = state.get("rewrite", {}).get("final", [])
+        final_items = safe_get(state, "rewrite", {}).get("final", [])
         if not final_items:
             # final_items가 비어있으면 raw 텍스트 사용
             stt_segments = state.get("stt", {}).get("segments", [])
@@ -494,7 +552,7 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
         }
         print(f"[LangGraph] ❌ 내용 검증 오류: {e}")
 
-    ts = datetime.now().isoformat()
+    ts = datetime.now(KST).isoformat()
     state.setdefault("decision_log", []).append({
         "step": "evaluation_judge_agent",
         "result": f"ok={is_valid}",
@@ -505,6 +563,7 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
             "notes": judge_notes
         }
     })
+    print_state_summary(state, "evaluation_judge_agent")
     return state
 
 
@@ -549,8 +608,12 @@ async def pdf_node(state: InterviewState) -> InterviewState:
         return total_score
 
     # 평가 결과 추출
-    evaluation_results = state.get("evaluation", {}).get("results", {})
-    rewrite_final = state.get("rewrite", {}).get("final", [])
+    evaluation = safe_get(state, "evaluation", {}, context="pdf_node:evaluation")
+    evaluation_results = safe_get(evaluation, "results", {}, context="pdf_node:evaluation.results")
+    rewrite = safe_get(state, "rewrite", {}, context="pdf_node:rewrite")
+    rewrite_final = safe_get(rewrite, "final", [], context="pdf_node:rewrite.final")
+    stt = safe_get(state, "stt", {}, context="pdf_node:stt")
+    stt_segments = safe_get(stt, "segments", [], context="pdf_node:stt.segments")
     
     if not evaluation_results:
         print("[LangGraph] ⚠️ 평가 결과가 없어서 PDF 생성을 건너뜁니다.")
@@ -560,7 +623,6 @@ async def pdf_node(state: InterviewState) -> InterviewState:
     answers = []
     if not rewrite_final:
         # final_items가 비어있으면 raw 텍스트 사용
-        stt_segments = state.get("stt", {}).get("segments", [])
         if stt_segments:
             answers = [stt_segments[-1].get("raw", "답변 내용이 없습니다.")]
         else:
@@ -571,7 +633,10 @@ async def pdf_node(state: InterviewState) -> InterviewState:
     # 점수 계산
     personality_score = calculate_personality_score(evaluation_results)
     job_domain_score = calculate_job_domain_score(evaluation_results)
-    nonverbal_score = evaluation_results.get("비언어적", {}).get("score", 0)
+    nonverbal_score_dict = safe_get(evaluation_results, "비언어적", {}, context="pdf_node:evaluation_results.비언어적")
+    nonverbal_score = nonverbal_score_dict.get("score", 0) if isinstance(nonverbal_score_dict, dict) else 0
+    print(f"[DEBUG] PDF 노드 - 비언어적 요소 dict: {nonverbal_score_dict}")
+    print(f"[DEBUG] PDF 노드 - 비언어적 요소 점수: {nonverbal_score}")
     
     print(f"[LangGraph] 📊 계산된 점수 - 인성: {personality_score}, 기술/도메인: {job_domain_score}, 비언어: {nonverbal_score}")
 
@@ -607,20 +672,38 @@ async def pdf_node(state: InterviewState) -> InterviewState:
 
     # 키워드 결과 정리 (generate_pdf에 맞는 형태)
     keyword_results = {}
-    for keyword, criteria in evaluation_results.items():
-        if keyword != "비언어적":  # 비언어적은 별도 처리
-            total_score = sum(criterion.get("score", 0) for criterion in criteria.values())
-            keyword_results[keyword] = {
-                "score": total_score,
-                "reasons": "\n".join([f"{criterion_name}: {criterion.get('reason', '')}" 
-                                    for criterion_name, criterion in criteria.items()])
-            }
+    keyword_reasons_block = []
+    # PDF 표에 들어갈 키워드(헤더) 정의
+    pdf_keywords = [
+        "SUPEX", "VWBE", "Passionate", "Proactive", "Professional", "People",
+        "기술/직무", "도메인 전문성"
+    ]
+    # 평가 기준 전체(세부항목 포함)
+    all_criteria = {**EVAL_CRITERIA_WITH_ALL_SCORES, **TECHNICAL_EVAL_CRITERIA_WITH_ALL_SCORES, **DOMAIN_EVAL_CRITERIA_WITH_ALL_SCORES}
+
+    for keyword in pdf_keywords:
+        criteria = evaluation_results.get(keyword, {})
+        total_score = 0
+        reasons_list = []
+        # 반드시 평가 기준에 정의된 세부항목을 모두 순회
+        for criterion_name in all_criteria.get(keyword, {}).keys():
+            criterion_data = criteria.get(criterion_name, {"score": 1, "reason": "평가 사유없음"})
+            score = criterion_data.get("score", 1)
+            reason = criterion_data.get("reason", "평가 사유없음")
+            total_score += score
+            reasons_list.append(f"  {criterion_name}: {reason}")
+        keyword_results[keyword] = {
+            "score": total_score,
+            "reasons": "\n".join(reasons_list)
+        }
+        keyword_reasons_block.append(f"- {keyword}\n" + "\n".join(reasons_list))
+    all_keyword_reasons = "\n\n".join(keyword_reasons_block)
 
     # 총점 계산
     total_score = sum(area_scores.values())
 
     # 임시 차트 파일 생성
-    chart_path = os.path.join(tempfile.gettempdir(), f"radar_chart_{datetime.now().strftime('%Y%m%d%H%M%S')}.png")
+    chart_path = os.path.join(tempfile.gettempdir(), f"radar_chart_{datetime.now(KST).strftime('%Y%m%d%H%M%S')}.png")
     
     try:
         from app.services.interview.report_service import create_radar_chart
@@ -631,8 +714,8 @@ async def pdf_node(state: InterviewState) -> InterviewState:
         chart_path = None
 
     # PDF 생성
-    applicant_id = state.get("interviewee_id")
-    ts = datetime.now().strftime("%Y%m%d%H%M%S")
+    applicant_id = safe_get(state, "interviewee_id", context="pdf_node:applicant_id")
+    ts = datetime.now(KST).strftime("%Y%m%d%H%M%S")
     out = RESULT_DIR; os.makedirs(out, exist_ok=True)
     pdf_path = f"{out}/{applicant_id}_report_{ts}.pdf"
 
@@ -653,7 +736,7 @@ async def pdf_node(state: InterviewState) -> InterviewState:
         state["report"]["pdf"]["path"] = pdf_path
         state.setdefault("decision_log", []).append({
             "step": "pdf_node", "result": "generated",
-            "time": datetime.now().isoformat(),
+            "time": datetime.now(KST).isoformat(),
             "details": {"path": pdf_path}
         })
         print(f"[LangGraph] ✅ PDF 생성 완료: {pdf_path}")
@@ -667,79 +750,101 @@ async def pdf_node(state: InterviewState) -> InterviewState:
         state["report"]["pdf"]["error"] = str(e)
         state.setdefault("decision_log", []).append({
             "step": "pdf_node", "result": "error",
-            "time": datetime.now().isoformat(),
+            "time": datetime.now(KST).isoformat(),
             "details": {"error": str(e)}
         })
         print(f"[LangGraph] ❌ PDF 생성 실패: {e}")
 
+    print_state_summary(state, "pdf_node")
     return state
 
 # ───────────────────────────────────────────────────
 # Excel Node: 지원자 ID로 이름 조회 후 엑셀 생성
 # ───────────────────────────────────────────────────
-async def excel_node(state: InterviewState) -> InterviewState:
-    import os
-    from datetime import datetime
+# async def excel_node(state: InterviewState) -> InterviewState:
+#     import os
+#     from datetime import datetime
 
-    try:
-        applicant_id = state.get("interviewee_id")
-        rewrite_final = state.get("rewrite", {}).get("final", [])
-        total_score = state.get("evaluation", {}).get("judge", {}).get("total_score")
+#     try:
+#         applicant_id = safe_get(state, "interviewee_id", context="excel_node:applicant_id")
+#         rewrite = safe_get(state, "rewrite", {}, context="excel_node:rewrite")
+#         rewrite_final = safe_get(rewrite, "final", [], context="excel_node:rewrite.final")
+#         evaluation = safe_get(state, "evaluation", {}, context="excel_node:evaluation")
+#         judge = safe_get(evaluation, "judge", {}, context="excel_node:evaluation.judge")
+#         total_score = safe_get(judge, "total_score", context="excel_node:evaluation.judge.total_score")
 
-        # 1. 지원자 정보 조회
-        SPRINGBOOT_BASE_URL = os.getenv("SPRING_API_URL", "http://localhost:8080/api/v1")
-        applicant_name = None
-        interviewers = None
-        room_no = None
-        scheduled_at = None
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(f"{SPRINGBOOT_BASE_URL}/interviews/simple")
-            print(f"[DEBUG] /interviews/simple status: {resp.status_code}")
-            print(f"[DEBUG] /interviews/simple response: {resp.text}")
-            if resp.status_code != 200:
-                raise RuntimeError(f"API 호출 실패: status={resp.status_code}, body={resp.text}")
-            data = resp.json().get("data", [])
-            for item in data:
-                if item["intervieweeId"] == applicant_id:
-                    applicant_name = item["name"]
-                    interviewers = item.get("interviewers", "")
-                    room_no = item.get("roomNo", "")
-                    scheduled = item.get("scheduledAt", [])
-                    if scheduled and len(scheduled) >= 5:
-                        scheduled_at = f"{scheduled[0]:04d}-{scheduled[1]:02d}-{scheduled[2]:02d} {scheduled[3]:02d}:{scheduled[4]:02d}"
-                    break
+#         # 1. 지원자 정보 조회
+#         SPRINGBOOT_BASE_URL = os.getenv("SPRING_API_URL", "http://localhost:8080/api/v1")
+#         applicant_name = None
+#         interviewers = None
+#         room_no = None
+#         scheduled_at = None
+#         async with httpx.AsyncClient() as client:
+#             resp = await client.get(f"{SPRINGBOOT_BASE_URL}/interviews/simple")
+#             print(f"[DEBUG] /interviews/simple status: {resp.status_code}")
+#             print(f"[DEBUG] /interviews/simple response: {resp.text}")
+            
+#             # 응답 상태 확인
+#             if resp.status_code != 200:
+#                 print(f"[ERROR] /interviews/simple API 호출 실패: {resp.status_code} - {resp.text}")
+#                 data = []
+#             else:
+#                 try:
+#                     data = safe_get(resp.json(), "data", [], context="excel_node:resp.data")
+#                 except Exception as e:
+#                     print(f"[ERROR] /interviews/simple JSON 파싱 실패: {e}")
+#                     print(f"[ERROR] 응답 내용: {resp.text}")
+#                     data = []
+        
+#         if not isinstance(data, list):
+#             print(f"[ERROR] /interviews/simple data가 list가 아님! 실제 타입: {type(data)}, 값: {data}")
+#             data = []
 
-        if applicant_name is None:
-            raise ValueError(f"지원자 정보를 찾을 수 없습니다. applicant_id={applicant_id}")
+#         for item in data:
+#             if not isinstance(item, dict):
+#                 print(f"[ERROR] /interviews/simple item이 dict가 아님! 실제 타입: {type(item)}, 값: {item}")
+#                 continue
+#             if safe_get(item, "intervieweeId", context="excel_node:item.intervieweeId") == applicant_id:
+#                 applicant_name = item["name"]
+#                 interviewers = item.get("interviewers", "")
+#                 room_no = item.get("roomNo", "")
+#                 scheduled = item.get("scheduledAt", [])
+#                 if scheduled and len(scheduled) >= 5:
+#                     scheduled_at = f"{scheduled[0]:04d}-{scheduled[1]:02d}-{scheduled[2]:02d} {scheduled[3]:02d}:{scheduled[4]:02d}"
+#                 break
 
-        # 2. 답변 합치기
-        all_answers = "\n".join([item["rewritten"] for item in rewrite_final])
+#         if applicant_name is None:
+#             raise ValueError(f"지원자 정보를 찾을 수 없습니다. applicant_id={applicant_id}")
 
-        # 3. 엑셀 생성
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "면접 결과"
-        ws.append(["지원자ID", "이름", "면접관", "면접실", "면접일시", "답변(모두)", "총점"])
-        ws.append([applicant_id, applicant_name, interviewers, room_no, scheduled_at, all_answers, total_score])
+#         # 2. 답변 합치기
+#         all_answers = "\n".join([item["rewritten"] for item in rewrite_final])
 
-        out_dir = os.getenv("RESULT_DIR", "./result")
-        os.makedirs(out_dir, exist_ok=True)
-        ts = datetime.now().strftime("%Y%m%d%H%M%S")
-        excel_path = f"{out_dir}/{applicant_id}_result_{ts}.xlsx"
-        wb.save(excel_path)
-        print(f"[LangGraph] ✅ Excel 생성 완료: {excel_path}")
+#         # 3. 엑셀 생성
+#         wb = openpyxl.Workbook()
+#         ws = wb.active
+#         ws.title = "면접 결과"
+#         ws.append(["지원자ID", "이름", "면접관", "면접실", "면접일시", "답변(모두)", "총점"])
+#         ws.append([applicant_id, applicant_name, interviewers, room_no, scheduled_at, all_answers, total_score])
 
-        state.setdefault("report", {}).setdefault("excel", {})["path"] = excel_path
-        state.setdefault("decision_log", []).append({
-            "step": "excel_node",
-            "result": "generated",
-            "time": datetime.now().isoformat(),
-            "details": {"path": excel_path}
-        })
-    except Exception as e:
-        print(f"[LangGraph] ❌ Excel 생성 실패: {e}")
-        state.setdefault("report", {}).setdefault("excel", {})["error"] = str(e)
-    return state
+#         out_dir = os.getenv("RESULT_DIR", "./result")
+#         os.makedirs(out_dir, exist_ok=True)
+#         ts = datetime.now(KST).strftime("%Y%m%d%H%M%S")
+#         excel_path = f"{out_dir}/{applicant_id}_result_{ts}.xlsx"
+#         wb.save(excel_path)
+#         print(f"[LangGraph] ✅ Excel 생성 완료: {excel_path}")
+
+#         state.setdefault("report", {}).setdefault("excel", {})["path"] = excel_path
+#         state.setdefault("decision_log", []).append({
+#             "step": "excel_node",
+#             "result": "generated",
+#             "time": datetime.now(KST).isoformat(),
+#             "details": {"path": excel_path}
+#         })
+#     except Exception as e:
+#         print(f"[LangGraph] ❌ Excel 생성 실패: {e}")
+#         state.setdefault("report", {}).setdefault("excel", {})["error"] = str(e)
+#     print_state_summary(state, "excel_node")
+#     return state
 
 # LangGraph 빌더
 interview_builder = StateGraph(InterviewState)
@@ -762,11 +867,11 @@ final_builder.add_node("nonverbal_eval", nonverbal_evaluation_agent)
 final_builder.add_node("evaluation_agent", evaluation_agent)
 final_builder.add_node("evaluation_judge_agent", evaluation_judge_agent)
 final_builder.add_node("pdf_node", pdf_node)
-final_builder.add_node("excel_node", excel_node)
+# final_builder.add_node("excel_node", excel_node)
 final_builder.set_entry_point("nonverbal_eval")
 final_builder.add_edge("nonverbal_eval", "evaluation_agent")
 final_builder.add_edge("evaluation_agent", "evaluation_judge_agent")
-final_builder.add_edge("pdf_node", "excel_node")
+# final_builder.add_edge("pdf_node", "excel_node")
 final_builder.add_conditional_edges(
     "evaluation_judge_agent", should_retry_evaluation,
     {"retry":"evaluation_agent", "continue":"pdf_node", "done":"__end__"}

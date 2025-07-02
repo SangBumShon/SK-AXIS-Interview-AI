@@ -23,7 +23,7 @@ if not _openai_key:
     raise ValueError("OPENAI_API_KEY가 설정되어 있지 않습니다.")
 
 _llm = ChatOpenAI(
-    model_name="gpt-4-turbo-preview",
+    model_name="gpt-4o",
     temperature=0.7,
     openai_api_key=_openai_key
 )
