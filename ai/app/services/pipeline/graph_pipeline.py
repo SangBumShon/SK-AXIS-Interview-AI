@@ -365,27 +365,42 @@ async def evaluation_agent(state: InterviewState) -> InterviewState:
             normalized[keyword] = {}
             for crit_name in criteria.keys():
                 val = kw_result.get(crit_name) if isinstance(kw_result, dict) else None
-                if isinstance(val, dict):
-                    score = val.get("score", 1)
-                    reason = val.get("reason", "평가 사유없음")
-                    quotes = val.get("quotes", [])
-                    if not isinstance(quotes, list):
-                        quotes = []
-                    normalized[keyword][crit_name] = {
-                        "score": score,
-                        "reason": reason,
-                        "quotes": quotes
-                    }
-                elif isinstance(val, int):
-                    normalized[keyword][crit_name] = {"score": val, "reason": "평가 사유없음", "quotes": []}
+                # 보강: dict가 아니면 무조건 dict로 감싸기
+                if not isinstance(val, dict):
+                    if isinstance(val, int):
+                        val = {"score": val, "reason": "평가 사유없음", "quotes": []}
+                    else:
+                        val = {"score": 1, "reason": "평가 사유없음", "quotes": []}
+                score = val.get("score", 1)
+                reason = val.get("reason", "평가 사유없음")
+                quotes = val.get("quotes", [])
+                if not isinstance(quotes, list):
+                    quotes = []
+                normalized[keyword][crit_name] = {
+                    "score": score,
+                    "reason": reason,
+                    "quotes": quotes
+                }
+        # 비언어적 요소도 항상 dict로 보정
+        if "비언어적" in results:
+            nonverbal = results["비언어적"]
+            if not isinstance(nonverbal, dict):
+                if isinstance(nonverbal, int):
+                    nonverbal = {"score": nonverbal, "reason": "평가 사유없음", "quotes": []}
                 else:
-                    normalized[keyword][crit_name] = {"score": 1, "reason": "평가 사유없음", "quotes": []}
+                    nonverbal = {"score": 1, "reason": "평가 사유없음", "quotes": []}
+            if "quotes" not in nonverbal or not isinstance(nonverbal["quotes"], list):
+                nonverbal["quotes"] = []
+            normalized["비언어적"] = nonverbal
         return normalized
 
     results = await evaluate_keywords_from_full_answer(full_answer)
     results = normalize_results(results)
 
     prev_eval = safe_get(state, "evaluation", {}, context="evaluation_agent:evaluation")
+    prev_results = prev_eval.get("results", {})
+    # 기존 비언어적 등 결과와 새 평가 결과 병합
+    merged_results = {**prev_results, **results}
     prev_retry = safe_get(prev_eval, "retry_count", 0, context="evaluation_agent:evaluation.retry_count")
     if "ok" in prev_eval and safe_get(prev_eval, "ok", context="evaluation_agent:evaluation.ok") is False:
         retry_count = prev_retry + 1
@@ -393,8 +408,9 @@ async def evaluation_agent(state: InterviewState) -> InterviewState:
         retry_count = prev_retry
 
     state["evaluation"] = {
+        **prev_eval,
         "done": True,
-        "results": results,
+        "results": merged_results,
         "retry_count": retry_count,
         "ok": False  # 판정 전이므로 False로 초기화
     }
@@ -476,10 +492,15 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
 [평가 기준]
 {criteria}
 
-평가 결과는 다음과 같은 구조입니다:
+평가 결과는 반드시 아래와 같은 구조여야 합니다:
 - 각 키워드별로 3개의 평가항목이 있습니다.
-- 각 평가항목에는 1~5점의 점수와, 그 점수의 사유(설명)가 있습니다.
-- 각 점수별로 평가 기준이 명확히 정의되어 있습니다.
+- 각 평가항목은 반드시 아래와 같은 dict(객체) 구조여야 합니다:
+  {{
+    "score": (1~5의 정수),
+    "reason": (문자열, 반드시 존재),
+    "quotes": (문자열 리스트, 없으면 빈 리스트)
+  }}
+- 절대로 score만 단독으로 숫자로 반환하지 마세요. 반드시 위의 구조를 지키세요.
 
 아래를 검증하세요:
 1. 각 키워드의 각 평가항목별 점수와 사유가 실제 답변 내용과 논리적으로 맞는지, 그리고 평가 기준에 부합하는지 확인하세요.
