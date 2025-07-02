@@ -609,6 +609,7 @@ def calculate_area_scores(evaluation_results, nonverbal_score):
     - 인성적 요소(45%): SUPEX, VWBE, Passionate, Proactive, Professional, People
     - 직무·도메인(45%):  "기술/직무", "도메인 전문성"
     - 비언어적 요소(10%): 비언어적 점수(15점 만점)
+    반환값: weights (dict) - 영역별 환산 점수
     """
     personality_keywords = ["SUPEX", "VWBE", "Passionate", "Proactive", "Professional", "People"]
     job_domain_keywords = ["기술/직무", "도메인 전문성"]
@@ -629,13 +630,13 @@ def calculate_area_scores(evaluation_results, nonverbal_score):
     max_personality = 90
     max_job_domain = 30
     max_nonverbal = 15
-    area_scores = {
+    weights = {
         "인성적 요소": round((personality_score / max_personality) * 45, 1) if max_personality else 0,
         "직무·도메인": round((job_domain_score / max_job_domain) * 45, 1) if max_job_domain else 0,
         "비언어적 요소": round((nonverbal_score / max_nonverbal) * 10, 1) if max_nonverbal else 0
     }
-    print(f"[DEBUG] 환산 점수: {area_scores}")
-    return area_scores
+    print(f"[DEBUG] 환산 점수(weights): {weights}")
+    return weights
 
 EVAL_REASON_SUMMARY_PROMPT = """
 아래는 지원자의 전체 답변과 각 평가 키워드별 평가 사유(reason)입니다.
@@ -657,8 +658,8 @@ async def score_summary_agent(state):
     """
     평가 검증(judge) 이후, 영역별 점수 환산 및 요약을 담당하는 agent
     - 100점 만점 환산 점수 계산 (인성적 45%, 직무/도메인 45%, 비언어 10%)
-    - 지원자 답변 4줄, 평가 사유 4줄을 LLM에게 요약받아 summary_text에 포함
-    - 인성(언어적) 점수, 직무/도메인 점수 포함 (비언어적 점수/사유는 summary_text에 포함하지 않음)
+    - 지원자 답변 4줄, 평가 사유 4줄을 LLM에게 요약받아 verbal_reason에 포함
+    - 인성(언어적) 점수, 직무/도메인 점수 포함 (비언어적 점수/사유는 verbal_reason에 포함하지 않음)
     결과를 state['summary']에 저장
     """
     evaluation = safe_get(state, "evaluation", {}, context="score_summary_agent:evaluation")
@@ -670,8 +671,8 @@ async def score_summary_agent(state):
     print(f"[DEBUG] 비언어적 평가: score={nonverbal_score}, reason={nonverbal_reason}")
 
     # 100점 만점 환산 점수 계산
-    area_scores = calculate_area_scores(evaluation_results, nonverbal_score)
-    verbal_score = area_scores["인성적 요소"] + area_scores["직무·도메인"]
+    weights = calculate_area_scores(evaluation_results, nonverbal_score)
+    verbal_score = weights["인성적 요소"] + weights["직무·도메인"]
     print(f"[DEBUG] verbal_score(인성+직무/도메인): {verbal_score}")
 
     # 전체 키워드 평가 사유 종합 (SUPEX, VWBE, Passionate, Proactive, Professional, People, 기술/직무, 도메인 전문성)
@@ -711,15 +712,15 @@ async def score_summary_agent(state):
         temperature=0.2,
         max_tokens=512
     )
-    summary_text = response.choices[0].message.content.strip().splitlines()[:8]
-    print(f"[DEBUG] summary_text(LLM 요약): {summary_text}")
+    verbal_reason = response.choices[0].message.content.strip().splitlines()[:8]
+    print(f"[DEBUG] summary_text(LLM 요약): {verbal_reason}")
 
     # state에 저장
     state["summary"] = {
-        "area_scores": area_scores,
+        "weights": weights,
         "verbal_score": verbal_score,
-        "summary_text": summary_text,
-        "nonverbal_score": area_scores["비언어적 요소"],
+        "verbal_reason": verbal_reason,
+        "nonverbal_score": weights["비언어적 요소"],
         "nonverbal_reason": nonverbal_reason
     }
     print(f"[LangGraph] ✅ 영역별 점수/요약 저장: {json.dumps(state['summary'], ensure_ascii=False, indent=2)}")

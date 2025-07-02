@@ -78,27 +78,132 @@
             </div>
           </div>
         </div>
-        <!-- 역량별 평가 (5개 항목, 아이콘별 색상) -->
+        <!-- 역량별 평가 -->
         <div id="competency-evaluation" class="mb-8">
           <h3 class="text-2xl font-bold text-gray-900 mb-6">역량별 평가</h3>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div v-for="(item, i) in fixedKeywordList" :key="i" class="bg-gray-50 rounded-lg p-6">
+            <div v-for="item in competencyConfig" :key="item.key" class="bg-gray-50 rounded-lg p-6">
               <div class="flex justify-between items-center mb-4">
                 <div class="flex items-center gap-3">
-                  <div class="w-12 h-12 rounded-full flex items-center justify-center"
-                    :class="item.bgClass">
-                    <i :class="item.icon + ' text-2xl ' + item.iconColor"></i>
+                  <div :class="item.bg + ' w-12 h-12 rounded-full flex items-center justify-center'">
+                    <i :class="item.icon + ' text-2xl ' + item.color"></i>
                   </div>
-                  <h4 class="text-lg font-semibold text-gray-900">{{ item.category }}</h4>
+                  <h4 class="text-lg font-semibold text-gray-900">{{ item.label }}</h4>
                 </div>
                 <div class="flex items-center gap-2">
-                  <div class="text-2xl font-bold" :class="item.textColor">
-                    {{ item.score ?? '-' }}
+                  <div class="text-2xl font-bold" :class="item.color">
+                    {{ result.value?.evaluationKeywords?.find((e: any) => e.category === item.key)?.score ?? '-' }}
                   </div>
-                  <span class="text-gray-500">/ 100</span>
+                  <span class="text-gray-500">/ 15</span>
                 </div>
               </div>
-              <p class="text-gray-700">{{ item.reason ?? '해당 평가 항목에 대한 데이터가 없습니다.' }}</p>
+              <p class="text-gray-700">
+                {{ getEvaluationText(item.key, result.value?.evaluationKeywords?.find((e: any) => e.category === item.key)?.score) }}
+              </p>
+            </div>
+          </div>
+        </div>
+        <!-- 종합 평가 -->
+        <div id="overall-evaluation" class="mb-8">
+          <h3 class="text-2xl font-bold text-gray-900 mb-6">종합 평가</h3>
+          <div class="bg-gray-50 rounded-lg p-6 mb-6">
+            <div class="mb-4">
+              <span class="font-semibold text-gray-700">비중(전체 평가 점수에서의 비중):</span>
+              <span class="ml-2 text-gray-900">{{ result.value?.overallEvaluation?.weight ?? '-' }}%</span>
+            </div>
+            <!-- 언어적 요소 -->
+            <div class="mb-4">
+              <h4 class="text-lg font-semibold text-red-600 mb-2">① 언어적 요소</h4>
+              <div class="flex flex-wrap gap-6">
+                <div>
+                  <span class="font-medium text-gray-700">점수:</span>
+                  <span class="ml-2 text-gray-900">{{ result.value?.overallEvaluation?.language?.score ?? '-' }}</span>
+                </div>
+                <div>
+                  <span class="font-medium text-gray-700">총점(최대점수):</span>
+                  <span class="ml-2 text-gray-900">{{ result.value?.overallEvaluation?.language?.maxScore ?? '-' }}</span>
+                </div>
+                <div class="w-full mt-2">
+                  <span class="font-medium text-gray-700">사유:</span>
+                  <span class="ml-2 text-gray-900">{{ result.value?.overallEvaluation?.language?.reason ?? '-' }}</span>
+                </div>
+              </div>
+            </div>
+            <!-- 비언어적 요소 -->
+            <div class="mb-4">
+              <h4 class="text-lg font-semibold text-blue-600 mb-2">② 비언어적 요소</h4>
+              <div class="flex flex-wrap gap-6">
+                <div>
+                  <span class="font-medium text-gray-700">미소:</span>
+                  <span class="ml-2 text-gray-900">
+                    {{ result.value?.overallEvaluation?.nonverbal?.smileCount ?? '-' }}
+                    <span v-if="result.value?.overallEvaluation?.nonverbal?.totalCount">
+                      / {{ result.value?.overallEvaluation?.nonverbal?.totalCount }} ({{ getPercent(result.value?.overallEvaluation?.nonverbal?.smileCount, result.value?.overallEvaluation?.nonverbal?.totalCount) }}%)
+                    </span>
+                  </span>
+                </div>
+                <div>
+                  <span class="font-medium text-gray-700">울상:</span>
+                  <span class="ml-2 text-gray-900">
+                    {{ result.value?.overallEvaluation?.nonverbal?.frownCount ?? '-' }}
+                    <span v-if="result.value?.overallEvaluation?.nonverbal?.totalCount">
+                      / {{ result.value?.overallEvaluation?.nonverbal?.totalCount }} ({{ getPercent(result.value?.overallEvaluation?.nonverbal?.frownCount, result.value?.overallEvaluation?.nonverbal?.totalCount) }}%)
+                    </span>
+                  </span>
+                </div>
+                <div>
+                  <span class="font-medium text-gray-700">무표정:</span>
+                  <span class="ml-2 text-gray-900">
+                    {{ result.value?.overallEvaluation?.nonverbal?.neutralCount ?? '-' }}
+                    <span v-if="result.value?.overallEvaluation?.nonverbal?.totalCount">
+                      / {{ result.value?.overallEvaluation?.nonverbal?.totalCount }} ({{ getPercent(result.value?.overallEvaluation?.nonverbal?.neutralCount, result.value?.overallEvaluation?.nonverbal?.totalCount) }}%)
+                    </span>
+                  </span>
+                </div>
+                <div>
+                  <span class="font-medium text-gray-700">제스처:</span>
+                  <span class="ml-2 text-gray-900">
+                    {{ result.value?.overallEvaluation?.nonverbal?.gestureCount ?? '-' }}
+                    <span v-if="result.value?.overallEvaluation?.nonverbal?.totalCount">
+                      / {{ result.value?.overallEvaluation?.nonverbal?.totalCount }} ({{ getPercent(result.value?.overallEvaluation?.nonverbal?.gestureCount, result.value?.overallEvaluation?.nonverbal?.totalCount) }}%)
+                    </span>
+                  </span>
+                </div>
+                <div>
+                  <span class="font-medium text-gray-700">시선:</span>
+                  <span class="ml-2 text-gray-900">
+                    {{ result.value?.overallEvaluation?.nonverbal?.gazeCount ?? '-' }}
+                    <span v-if="result.value?.overallEvaluation?.nonverbal?.totalCount">
+                      / {{ result.value?.overallEvaluation?.nonverbal?.totalCount }} ({{ getPercent(result.value?.overallEvaluation?.nonverbal?.gazeCount, result.value?.overallEvaluation?.nonverbal?.totalCount) }}%)
+                    </span>
+                  </span>
+                </div>
+                <div>
+                  <span class="font-medium text-gray-700">점수:</span>
+                  <span class="ml-2 text-gray-900">{{ result.value?.overallEvaluation?.nonverbal?.score ?? '-' }}</span>
+                </div>
+                <div>
+                  <span class="font-medium text-gray-700">총점(최대점수):</span>
+                  <span class="ml-2 text-gray-900">{{ result.value?.overallEvaluation?.nonverbal?.maxScore ?? '-' }}</span>
+                </div>
+                <div class="w-full mt-2">
+                  <span class="font-medium text-gray-700">사유:</span>
+                  <span class="ml-2 text-gray-900">{{ result.value?.overallEvaluation?.nonverbal?.reason ?? '-' }}</span>
+                </div>
+              </div>
+            </div>
+            <!-- 전체 총점 및 사유 -->
+            <div class="mt-6">
+              <div>
+                <span class="font-semibold text-gray-700">총점:</span>
+                <span class="ml-2 text-gray-900">{{ result.value?.overallEvaluation?.totalScore ?? '-' }}</span>
+                <span class="mx-2 text-gray-500">/</span>
+                <span class="text-gray-900">{{ result.value?.overallEvaluation?.totalMaxScore ?? '-' }}</span>
+              </div>
+              <div class="mt-2">
+                <span class="font-semibold text-gray-700">총점에 대한 전체 사유:</span>
+                <span class="ml-2 text-gray-900">{{ result.value?.overallEvaluation?.totalReason ?? '-' }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -117,13 +222,6 @@
             </div>
           </div>
         </div>
-        <!-- 종합 평가 -->
-        <div id="overall-evaluation" class="mb-8">
-          <h3 class="text-2xl font-bold text-gray-900 mb-6">종합 평가</h3>
-          <div class="bg-gray-50 rounded-lg p-6">
-            <p class="text-gray-700 leading-relaxed">{{ result.feedback }}</p>
-          </div>
-        </div>
         <!-- 다운로드 버튼 -->
         <div id="download-section" class="mt-12 text-center">
           <button @click="emitDownload"
@@ -138,48 +236,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineProps, defineEmits, onMounted } from 'vue';
+import { ref, computed, defineProps, defineEmits, onMounted, onUnmounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import axios from 'axios';
 
 const router = useRouter();
 
 // 카테고리별 기본 아이콘/색상 세팅
 const competencyConfig = [
-  {
-    category: '문제 해결 능력',
-    icon: 'fas fa-lightbulb',
-    iconColor: 'text-green-600',
-    bgClass: 'bg-green-100',
-    textColor: 'text-green-600'
-  },
-  {
-    category: '커뮤니케이션',
-    icon: 'fas fa-comments',
-    iconColor: 'text-blue-600',
-    bgClass: 'bg-blue-100',
-    textColor: 'text-blue-600'
-  },
-  {
-    category: '전문성',
-    icon: 'fas fa-code',
-    iconColor: 'text-purple-600',
-    bgClass: 'bg-purple-100',
-    textColor: 'text-purple-600'
-  },
-  {
-    category: '팀워크',
-    icon: 'fas fa-users',
-    iconColor: 'text-orange-600',
-    bgClass: 'bg-orange-100',
-    textColor: 'text-orange-600'
-  },
-  {
-    category: '리더십',
-    icon: 'fas fa-crown',
-    iconColor: 'text-yellow-600',
-    bgClass: 'bg-yellow-100',
-    textColor: 'text-yellow-600'
-  }
+  { key: 'SUPEX', label: 'SUPEX', icon: 'fas fa-star', color: 'text-red-600', bg: 'bg-red-100' },
+  { key: 'VWBE', label: 'VWBE', icon: 'fas fa-bolt', color: 'text-orange-600', bg: 'bg-orange-100' },
+  { key: 'Passionate', label: 'Passionate', icon: 'fas fa-fire', color: 'text-yellow-600', bg: 'bg-yellow-100' },
+  { key: 'Proactive', label: 'Proactive', icon: 'fas fa-running', color: 'text-green-600', bg: 'bg-green-100' },
+  { key: 'Professional', label: 'Professional', icon: 'fas fa-user-tie', color: 'text-blue-600', bg: 'bg-blue-100' },
+  { key: 'People', label: 'People', icon: 'fas fa-users', color: 'text-purple-600', bg: 'bg-purple-100' },
+  { key: '기술.직무', label: '기술/직무', icon: 'fas fa-cogs', color: 'text-pink-600', bg: 'bg-pink-100' },
+  { key: '도메인 전문성', label: '도메인 전문성', icon: 'fas fa-brain', color: 'text-gray-600', bg: 'bg-gray-100' }
 ];
 
 const props = defineProps<{
@@ -193,20 +265,105 @@ const emit = defineEmits(['close', 'download']);
 const tab = ref(props.initialTab ?? 0);
 const result = computed(() => props.interviewResults[tab.value]);
 
-// 항목이 빠져있어도 5개 항목을 모두 채워서 보여줌
-const fixedKeywordList = computed(() => {
-  // 실제 받은 평가 배열
-  const evalArr = result.value?.evaluationKeywords || [];
-  // 5개 고정 카테고리 loop
-  return competencyConfig.map(conf => {
-    const found = evalArr.find((e: { category: string; score?: number; reason?: string }) => e.category === conf.category);
-    return {
-      ...conf,
-      score: found?.score ?? null,
-      reason: found?.reason ?? null
-    };
-  });
-});
+// 폴링 관련 변수 및 함수
+let pollingInterval: any = null;
+
+async function fetchAllResults() {
+  const ids = props.selectedCandidates.join(',');
+  const response = await axios.get(`http://localhost:8000/api/v1/results?interviewee_ids=${ids}`);
+  const results = response.data.results;
+  for (let i = 0; i < props.selectedCandidates.length; i++) {
+    const candidateId = props.selectedCandidates[i];
+    const found = results.find((r: any) => r.interviewee_id == candidateId);
+    if (found) {
+      props.interviewResults[i] = found;
+    }
+  }
+}
+
+async function checkAllInterviewComplete() {
+  try {
+    const ids = props.selectedCandidates.join(',');
+    const response = await axios.get(`http://localhost:8000/api/v1/results/statuses?interviewee_ids=${ids}`);
+    const statuses = response.data;
+    // 모두 DONE인지 확인
+    const allDone = statuses.every((item: any) => item.status === 'DONE');
+    if (allDone) {
+      if (pollingInterval) clearInterval(pollingInterval);
+      pollingInterval = null;
+      // 결과 일괄 갱신
+      await fetchAllResults();
+    }
+  } catch (err) {
+    console.error('[폴링 오류]', err);
+  }
+}
+
+function startPolling() {
+  if (pollingInterval) clearInterval(pollingInterval);
+  pollingInterval = setInterval(checkAllInterviewComplete, 1000); // 1초마다 폴링
+}
+
+function getEvaluationText(key: string, score: number | null) {
+  if (score == null) return '평가 데이터가 없습니다.'
+  switch (key) {
+    case 'SUPEX':
+      if (score >= 14) return 'SUPEX 정신이 충만하며, 자기 분야에 최고가 되려는 경향을 확실히 보임'
+      if (score >= 11) return 'SUPEX 마인드가 우수하며, 도전정신이 뚜렷함'
+      if (score >= 8)  return 'SUPEX 가치관이 평균 이상이나, 더 적극적인 자세가 필요함'
+      if (score >= 4)  return 'SUPEX에 대한 이해와 실천이 다소 부족함'
+      return 'SUPEX에 대한 관심과 실천 의지가 매우 부족함'
+    case 'VWBE':
+      if (score >= 14) return 'VWBE 실천이 탁월하며, 조직 내 소통과 협업이 매우 원활함'
+      if (score >= 11) return 'VWBE 역량이 우수하며, 팀워크가 잘 발휘됨'
+      if (score >= 8)  return 'VWBE 마인드가 평균 수준이나, 더 적극적인 협업이 필요함'
+      if (score >= 4)  return 'VWBE 실천이 다소 미흡함'
+      return 'VWBE에 대한 이해와 실천이 매우 부족함'
+    case 'Passionate':
+      if (score >= 14) return '열정적으로 업무에 임하며, 높은 동기부여를 보임'
+      if (score >= 11) return '업무에 대한 열정이 뚜렷함'
+      if (score >= 8)  return '열정이 평균 수준이나, 더 적극적인 태도가 필요함'
+      if (score >= 4)  return '업무에 대한 열정이 다소 부족함'
+      return '업무에 대한 열정과 의지가 매우 부족함'
+    case 'Proactive':
+      if (score >= 14) return '매우 적극적으로 문제를 해결하고, 주도적으로 행동함'
+      if (score >= 11) return '적극적으로 업무에 임하며, 주도성이 우수함'
+      if (score >= 8)  return '주도성은 평균 수준이나, 더 능동적인 자세가 필요함'
+      if (score >= 4)  return '주도적 행동이 다소 부족함'
+      return '주도성 및 적극성이 매우 부족함'
+    case 'Professional':
+      if (score >= 14) return '전문성이 매우 뛰어나며, 높은 수준의 업무 역량을 보임'
+      if (score >= 11) return '전문성이 우수하며, 신뢰를 주는 업무 태도를 보임'
+      if (score >= 8)  return '전문성은 평균 수준이나, 더 깊은 역량 개발이 필요함'
+      if (score >= 4)  return '전문성 및 업무 이해도가 다소 부족함'
+      return '전문성 및 업무 이해도가 매우 부족함'
+    case 'People':
+      if (score >= 14) return '대인관계가 매우 원만하며, 조직 내 신뢰가 높음'
+      if (score >= 11) return '대인관계가 우수하며, 협업이 잘 이루어짐'
+      if (score >= 8)  return '대인관계는 평균 수준이나, 더 원활한 소통이 필요함'
+      if (score >= 4)  return '대인관계 및 소통 능력이 다소 부족함'
+      return '대인관계 및 소통 능력이 매우 부족함'
+    case '기술.직무':
+      if (score >= 14) return '직무 관련 기술력이 매우 뛰어나며, 실무 역량이 탁월함'
+      if (score >= 11) return '직무 역량이 우수하며, 실무에 강점을 보임'
+      if (score >= 8)  return '직무 역량은 평균 수준이나, 추가 역량 개발이 필요함'
+      if (score >= 4)  return '직무 역량이 다소 부족함'
+      return '직무 역량 및 기술 이해도가 매우 부족함'
+    case '도메인 전문성':
+      if (score >= 14) return '도메인 전문성이 매우 뛰어나며, 깊은 이해를 보임'
+      if (score >= 11) return '도메인 전문성이 우수함'
+      if (score >= 8)  return '도메인 전문성은 평균 수준이나, 더 깊은 이해가 필요함'
+      if (score >= 4)  return '도메인 전문성이 다소 부족함'
+      return '도메인 전문성 및 이해도가 매우 부족함'
+    default:
+      return '평가 데이터가 없습니다.'
+  }
+}
+
+function getPercent(count: number | null | undefined, total: number | null | undefined): string {
+  if (!total || total === 0 || count == null) return '-';
+  return ((count / total) * 100).toFixed(1);
+}
 
 // 목차
 const tocSections = [
@@ -240,12 +397,21 @@ function emitDownload() {
 
 // 드롭다운 외부 클릭시 닫기
 onMounted(() => {
+  startPolling();
   document.addEventListener('click', (event) => {
     const target = event.target as HTMLElement;
     if (!target.closest('.relative') && showTocDropdown.value) {
       showTocDropdown.value = false;
     }
   });
+});
+
+onUnmounted(() => {
+  if (pollingInterval) clearInterval(pollingInterval);
+});
+
+watch(tab, () => {
+  startPolling();
 });
 </script>
 
