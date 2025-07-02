@@ -29,31 +29,7 @@ _llm = ChatOpenAI(
 )
 
 # 2) PromptTemplate 정의
-_posture_prompt = PromptTemplate(
-    input_variables=["posture_data"],
-    template="""
-당신은 면접 전문가입니다. 지원자의 자세를 분석하고 평가해주세요.
 
-자세 데이터:
-- 다리 벌림 횟수: {posture_data[leg_spread]}
-- 다리 떨림 횟수: {posture_data[leg_shake]}
-- 고개 숙임 횟수: {posture_data[head_down]}
-
-반드시 다음 JSON 형식으로만 응답해주세요:
-{{
-    "score": 0.0,  # 0.0 ~ 1.0 사이의 실수
-    "analysis": "분석 내용",
-    "feedback": "피드백 내용"
-}}
-
-예시 응답:
-{{
-    "score": 0.8,
-    "analysis": "지원자는 대체로 안정적인 자세를 유지했으나, 다리를 벌리는 행동이 다소 관찰되었습니다.",
-    "feedback": "자세를 더 안정적으로 유지하면 좋겠습니다."
-}}
-"""
-)
 
 _facial_prompt = PromptTemplate(
     input_variables=["facial_data"],
@@ -63,9 +39,9 @@ _facial_prompt = PromptTemplate(
 표정 데이터:
 - 웃음 횟수: {facial_data[smile]}
 - 무표정 횟수: {facial_data[neutral]}
-- 당황 횟수: {facial_data[embarrassed]}
-- 울상 횟수: {facial_data[tearful]}
 - 찡그림 횟수: {facial_data[frown]}
+- 화남 횟수: {facial_data[angry]}
+
 
 반드시 다음 JSON 형식으로만 응답해주세요:
 {{
@@ -84,12 +60,9 @@ _facial_prompt = PromptTemplate(
 )
 
 _overall_prompt = PromptTemplate(
-    input_variables=["posture_analysis", "facial_analysis"],
+    input_variables=["facial_analysis"],
     template="""
 당신은 면접 전문가입니다. 지원자의 비언어적 소통을 종합적으로 분석하고 평가해주세요.
-
-자세 분석:
-{posture_analysis}
 
 표정 분석:
 {facial_analysis}
@@ -111,7 +84,7 @@ _overall_prompt = PromptTemplate(
 )
 
 # 3) 표정 평가만 남기고 나머지 함수 제거
-async def evaluate(nonverbal: FacialExpression) -> float:
+async def evaluate(nonverbal: FacialExpression) -> dict:
     data = {
         "smile": nonverbal.smile,
         "neutral": nonverbal.neutral,
@@ -120,12 +93,21 @@ async def evaluate(nonverbal: FacialExpression) -> float:
     }
     prompt = _facial_prompt.format(facial_data=data)
     resp = await _llm.ainvoke(prompt)
+    raw = resp.content.strip()
+    # 마크다운 코드블록 제거
+    if raw.startswith("```json"):
+        raw = raw[7:]
+    if raw.startswith("```"):
+        raw = raw[3:]
+    if raw.endswith("```"):
+        raw = raw[:-3]
+    raw = raw.strip()
     try:
-        res = json.loads(resp.content)
+        res = json.loads(raw)
         if "score" not in res:
             raise KeyError("LLM 응답에 'score' 키가 없습니다.")
-        return res["score"]
+        return res  # score, analysis, feedback 모두 반환
     except json.JSONDecodeError as e:
-        raise ValueError(f"LLM 응답을 JSON으로 파싱할 수 없습니다: {resp.content}") from e
+        raise ValueError(f"LLM 응답을 JSON으로 파싱할 수 없습니다: {raw}") from e
     except KeyError as e:
-        raise ValueError(f"LLM 응답에 필수 키가 없습니다: {resp.content}") from e
+        raise ValueError(f"LLM 응답에 필수 키가 없습니다: {raw}") from e

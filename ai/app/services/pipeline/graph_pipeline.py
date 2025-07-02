@@ -291,17 +291,20 @@ async def nonverbal_evaluation_agent(state: InterviewState) -> InterviewState:
                 print(f"[WARNING] nonverbal_counts['expression']에 {k}가 없거나 int가 아님: {exp}")
         facial = FacialExpression.parse_obj(exp)
         print(f"[DEBUG] facial_expression: {facial}")
-        score = await evaluate(facial)
-        print(f"[DEBUG] 비언어적 평가 결과(score): {score}")
+        res = await evaluate(facial)
+        score = res.get("score", 0)
+        analysis = res.get("analysis", "")
+        feedback = res.get("feedback", "")
+        print(f"[DEBUG] 비언어적 평가 결과(score): {score}, analysis: {analysis}, feedback: {feedback}")
         pts = int(round(score * 15))
         if pts == 0:
             print("[WARNING] 비언어적 평가 점수가 0입니다. 프론트/데이터 전달/LLM 프롬프트를 확인하세요.")
         evaluation = safe_get(state, "evaluation", {}, context="nonverbal_evaluation_agent")
         results = safe_get(evaluation, "results", {}, context="nonverbal_evaluation_agent")
-        results["비언어적"] = {"score": pts, "reason": "표정 기반 평가"}
+        results["비언어적"] = {"score": pts, "reason": analysis or feedback or "평가 사유없음"}
         state.setdefault("evaluation", {}).setdefault("results", {})["비언어적"] = {
             "score": pts,
-            "reason": "표정 기반 평가"
+            "reason": analysis or feedback or "평가 사유없음"
         }
         state.setdefault("decision_log", []).append({
             "step": "nonverbal_evaluation",
@@ -566,197 +569,128 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
     print_state_summary(state, "evaluation_judge_agent")
     return state
 
-
-# ───────────────────────────────────────────────────
-# 9) PDF 생성 노드
-# ───────────────────────────────────────────────────
-async def pdf_node(state: InterviewState) -> InterviewState:
+def calculate_area_scores(evaluation_results, nonverbal_score):
     """
-    최종 리포트 노드 (원래 방식):
-    - 평가 결과를 기반으로 레이더 차트 생성
-    - generate_pdf 함수를 사용하여 PDF 생성
+    영역별 점수(100점 만점 기준, 비중 반영) 계산 함수
+    - 인성적 요소(45%): SUPEX, VWBE, Passionate, Proactive, Professional, People
+    - 직무·도메인(45%):  "기술/직무", "도메인 전문성"
+    - 비언어적 요소(10%): 비언어적 점수(15점 만점)
     """
-    from datetime import datetime
-    import os
-    import tempfile
-
-    def calculate_personality_score(evaluation_results):
-        """인성(언어) 점수 계산: SUPEX, VWBE, Passionate, Proactive, Professional, People"""
-        personality_keywords = ["SUPEX", "VWBE", "Passionate", "Proactive", "Professional", "People"]
-        total_score = 0
-        
-        for keyword in personality_keywords:
-            if keyword in evaluation_results:
-                criteria = evaluation_results[keyword]
-                for criterion_name, criterion_data in criteria.items():
-                    total_score += criterion_data.get("score", 0)
-        
-        return total_score
-
-    def calculate_job_domain_score(evaluation_results):
-        """기술/도메인 점수 계산: 실무 기술/지식의 깊이, 문제 해결 적용력, 학습 및 발전 가능성, 도메인 맥락 이해도, 실제 사례 기반 적용 능력, 전략적 사고력"""
-        job_domain_keywords = ["실무 기술/지식의 깊이", "문제 해결 적용력", "학습 및 발전 가능성", 
-                              "도메인 맥락 이해도", "실제 사례 기반 적용 능력", "전략적 사고력"]
-        total_score = 0
-        
-        for keyword in job_domain_keywords:
-            if keyword in evaluation_results:
-                criteria = evaluation_results[keyword]
-                for criterion_name, criterion_data in criteria.items():
-                    total_score += criterion_data.get("score", 0)
-        
-        return total_score
-
-    # 평가 결과 추출
-    evaluation = safe_get(state, "evaluation", {}, context="pdf_node:evaluation")
-    evaluation_results = safe_get(evaluation, "results", {}, context="pdf_node:evaluation.results")
-    rewrite = safe_get(state, "rewrite", {}, context="pdf_node:rewrite")
-    rewrite_final = safe_get(rewrite, "final", [], context="pdf_node:rewrite.final")
-    stt = safe_get(state, "stt", {}, context="pdf_node:stt")
-    stt_segments = safe_get(stt, "segments", [], context="pdf_node:stt.segments")
-    
-    if not evaluation_results:
-        print("[LangGraph] ⚠️ 평가 결과가 없어서 PDF 생성을 건너뜁니다.")
-        return state
-
-    # 답변 추출
-    answers = []
-    if not rewrite_final:
-        # final_items가 비어있으면 raw 텍스트 사용
-        if stt_segments:
-            answers = [stt_segments[-1].get("raw", "답변 내용이 없습니다.")]
-        else:
-            answers = ["답변 내용이 없습니다."]
-    else:
-        answers = [item["rewritten"] for item in rewrite_final]
-
-    # 점수 계산
-    personality_score = calculate_personality_score(evaluation_results)
-    job_domain_score = calculate_job_domain_score(evaluation_results)
-    nonverbal_score_dict = safe_get(evaluation_results, "비언어적", {}, context="pdf_node:evaluation_results.비언어적")
-    nonverbal_score = nonverbal_score_dict.get("score", 0) if isinstance(nonverbal_score_dict, dict) else 0
-    print(f"[DEBUG] PDF 노드 - 비언어적 요소 dict: {nonverbal_score_dict}")
-    print(f"[DEBUG] PDF 노드 - 비언어적 요소 점수: {nonverbal_score}")
-    
-    print(f"[LangGraph] 📊 계산된 점수 - 인성: {personality_score}, 기술/도메인: {job_domain_score}, 비언어: {nonverbal_score}")
-
-    # 100점 만점 환산 (45%, 45%, 10%)
+    personality_keywords = ["SUPEX", "VWBE", "Passionate", "Proactive", "Professional", "People"]
+    job_domain_keywords = ["기술/직무", "도메인 전문성"]
+    # 언어적 요소 총점
+    personality_score = 0
+    for keyword in personality_keywords:
+        for criterion in evaluation_results.get(keyword, {}).values():
+            personality_score += criterion.get("score", 0)
+    print(f"[DEBUG] 인성적 요소 총점: {personality_score} (max 90)")
+    # 직무·도메인 총점
+    job_domain_score = 0
+    for keyword in job_domain_keywords:
+        for criterion in evaluation_results.get(keyword, {}).values():
+            job_domain_score += criterion.get("score", 0)
+    print(f"[DEBUG] 직무·도메인 총점: {job_domain_score} (max 30)")
+    # 비언어적 요소
+    print(f"[DEBUG] 비언어적 요소 원점수: {nonverbal_score} (max 15)")
     max_personality = 90
     max_job_domain = 30
     max_nonverbal = 15
-
-    if max_personality > 0:
-        personality_ratio = personality_score / max_personality
-    else:
-        personality_ratio = 0
-    if max_job_domain > 0:
-        job_domain_ratio = job_domain_score / max_job_domain
-    else:
-        job_domain_ratio = 0
-    if max_nonverbal > 0:
-        nonverbal_ratio = nonverbal_score / max_nonverbal
-    else:
-        nonverbal_ratio = 0
-
     area_scores = {
-        "언어적 요소": round(personality_ratio * 45, 1),
-        "직무·도메인": round(job_domain_ratio * 45, 1),
-        "비언어적 요소": round(nonverbal_ratio * 10, 1)
+        "인성적 요소": round((personality_score / max_personality) * 45, 1) if max_personality else 0,
+        "직무·도메인": round((job_domain_score / max_job_domain) * 45, 1) if max_job_domain else 0,
+        "비언어적 요소": round((nonverbal_score / max_nonverbal) * 10, 1) if max_nonverbal else 0
     }
-    
-    weights = {
-        "언어적 요소": "45%",
-        "직무·도메인": "45%",
-        "비언어적 요소": "10%"
-    }
+    print(f"[DEBUG] 환산 점수: {area_scores}")
+    return area_scores
 
-    # 키워드 결과 정리 (generate_pdf에 맞는 형태)
-    keyword_results = {}
-    keyword_reasons_block = []
-    # PDF 표에 들어갈 키워드(헤더) 정의
-    pdf_keywords = [
+EVAL_REASON_SUMMARY_PROMPT = """
+아래는 지원자의 전체 답변과 각 평가 키워드별 평가 사유(reason)입니다.
+
+[지원자 답변]
+{answer}
+
+[평가 사유]
+{all_reasons}
+
+이 두 정보를 참고하여, 지원자가 이렇게 점수를 얻게 된 이유를 8줄 이내로 자연스럽게 요약해 주세요.
+- 평가 근거와 지원자의 핵심 답변 내용이 모두 포함되도록 하세요.
+- 각 줄은 간결하고 핵심적으로 작성해 주세요.
+- 중복되는 내용은 합치고, 중요한 특징/강점/보완점이 드러나도록 해 주세요.
+- 반드시 8줄 이내로만 작성하세요.
+"""
+
+async def score_summary_agent(state):
+    """
+    평가 검증(judge) 이후, 영역별 점수 환산 및 요약을 담당하는 agent
+    - 100점 만점 환산 점수 계산 (인성적 45%, 직무/도메인 45%, 비언어 10%)
+    - 지원자 답변 4줄, 평가 사유 4줄을 LLM에게 요약받아 summary_text에 포함
+    - 인성(언어적) 점수, 직무/도메인 점수 포함 (비언어적 점수/사유는 summary_text에 포함하지 않음)
+    결과를 state['summary']에 저장
+    """
+    evaluation = safe_get(state, "evaluation", {}, context="score_summary_agent:evaluation")
+    evaluation_results = safe_get(evaluation, "results", {}, context="score_summary_agent:evaluation.results")
+    print(f"[DEBUG] 평가 결과(evaluation_results): {json.dumps(evaluation_results, ensure_ascii=False, indent=2)}")
+    nonverbal = evaluation_results.get("비언어적", {})
+    nonverbal_score = nonverbal.get("score", 0)
+    nonverbal_reason = nonverbal.get("reason", "평가 사유없음")
+    print(f"[DEBUG] 비언어적 평가: score={nonverbal_score}, reason={nonverbal_reason}")
+
+    # 100점 만점 환산 점수 계산
+    area_scores = calculate_area_scores(evaluation_results, nonverbal_score)
+    verbal_score = area_scores["인성적 요소"] + area_scores["직무·도메인"]
+    print(f"[DEBUG] verbal_score(인성+직무/도메인): {verbal_score}")
+
+    # 전체 키워드 평가 사유 종합 (SUPEX, VWBE, Passionate, Proactive, Professional, People, 기술/직무, 도메인 전문성)
+    all_keywords = [
         "SUPEX", "VWBE", "Passionate", "Proactive", "Professional", "People",
         "기술/직무", "도메인 전문성"
     ]
-    # 평가 기준 전체(세부항목 포함)
-    all_criteria = {**EVAL_CRITERIA_WITH_ALL_SCORES, **TECHNICAL_EVAL_CRITERIA_WITH_ALL_SCORES, **DOMAIN_EVAL_CRITERIA_WITH_ALL_SCORES}
+    reasons = []
+    for keyword in all_keywords:
+        for crit_name, crit in evaluation_results.get(keyword, {}).items():
+            reason = crit.get("reason", "")
+            if reason:
+                reasons.append(f"{keyword} - {crit_name}: {reason}")
+            print(f"[DEBUG] 평가 사유 추출: {keyword} - {crit_name} - {reason}")
+    all_reasons = "\n".join(reasons)
+    print(f"[DEBUG] all_reasons(전체 평가 사유):\n{all_reasons}")
 
-    for keyword in pdf_keywords:
-        criteria = evaluation_results.get(keyword, {})
-        total_score = 0
-        reasons_list = []
-        # 반드시 평가 기준에 정의된 세부항목을 모두 순회
-        for criterion_name in all_criteria.get(keyword, {}).keys():
-            criterion_data = criteria.get(criterion_name, {"score": 1, "reason": "평가 사유없음"})
-            score = criterion_data.get("score", 1)
-            reason = criterion_data.get("reason", "평가 사유없음")
-            total_score += score
-            reasons_list.append(f"  {criterion_name}: {reason}")
-        keyword_results[keyword] = {
-            "score": total_score,
-            "reasons": "\n".join(reasons_list)
-        }
-        keyword_reasons_block.append(f"- {keyword}\n" + "\n".join(reasons_list))
-    all_keyword_reasons = "\n\n".join(keyword_reasons_block)
+    # 지원자 답변 추출
+    rewrite = safe_get(state, "rewrite", {}, context="score_summary_agent:rewrite")
+    final_items = safe_get(rewrite, "final", [], context="score_summary_agent:rewrite.final")
+    if final_items:
+        answer = "\n".join(item["rewritten"] for item in final_items)
+    else:
+        stt = safe_get(state, "stt", {}, context="score_summary_agent:stt")
+        stt_segments = safe_get(stt, "segments", [], context="score_summary_agent:stt.segments")
+        if stt_segments:
+            answer = "\n".join(seg.get("raw", "답변 내용이 없습니다.") for seg in stt_segments)
+        else:
+            answer = "답변 내용이 없습니다."
+    print(f"[DEBUG] 지원자 답변(answer):\n{answer}")
 
-    # 총점 계산
-    total_score = sum(area_scores.values())
+    # LLM 프롬프트로 종합 요약 요청
+    prompt = EVAL_REASON_SUMMARY_PROMPT.format(answer=answer, all_reasons=all_reasons)
+    response = openai.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.2,
+        max_tokens=512
+    )
+    summary_text = response.choices[0].message.content.strip().splitlines()[:8]
+    print(f"[DEBUG] summary_text(LLM 요약): {summary_text}")
 
-    # 임시 차트 파일 생성
-    chart_path = os.path.join(tempfile.gettempdir(), f"radar_chart_{datetime.now(KST).strftime('%Y%m%d%H%M%S')}.png")
-    
-    try:
-        from app.services.interview.report_service import create_radar_chart
-        create_radar_chart(keyword_results, chart_path)
-        print(f"[LangGraph] 📊 레이더 차트 생성: {chart_path}")
-    except Exception as e:
-        print(f"[LangGraph] ❌ 레이더 차트 생성 실패: {e}")
-        chart_path = None
-
-    # PDF 생성
-    applicant_id = safe_get(state, "interviewee_id", context="pdf_node:applicant_id")
-    ts = datetime.now(KST).strftime("%Y%m%d%H%M%S")
-    out = RESULT_DIR; os.makedirs(out, exist_ok=True)
-    pdf_path = f"{out}/{applicant_id}_report_{ts}.pdf"
-
-    try:
-        generate_pdf(
-            keyword_results=keyword_results,
-            chart_path=chart_path if chart_path and os.path.exists(chart_path) else "",
-            output_path=pdf_path,
-            interviewee_id=str(applicant_id),
-            answers=answers,
-            nonverbal_score=nonverbal_score,
-            nonverbal_reason="표정 기반 평가",
-            total_score=int(total_score),
-            area_scores=area_scores,
-            weights=weights
-        )
-        state.setdefault("report", {}).setdefault("pdf", {})["generated"] = True
-        state["report"]["pdf"]["path"] = pdf_path
-        state.setdefault("decision_log", []).append({
-            "step": "pdf_node", "result": "generated",
-            "time": datetime.now(KST).isoformat(),
-            "details": {"path": pdf_path}
-        })
-        print(f"[LangGraph] ✅ PDF 생성 완료: {pdf_path}")
-        
-        # 임시 차트 파일 삭제
-        if chart_path and os.path.exists(chart_path):
-            os.remove(chart_path)
-            
-    except Exception as e:
-        state.setdefault("report", {}).setdefault("pdf", {})["generated"] = False
-        state["report"]["pdf"]["error"] = str(e)
-        state.setdefault("decision_log", []).append({
-            "step": "pdf_node", "result": "error",
-            "time": datetime.now(KST).isoformat(),
-            "details": {"error": str(e)}
-        })
-        print(f"[LangGraph] ❌ PDF 생성 실패: {e}")
-
-    print_state_summary(state, "pdf_node")
+    # state에 저장
+    state["summary"] = {
+        "area_scores": area_scores,
+        "verbal_score": verbal_score,
+        "summary_text": summary_text,
+        "nonverbal_score": area_scores["비언어적 요소"],
+        "nonverbal_reason": nonverbal_reason
+    }
+    print(f"[LangGraph] ✅ 영역별 점수/요약 저장: {json.dumps(state['summary'], ensure_ascii=False, indent=2)}")
     return state
+
 
 # ───────────────────────────────────────────────────
 # Excel Node: 지원자 ID로 이름 조회 후 엑셀 생성
