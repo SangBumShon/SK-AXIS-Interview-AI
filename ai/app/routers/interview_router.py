@@ -59,7 +59,7 @@ async def end_interview(req: EndInterviewRequest):
             print(f"[DEBUG] Processing interviewee_id: {interviewee_id}")
 
             state = INTERVIEW_STATE_STORE.get(interviewee_id)
-            print(f"[TRACE] INTERVIEW_STATE_STORE 조회: interviewee_id={interviewee_id}, state type={type(state)}, value={state}")
+            print(f"[TRACE] INTERVIEW_STATE_STORE 조회: interviewee_id={interviewee_id}, found={state is not None}")
 
             # ✅ 반드시 먼저 타입 확인
             if not isinstance(state, dict):
@@ -68,7 +68,7 @@ async def end_interview(req: EndInterviewRequest):
                 continue
 
             if not isinstance(nv, NonverbalData):
-                print("[DEBUG] NonverbalData로 변환 시도")
+                # print("[DEBUG] NonverbalData로 변환 시도")
                 nv = NonverbalData(**nv)
             print(f"[DEBUG] 변환된 nv 데이터: {nv}")
 
@@ -93,11 +93,11 @@ async def end_interview(req: EndInterviewRequest):
             processed_count += 1
 
         if processed_count == 0:
-            print("[WARNING] No interviewees were processed")
+            # print("[WARNING] No interviewees were processed")
             return EndInterviewResponse(
                 result="partial",
                 report_ready=False,
-                message=f"No states found for any interviewees. Skipped IDs: {skipped_ids}"
+                # message=f"No states found for any interviewees. Skipped IDs: {skipped_ids}"
             )
 
         return EndInterviewResponse(

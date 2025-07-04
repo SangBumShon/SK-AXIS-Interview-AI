@@ -6,6 +6,7 @@ from fastapi import UploadFile
 import whisper
 from typing import Optional
 from datetime import datetime
+import numpy as np
 
 
 # 📦 .env 환경 변수 로드
@@ -27,15 +28,60 @@ def transcribe_audio_file(file_path: str) -> str:
     """
     Whisper API를 사용하여 주어진 오디오 파일을 텍스트로 전사함
     """
-    with open(file_path, "rb") as f:
+    # 오디오 전처리 적용
+    processed_path = preprocess_audio(file_path)
+    
+    with open(processed_path, "rb") as f:
         transcript = client.audio.transcriptions.create(
             model="whisper-1",
             file=f,
             response_format="text",
-            language="ko"
+            language="ko",
+            # 프롬프트 추가로 맥락 제공
+            prompt="면접 상황에서의 대화입니다. 전문적이고 정중한 언어를 사용합니다."
         )
+    
+    # 전처리된 임시 파일 삭제
+    if processed_path != file_path and os.path.exists(processed_path):
+        os.remove(processed_path)
+    
     # response_format="text" 를 사용하면 문자열이 반환됩니다.
-    return transcript.strip()
+    result = transcript.strip()
+    
+    # 후처리: 명백히 잘못된 변환 필터링
+    if is_invalid_transcription(result):
+        print(f"[STT 후처리] 잘못된 변환 감지: {result}")
+        return "음성을 명확하게 인식할 수 없습니다."
+    
+    return result
+
+def is_invalid_transcription(text: str) -> bool:
+    """
+    명백히 잘못된 STT 결과를 감지합니다.
+    """
+    if not text or len(text.strip()) == 0:
+        return True
+    
+    # 잘못된 변환 패턴들
+    invalid_patterns = [
+        "먹방",
+        "빠이빠이", 
+        "구독",
+        "영상 시청",
+        "채널",
+        "유튜브"
+    ]
+    
+    text_lower = text.lower()
+    for pattern in invalid_patterns:
+        if pattern in text_lower:
+            return True
+    
+    # 너무 짧은 의미없는 단어들
+    if len(text.strip()) < 3:
+        return True
+        
+    return False
 
 async def process_audio_file(interviewee_id: int, audio_file: UploadFile) -> Optional[str]:
     """
@@ -55,13 +101,35 @@ async def process_audio_file(interviewee_id: int, audio_file: UploadFile) -> Opt
             content = await audio_file.read()
             buffer.write(content)
         
-        # Whisper로 STT 처리
-        result = model.transcribe(temp_path, language="ko")
+        # 오디오 전처리 적용
+        processed_path = preprocess_audio(temp_path)
         
-        # 임시 파일 삭제
-        os.remove(temp_path)
+        # Whisper로 STT 처리 - 더 많은 옵션 추가
+        result = model.transcribe(
+            processed_path, 
+            language="ko",
+            # 더 정확한 변환을 위한 옵션들
+            initial_prompt="면접 상황에서의 대화입니다. 전문적이고 정중한 언어를 사용합니다.",
+            temperature=0.0,  # 더 일관된 결과를 위해 temperature 낮춤
+            condition_on_previous_text=False,  # 이전 텍스트에 의존하지 않음
+            no_speech_threshold=0.6,  # 음성이 없는 구간 감지 임계값
+            logprob_threshold=-1.0,  # 낮은 확률 결과 필터링
+        )
         
-        return result["text"]
+        # 임시 파일들 삭제
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        if processed_path != temp_path and os.path.exists(processed_path):
+            os.remove(processed_path)
+        
+        text_result = result["text"]
+        
+        # 후처리
+        if is_invalid_transcription(text_result):
+            print(f"[STT 후처리] 잘못된 변환 감지: {text_result}")
+            return "음성을 명확하게 인식할 수 없습니다."
+        
+        return text_result
         
     except Exception as e:
         print(f"STT 처리 중 오류 발생: {str(e)}")
@@ -98,3 +166,43 @@ async def save_audio_file(interviewee_id: int, audio_file: UploadFile) -> Option
     except Exception as e:
         print(f"파일 저장 중 오류 발생: {str(e)}")
         return None
+
+def preprocess_audio(file_path: str) -> str:
+    """
+    오디오 파일을 전처리하여 STT 정확도를 개선합니다.
+    """
+    try:
+        # pydub으로 오디오 로드
+        audio = AudioSegment.from_file(file_path)
+        
+        # 1. 샘플링 레이트 정규화 (16kHz가 Whisper에 최적)
+        if audio.frame_rate != 16000:
+            audio = audio.set_frame_rate(16000)
+            print(f"[오디오 전처리] 샘플링 레이트 변경: {audio.frame_rate} -> 16000Hz")
+        
+        # 2. 모노 채널로 변환
+        if audio.channels > 1:
+            audio = audio.set_channels(1)
+            print(f"[오디오 전처리] 스테레오 -> 모노 변환")
+        
+        # 3. 음량 정규화 (너무 작거나 큰 소리 조절)
+        if audio.dBFS < -30:  # 너무 작은 소리
+            audio = audio + (abs(audio.dBFS) - 20)
+            print(f"[오디오 전처리] 음량 증폭: {audio.dBFS}dB")
+        elif audio.dBFS > -10:  # 너무 큰 소리
+            audio = audio - (audio.dBFS + 10)
+            print(f"[오디오 전처리] 음량 감소: {audio.dBFS}dB")
+        
+        # 4. 무음 구간 제거 (앞뒤 0.5초 이상 무음 제거)
+        audio = audio.strip_silence(silence_len=500, silence_thresh=-40)
+        
+        # 5. 전처리된 파일 저장
+        processed_path = file_path.replace(".webm", "_processed.wav")
+        audio.export(processed_path, format="wav")
+        
+        print(f"[오디오 전처리] 완료: {processed_path}")
+        return processed_path
+        
+    except Exception as e:
+        print(f"[오디오 전처리] 오류 발생: {e}")
+        return file_path  # 전처리 실패 시 원본 파일 반환

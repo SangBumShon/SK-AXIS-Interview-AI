@@ -64,7 +64,7 @@ defineExpose({
 })
 
 const recorderMap = ref({})
-const MOUTH_CLOSED_THRESHOLD = 5000
+const MOUTH_CLOSED_THRESHOLD = 3000
 const video = ref(null)
 const canvas = ref(null)
 

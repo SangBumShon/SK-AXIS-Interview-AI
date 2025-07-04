@@ -302,7 +302,7 @@ async function fetchAllResults() {
     return;
   }
   const ids = candidateIds.value.join(',');
-  const response = await axios.get(`http://localhost:8000/api/v1/results?interviewee_ids=${ids}`);
+  const response = await axios.get(`http://3.38.218.18:8000/api/v1/results?interviewee_ids=${ids}`);
   const results = response.data.results;
   for (let i = 0; i < candidateIds.value.length; i++) {
     const candidateId = candidateIds.value[i];
@@ -321,7 +321,7 @@ async function checkAllInterviewComplete() {
   try {
     const ids = candidateIds.value.join(',');
     console.log('[statuses API 호출] interviewee_ids:', ids);
-    const response = await axios.get(`http://localhost:8000/api/v1/results/statuses?interviewee_ids=${ids}`);
+    const response = await axios.get(`http://3.38.218.18:8000/api/v1/results/statuses?interviewee_ids=${ids}`);
     const statuses = response.data;
     // 모두 DONE인지 확인
     const allDone = statuses.every((item: any) => item.status === 'DONE');

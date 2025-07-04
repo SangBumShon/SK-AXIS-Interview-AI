@@ -50,7 +50,7 @@ async def upload_stt(
                 if state is None:
                     print(f"[process] ℹ️ 상태 없음 → 새로 생성")
                     questions = QUESTION_STORE.get(interviewee_id, [])
-                    print(f"[process] 🔍 질문 목록 ({len(questions)}개): {questions}")
+                    # print(f"[process] 🔍 질문 목록 ({len(questions)}개): {questions}")
                     if not questions:
                         print(f"[process] ⚠ 질문 목록이 비어 있습니다.")
                     state = create_initial_state(interviewee_id, questions, file_path)

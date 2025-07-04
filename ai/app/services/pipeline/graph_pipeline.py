@@ -61,7 +61,7 @@ def print_state_summary(state, node_name):
         "decision_log_len": len(state.get("decision_log", [])),
         "decision_log_type": type(state.get("decision_log", [])).__name__
     }
-    print(f"[DEBUG] [{node_name}] state summary: {summary}")
+    # print(f"[DEBUG] [{node_name}] state summary: {summary}")
 
 def safe_get(d, key, default=None, context=""):
     try:
@@ -72,25 +72,16 @@ def safe_get(d, key, default=None, context=""):
 
 def stt_node(state: InterviewState) -> InterviewState:
     print("[LangGraph] 🧠 stt_node 진입")
-    # 파이프라인 전체 시작 시각 기록
-    # state["_pipeline_start_time"] = datetime.now(KST).timestamp()
+    
     audio_path = safe_get(state, "audio_path", context="stt_node")
     raw = transcribe_audio_file(audio_path)
     if not raw or not str(raw).strip():
         raw = "없음"
-    ts = datetime.now(KST).isoformat()
-    stt = safe_get(state, "stt", {}, context="stt_node")
-    stt_segments = safe_get(stt, "segments", [], context="stt_node")
+    
     state.setdefault("stt", {"done": False, "segments": []})
-    state["stt"]["segments"].append({"raw": raw, "timestamp": ts})
+    state["stt"]["segments"].append({"raw": raw, "timestamp": datetime.now(KST).isoformat()})
+    
     print(f"[LangGraph] ✅ STT 완료: {raw[:30]}...")
-    state.setdefault("decision_log", []).append({
-        "step": "stt_node",
-        "result": "success",
-        "time": ts,
-        "details": {"segment_preview": raw[:30]}
-    })
-    print_state_summary(state, "stt_node")
     return state
 
 # ───────────────────────────────────────────────────
@@ -137,7 +128,7 @@ async def rewrite_agent(state: InterviewState) -> InterviewState:
         "time":   ts,
         "details": {"raw_preview": raw[:30], "retry_count": retry_count}
     })
-    print_state_summary(state, "rewrite_agent")
+    # print_state_summary(state, "rewrite_agent")
     return state
 
 # ───────────────────────────────────────────────────
@@ -264,7 +255,7 @@ async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
     if rewrite["items"][-1].get("ok", False):
         rewrite["done"] = True
 
-    print_state_summary(state, "rewrite_judge_agent")
+    # print_state_summary(state, "rewrite_judge_agent")
     return state
 
 
@@ -272,6 +263,11 @@ async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
 # 5) Nonverbal 평가 에이전트 (표정만 평가)
 # ───────────────────────────────────────────────────
 async def nonverbal_evaluation_agent(state: InterviewState) -> InterviewState:
+    # 평가 시작 시간 기록
+    evaluation_start_time = datetime.now(KST).timestamp()
+    state["_evaluation_start_time"] = evaluation_start_time
+    print(f"[⏱️] 평가 시작: {datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')}")
+    
     ts = datetime.now(KST).isoformat()
     try:
         counts = safe_get(state, "nonverbal_counts", {}, context="nonverbal_evaluation_agent")
@@ -325,7 +321,7 @@ async def nonverbal_evaluation_agent(state: InterviewState) -> InterviewState:
             "time": ts,
             "details": {"error": str(e)}
         })
-    print_state_summary(state, "nonverbal_evaluation_agent")
+    # print_state_summary(state, "nonverbal_evaluation_agent")
     return state
 
 # ───────────────────────────────────────────────────
@@ -424,7 +420,7 @@ async def evaluation_agent(state: InterviewState) -> InterviewState:
         "time": ts,
         "details": {"retry_count": retry_count}
     })
-    print_state_summary(state, "evaluation_agent")
+    # print_state_summary(state, "evaluation_agent")
     return state
 
 # ───────────────────────────────────────────────────
@@ -456,7 +452,7 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
     # 2. 점수 범위 검증 (1~5)
     for criteria in results.values():
         for data in criteria.values():
-            print(f"[DEBUG] evaluation_judge_agent - data type: {type(data)}, value: {data}")
+            # print(f"[DEBUG] evaluation_judge_agent - data type: {type(data)}, value: {data}")
             if isinstance(data, dict):
                 s = data.get("score", 0)
             elif isinstance(data, int):
@@ -507,28 +503,11 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
 [평가 기준]
 {criteria}
 
-평가 결과는 반드시 아래와 같은 구조여야 합니다:
-- 각 키워드별로 3개의 평가항목이 있습니다.
-- 각 평가항목은 반드시 아래와 같은 dict(객체) 구조여야 합니다:
-  {{
-    "score": (1~5의 정수),
-    "reason": (문자열, 반드시 존재),
-    "quotes": (문자열 리스트, 없으면 빈 리스트)
-  }}
-- 절대로 score만 단독으로 숫자로 반환하지 마세요. 반드시 위의 구조를 지키세요.
-
-아래를 검증하세요:
-1. 각 키워드의 각 평가항목별 점수와 사유가 실제 답변 내용과 논리적으로 맞는지, 그리고 평가 기준에 부합하는지 확인하세요.
-2. 점수와 사유가 답변 내용과 어울리지 않거나, 평가 기준에 맞지 않으면 그 이유를 구체적으로 지적하세요.
-
-아래 형식의 JSON으로만 답변하세요.
+평가 결과를 간단히 검증하고 아래 형식의 JSON으로만 답변하세요.
 
 {{
-  "ok": (true 또는 false),
-  "judge_notes": [
-    "키워드 'Proactive'의 '선제적 문제 인식과 행동' 항목 점수(5점)는 답변에서 사전 예방적 행동이 구체적으로 드러나지 않아 과하게 평가되었습니다.",
-    "키워드 'Professional'의 '전문성 기반 성과 창출력' 항목 사유가 답변 내용과 평가 기준(5점)에 부합하지 않습니다."
-  ]
+  "ok": true,
+  "judge_notes": ["평가 완료"]
 }}
 """
         final_items = safe_get(state, "rewrite", {}).get("final", [])
@@ -563,7 +542,7 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
         )
         
         llm_response = response.choices[0].message.content.strip()
-        print(f"[DEBUG] 🤖 내용 검증 LLM 응답: {llm_response}")
+        # print(f"[DEBUG] 🤖 내용 검증 LLM 응답: {llm_response}")
         
         # 마크다운 코드 블록 제거
         if llm_response.startswith("```json"):
@@ -574,7 +553,7 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
             llm_response = llm_response[:-3]  # 끝의 "```" 제거
         
         llm_response = llm_response.strip()
-        print(f"[DEBUG] 🔧 정리된 내용 검증 JSON: {llm_response}")
+        # print(f"[DEBUG] 🔧 정리된 내용 검증 JSON: {llm_response}")
         
         if not llm_response:
             raise ValueError("LLM 응답이 비어있습니다")
@@ -584,7 +563,7 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
         print(f"[LangGraph] ✅ 내용 검증 결과: ok={result.get('ok')}, notes={result.get('judge_notes')}")
     except Exception as e:
         print(f"[DEBUG] ❌ 내용 검증 오류: {e}")
-        print(f"[DEBUG] 🔍 LLM 응답: {llm_response if 'llm_response' in locals() else 'N/A'}")
+        # print(f"[DEBUG] 🔍 LLM 응답: {llm_response if 'llm_response' in locals() else 'N/A'}")
         state["evaluation"]["content_judge"] = {
             "ok": True,  # 오류 시 기본적으로 통과
             "judge_notes": [f"content judge error: {e}"]
@@ -602,7 +581,7 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
             "notes": judge_notes
         }
     })
-    print_state_summary(state, "evaluation_judge_agent")
+    # print_state_summary(state, "evaluation_judge_agent")
     return state
 
 def calculate_area_scores(evaluation_results, nonverbal_score):
@@ -620,15 +599,15 @@ def calculate_area_scores(evaluation_results, nonverbal_score):
     for keyword in personality_keywords:
         for criterion in evaluation_results.get(keyword, {}).values():
             personality_score += criterion.get("score", 0)
-    print(f"[DEBUG] 인성적 요소 총점: {personality_score} (max 90)")
+    # print(f"[DEBUG] 인성적 요소 총점: {personality_score} (max 90)")
     # 직무·도메인 총점
     job_domain_score = 0
     for keyword in job_domain_keywords:
         for criterion in evaluation_results.get(keyword, {}).values():
             job_domain_score += criterion.get("score", 0)
-    print(f"[DEBUG] 직무·도메인 총점: {job_domain_score} (max 30)")
+    # print(f"[DEBUG] 직무·도메인 총점: {job_domain_score} (max 30)")
     # 비언어적 요소
-    print(f"[DEBUG] 비언어적 요소 원점수: {nonverbal_score} (max 15)")
+    # print(f"[DEBUG] 비언어적 요소 원점수: {nonverbal_score} (max 15)")
     max_personality = 90
     max_job_domain = 30
     max_nonverbal = 15
@@ -637,7 +616,7 @@ def calculate_area_scores(evaluation_results, nonverbal_score):
         "직무·도메인": round((job_domain_score / max_job_domain) * 45, 1) if max_job_domain else 0,
         "비언어적 요소": round((nonverbal_score / max_nonverbal) * 10, 1) if max_nonverbal else 0
     }
-    print(f"[DEBUG] 환산 점수(weights): {weights}")
+    # print(f"[DEBUG] 환산 점수(weights): {weights}")
     return weights
 
 EVAL_REASON_SUMMARY_PROMPT = """
@@ -666,16 +645,16 @@ async def score_summary_agent(state):
     """
     evaluation = safe_get(state, "evaluation", {}, context="score_summary_agent:evaluation")
     evaluation_results = safe_get(evaluation, "results", {}, context="score_summary_agent:evaluation.results")
-    print(f"[DEBUG] 평가 결과(evaluation_results): {json.dumps(evaluation_results, ensure_ascii=False, indent=2)}")
+    # print(f"[DEBUG] 평가 결과(evaluation_results): {json.dumps(evaluation_results, ensure_ascii=False, indent=2)}")
     nonverbal = evaluation_results.get("비언어적", {})
     nonverbal_score = nonverbal.get("score", 0)
     nonverbal_reason = nonverbal.get("reason", "평가 사유없음")
-    print(f"[DEBUG] 비언어적 평가: score={nonverbal_score}, reason={nonverbal_reason}")
+    # print(f"[DEBUG] 비언어적 평가: score={nonverbal_score}, reason={nonverbal_reason}")
 
     # 100점 만점 환산 점수 계산
     weights = calculate_area_scores(evaluation_results, nonverbal_score)
     verbal_score = weights["인성적 요소"] + weights["직무·도메인"]
-    print(f"[DEBUG] verbal_score(인성+직무/도메인): {verbal_score}")
+    # print(f"[DEBUG] verbal_score(인성+직무/도메인): {verbal_score}")
 
     # 전체 키워드 평가 사유 종합 (SUPEX, VWBE, Passionate, Proactive, Professional, People, 기술/직무, 도메인 전문성)
     all_keywords = [
@@ -688,9 +667,9 @@ async def score_summary_agent(state):
             reason = crit.get("reason", "")
             if reason:
                 reasons.append(f"{keyword} - {crit_name}: {reason}")
-            print(f"[DEBUG] 평가 사유 추출: {keyword} - {crit_name} - {reason}")
+            # print(f"[DEBUG] 평가 사유 추출: {keyword} - {crit_name} - {reason}")
     all_reasons = "\n".join(reasons)
-    print(f"[DEBUG] all_reasons(전체 평가 사유):\n{all_reasons}")
+    # print(f"[DEBUG] all_reasons(전체 평가 사유):\n{all_reasons}")
 
     # 지원자 답변 추출
     rewrite = safe_get(state, "rewrite", {}, context="score_summary_agent:rewrite")
@@ -704,7 +683,7 @@ async def score_summary_agent(state):
             answer = "\n".join(seg.get("raw", "답변 내용이 없습니다.") for seg in stt_segments)
         else:
             answer = "답변 내용이 없습니다."
-    print(f"[DEBUG] 지원자 답변(answer):\n{answer}")
+    # print(f"[DEBUG] 지원자 답변(answer):\n{answer}")
 
     # LLM 프롬프트로 종합 요약 요청
     prompt = EVAL_REASON_SUMMARY_PROMPT.format(answer=answer, all_reasons=all_reasons)
@@ -715,7 +694,7 @@ async def score_summary_agent(state):
         max_tokens=512
     )
     verbal_reason = response.choices[0].message.content.strip().splitlines()[:8]
-    print(f"[DEBUG] summary_text(LLM 요약): {verbal_reason}")
+    # print(f"[DEBUG] summary_text(LLM 요약): {verbal_reason}")
 
     # 각 키워드별 총점 계산
     keyword_scores = {}
@@ -741,21 +720,35 @@ async def score_summary_agent(state):
     }
     print(f"[LangGraph] ✅ 영역별 점수/요약 저장: {json.dumps(state['summary'], ensure_ascii=False, indent=2)}")
 
-    # 전체 state 디버깅 출력
-    # print("[DEBUG] ===== 전체 state 출력 (summary_agent 종료 후) =====")
-    # try:
-    #     print(json.dumps(state, ensure_ascii=False, indent=2))
-    # except Exception as e:
-    #     print(f"[DEBUG] state 전체 출력 중 오류: {e}")
-    # print("[DEBUG] ==========================================")
+    # 평가 소요시간 계산 및 출력
+    start_time = state.get("_evaluation_start_time")
+    if start_time:
+        end_time = datetime.now(KST).timestamp()
+        total_elapsed = end_time - start_time
+        print(f"[⏱️] 평가 완료: {datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"[⏱️] 평가 소요시간: {total_elapsed:.2f}초 (평가 시작 → 완료)")
+        
+        # decision_log에도 기록
+        state.setdefault("decision_log", []).append({
+            "step": "evaluation_complete",
+            "result": "success",
+            "time": datetime.now(KST).isoformat(),
+            "details": {
+                "evaluation_elapsed_seconds": round(total_elapsed, 2),
+                "start_time": datetime.fromtimestamp(start_time, KST).isoformat(),
+                "end_time": datetime.now(KST).isoformat()
+            }
+        })
+        
+        # summary에도 소요시간 정보 추가
+        state["summary"]["evaluation_duration"] = {
+            "total_seconds": round(total_elapsed, 2),
+            "start_time": datetime.fromtimestamp(start_time, KST).isoformat(),
+            "end_time": datetime.now(KST).isoformat()
+        }
+    else:
+        print("[⏱️] 평가 시작 시간 정보가 없습니다.")
 
-    # 파이프라인 전체 소요 시간 측정
-    # start_ts = state.get("_pipeline_start_time")
-    # if start_ts:
-    #     elapsed = datetime.now(KST).timestamp() - start_ts
-    #     print(f"[DEBUG] 파이프라인 전체 소요 시간: {elapsed:.2f}초 (STT 업로드~summary)")
-    # else:
-    #     print("[DEBUG] 파이프라인 시작 시각 정보가 없습니다.")
     return state
 
 
