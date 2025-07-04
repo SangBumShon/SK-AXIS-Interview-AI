@@ -104,15 +104,18 @@ async def get_final_results(
                 eval_results = state["evaluation"]["results"]
                 
                 # SK 역량 점수 (SUPEX, VWBE, Passionate, Proactive, Professional, People)
-                for key in ["SUPEX", "VWBE", "Passionate", "Proactive", "Professional", "People"]:
-                    if key in eval_results:
+                sk_competencies = ["SUPEX", "VWBE", "Passionate", "Proactive", "Professional", "People"]
+                for key in sk_competencies:
+                    if key in eval_results and isinstance(eval_results[key], dict):
                         competencies[key] = eval_results[key].get("score", 0)
                 
                 # 직무/도메인 점수
-                for key in ["기술/직무", "도메인 전문성"]:
-                    if key in eval_results:
+                domain_competencies = ["기술/직무", "도메인 전문성"]
+                for key in domain_competencies:
+                    if key in eval_results and isinstance(eval_results[key], dict):
                         # '/' 문자는 JSON 키로 사용 시 문제가 될 수 있어 '.'로 변경
-                        competencies[key.replace("/", ".")] = eval_results[key].get("score", 0)
+                        safe_key = key.replace("/", ".")
+                        competencies[safe_key] = eval_results[key].get("score", 0)
             
             # 언어적 평가 요약
             language = {

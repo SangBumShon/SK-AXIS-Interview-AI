@@ -29,6 +29,9 @@ class InterviewState(TypedDict, total=False):
     # evaluation 결과 dict를 병합합니다.
     evaluation: Annotated[Dict[str, Any], dict_merge]
 
+    summary: Annotated[Dict[str, Any], dict_merge]
+
+
     # report 결과 dict를 병합합니다.
     report: Annotated[Dict[str, Any], dict_merge]
 

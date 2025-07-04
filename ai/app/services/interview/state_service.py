@@ -8,6 +8,13 @@ def create_initial_state(interviewee_id: int, questions: List[Dict], file_path: 
         "stt": {"done": False, "segments": []},
         "rewrite": {"done": False, "items": []},
         "evaluation": {"done": False, "results": {}},
+        "summary": {
+            "total_score": 0,
+            "language_score": 0,
+            "language_reason": "",
+            "nonverbal_score": 0,
+            "nonverbal_reason": ""
+        },
         "report": {"pdf_path": ""},
         "decision_log": [],
     }
