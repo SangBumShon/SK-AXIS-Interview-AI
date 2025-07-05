@@ -2,148 +2,269 @@
   <!-- 면접 일정(캘린더) 뷰 -->
   <div>
     <!-- 캘린더 모달 -->
-    <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-8 max-w-4xl w-full mx-4 relative">
-        <button @click="$emit('close')" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-          <i class="fas fa-times"></i>
-        </button>
-        <div class="mb-8">
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold text-gray-900">면접 일정 관리</h2>
+    <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-3xl shadow-2xl w-full max-w-6xl mx-4 relative animate-slideUp overflow-hidden max-h-[95vh]">
+        <!-- 헤더 -->
+        <div class="bg-gradient-to-r from-blue-500 to-purple-600 p-8 text-white relative overflow-hidden">
+          <!-- 배경 패턴 -->
+          <div class="absolute inset-0 opacity-10">
+            <div class="absolute top-4 right-4 w-32 h-32 border border-white rounded-full"></div>
+            <div class="absolute bottom-4 left-4 w-24 h-24 border border-white rounded-full"></div>
+            <div class="absolute top-1/2 left-1/3 w-16 h-16 border border-white rounded-full"></div>
+          </div>
+          
+          <div class="relative z-10 flex justify-between items-center">
             <div class="flex items-center gap-4">
-              <button @click="$emit('prevMonth')" class="p-2 hover:bg-gray-100 rounded-full">
-                <i class="fas fa-chevron-left"></i>
-              </button>
-              <h3 class="text-xl font-semibold">{{ currentMonthYear }}</h3>
-              <button @click="$emit('nextMonth')" class="p-2 hover:bg-gray-100 rounded-full">
-                <i class="fas fa-chevron-right"></i>
+              <div class="w-16 h-16 bg-white bg-opacity-20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
+                <i class="fas fa-calendar-alt text-3xl"></i>
+              </div>
+              <div>
+                <h2 class="text-3xl font-bold mb-2">면접 일정 관리</h2>
+                <p class="text-white text-opacity-90">월별 면접 일정을 한눈에 확인하세요</p>
+              </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+              <!-- 월 네비게이션 -->
+              <div class="bg-white bg-opacity-20 backdrop-blur-sm rounded-xl p-2 flex items-center gap-2">
+                <button @click="$emit('prevMonth')" 
+                        class="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center hover:bg-opacity-30 transition-all duration-200">
+                  <i class="fas fa-chevron-left"></i>
+                </button>
+                <h3 class="text-xl font-semibold px-4 min-w-[140px] text-center">{{ currentMonthYear }}</h3>
+                <button @click="$emit('nextMonth')" 
+                        class="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center hover:bg-opacity-30 transition-all duration-200">
+                  <i class="fas fa-chevron-right"></i>
+                </button>
+              </div>
+              
+              <!-- 닫기 버튼 -->
+              <button @click="$emit('close')" 
+                      class="w-12 h-12 bg-white bg-opacity-20 backdrop-blur-sm rounded-xl flex items-center justify-center hover:bg-opacity-30 transition-all duration-200 group">
+                <i class="fas fa-times text-xl group-hover:rotate-90 transition-transform duration-200"></i>
               </button>
             </div>
           </div>
-          <!-- Calendar Grid -->
-          <div class="grid grid-cols-7 gap-px bg-gray-200 rounded-lg overflow-hidden">
-            <!-- Days of week -->
-            <div v-for="day in ['일', '월', '화', '수', '목', '금', '토']" :key="day"
-                 class="bg-gray-50 p-4 text-center font-medium text-gray-700">
-              {{ day }}
+        </div>
+
+        <!-- 캘린더 내용 -->
+        <div class="p-8 overflow-y-auto max-h-[calc(95vh-180px)] bg-gradient-to-br from-gray-50 to-white">
+          <div class="overflow-x-auto">
+            <div class="grid grid-cols-7 gap-2 bg-white rounded-2xl shadow-lg p-6 min-w-[700px]">
+              <!-- 요일 헤더 -->
+              <div v-for="(day, index) in ['일', '월', '화', '수', '목', '금', '토']" :key="day"
+                   class="p-4 text-center font-bold text-gray-700 rounded-xl"
+                   :class="{
+                     'text-red-500': index === 0,
+                     'text-blue-500': index === 6,
+                     'bg-gray-50': true
+                   }">
+                {{ day }}
+              </div>
+              
+              <!-- 캘린더 날짜들 -->
+              <div v-for="(day, index) in visibleDays" :key="index"
+                   class="relative h-[140px] rounded-xl border-2 transition-all duration-200 hover:shadow-lg group cursor-pointer"
+                   :class="{
+                     'bg-white border-gray-100': day.isCurrentMonth,
+                     'bg-gray-50 border-gray-50': !day.isCurrentMonth,
+                     'hover:border-blue-200': day.isCurrentMonth,
+                     'hover:bg-blue-50': day.isCurrentMonth && day.interviews.length > 0
+                   }"
+                   @click="day.isCurrentMonth && day.interviews.length > 0 ? openDayModal(day) : null">
+                
+                <div v-if="day.isCurrentMonth" class="p-3 h-full flex flex-col">
+                  <!-- 날짜 및 배지 -->
+                  <div class="flex justify-between items-center mb-2">
+                    <span class="text-lg font-semibold text-gray-900">{{ day.date }}</span>
+                    <div v-if="day.interviews.length > 0" class="flex items-center gap-1">
+                      <span class="text-xs font-bold px-2 py-1 rounded-full cursor-pointer select-none transition-all duration-200 hover:scale-110"
+                            :class="getBadgeColor(day.interviews.length)"
+                            @click.stop="openDayModal(day)">
+                        {{ day.interviews.length }}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <!-- 면접 일정 리스트 -->
+                  <div class="space-y-1 flex-1 overflow-hidden">
+                    <div v-if="day.interviews.length <= 3">
+                      <div v-for="interview in day.interviews" :key="interview.id"
+                           class="text-xs p-2 rounded-lg cursor-pointer truncate flex items-center gap-1.5 transition-all duration-200 hover:scale-[1.02] hover:shadow-md"
+                           :class="getInterviewClass(interview)"
+                           @click.stop="showInterviewDetail(interview)">
+                        <i class="fas fa-user-tie text-xs"></i>
+                        <span class="font-medium">{{ interview.time }}</span>
+                        <span>{{ interview.candidate }}</span>
+                      </div>
+                    </div>
+                    <div v-else>
+                      <div v-for="interview in day.interviews.slice(0, 2)" :key="interview.id"
+                           class="text-xs p-2 rounded-lg cursor-pointer truncate flex items-center gap-1.5 transition-all duration-200 hover:scale-[1.02] hover:shadow-md"
+                           :class="getInterviewClass(interview)"
+                           @click.stop="showInterviewDetail(interview)">
+                        <i class="fas fa-user-tie text-xs"></i>
+                        <span class="font-medium">{{ interview.time }}</span>
+                        <span>{{ interview.candidate }}</span>
+                      </div>
+                      <div class="text-xs p-2 rounded-lg bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 cursor-pointer text-center font-medium transition-all duration-200 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700"
+                           @click.stop="openDayModal(day)">
+                        <i class="fas fa-plus-circle mr-1"></i>
+                        {{ day.interviews.length - 2 }}건 더보기
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- 다른 달 날짜 -->
+                <div v-else class="p-3">
+                  <span class="text-gray-400 font-medium">{{ day.date }}</span>
+                </div>
+              </div>
             </div>
-            <!-- Calendar days -->
-            <div v-for="(day, index) in calendarDays" :key="index"
-                 class="bg-white min-h-[100px] p-2 relative"
-                 :class="{'bg-gray-50': !day.isCurrentMonth}">
-              <div class="flex justify-between items-center mb-2">
-                <span :class="{'text-gray-400': !day.isCurrentMonth, 'text-gray-900': day.isCurrentMonth}">
-                  {{ day.date }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 일별 상세 모달 -->
+    <div v-if="showDayModal && selectedDay" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-60 p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 relative animate-slideUp overflow-hidden max-h-[90vh]">
+        <!-- 일별 모달 헤더 -->
+        <div class="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 text-white">
+          <div class="flex justify-between items-center">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
+                <i class="fas fa-calendar-day text-xl"></i>
+              </div>
+              <div>
+                <h3 class="text-2xl font-bold">{{ selectedDay.date }}일 면접 일정</h3>
+                <p class="text-white text-opacity-90">총 {{ selectedDay.interviews.length }}건의 면접</p>
+              </div>
+            </div>
+            <button @click="closeDayModal" 
+                    class="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center hover:bg-opacity-30 transition-all duration-200 group">
+              <i class="fas fa-times group-hover:rotate-90 transition-transform duration-200"></i>
+            </button>
+          </div>
+        </div>
+        
+        <!-- 일별 모달 내용 -->
+        <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+          <div class="space-y-4">
+            <div v-for="interview in selectedDay.interviews" :key="interview.id" 
+                 class="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all duration-200 cursor-pointer group"
+                 @click="showInterviewDetail(interview)">
+              <div class="flex justify-between items-start mb-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <i class="fas fa-user-tie text-blue-600"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-gray-900 group-hover:text-blue-600 transition-colors">{{ interview.candidate }}</h4>
+                    <p class="text-sm text-gray-500">{{ interview.department }}</p>
+                  </div>
+                </div>
+                <span class="text-lg font-bold text-gray-900">{{ interview.time }}</span>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span class="text-gray-500">면접관:</span>
+                  <span class="ml-2 font-medium">{{ interview.interviewers?.join(', ') }}</span>
+                </div>
+                <div>
+                  <span class="text-gray-500">면접실:</span>
+                  <span class="ml-2 font-medium">{{ interview.room }}</span>
+                </div>
+              </div>
+              
+              <div class="flex justify-between items-center mt-3">
+                <span class="text-xs font-medium px-3 py-1 rounded-full"
+                      :class="getStatusClass(interview.status)">
+                  {{ getStatusText(interview.status) }}
                 </span>
-                <div v-if="day.interviews.length > 0" class="flex items-center gap-1">
-                  <span
-                    class="text-xs font-medium px-2 py-0.5 rounded-full cursor-pointer select-none"
-                    :class="getBadgeColor(day.interviews.length)"
-                    @click="openDayModal(day)"
-                  >
-                    {{ day.interviews.length }}건
-                  </span>
-                </div>
-              </div>
-              <!-- Interview slots -->
-              <div class="space-y-1">
-                <div v-if="day.interviews.length <= 3">
-                  <div v-for="interview in day.interviews" :key="interview.id"
-                       class="text-xs p-1.5 rounded cursor-pointer truncate flex items-center gap-1"
-                       :class="getInterviewClass(interview)"
-                       @click="showInterviewDetail(interview)">
-                    <i class="fas fa-user-tie text-xs"></i>
-                    {{ interview.time }} - {{ interview.candidate }}
-                  </div>
-                </div>
-                <div v-else>
-                  <div v-for="interview in day.interviews.slice(0, 2)" :key="interview.id"
-                       class="text-xs p-1.5 rounded cursor-pointer truncate flex items-center gap-1"
-                       :class="getInterviewClass(interview)"
-                       @click="showInterviewDetail(interview)">
-                    <i class="fas fa-user-tie text-xs"></i>
-                    {{ interview.time }} - {{ interview.candidate }}
-                  </div>
-                  <div class="text-xs p-1.5 rounded bg-gray-100 text-gray-600 cursor-pointer text-center"
-                       @click="openDayModal(day)">
-                    + {{ day.interviews.length - 2 }}건 더보기
-                  </div>
-                </div>
+                <i class="fas fa-chevron-right text-gray-400 group-hover:text-blue-500 transition-colors"></i>
               </div>
             </div>
           </div>
         </div>
       </div>
     </div>
-    <!-- Interview Detail Modal은 상위에서 관리 -->
-  </div>
-  <div v-if="showDayModal && selectedDay" class="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative">
-      <button @click="closeDayModal" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-        <i class="fas fa-times"></i>
-      </button>
-      <h3 class="text-lg font-bold mb-4">{{ selectedDay.date }}일 전체 면접 일정</h3>
-      <ul>
-        <li v-for="interview in selectedDay.interviews" :key="interview.id" class="mb-2 border-b pb-2 last:border-b-0 last:pb-0">
-          <div class="flex flex-col text-sm">
-            <span><b>시간:</b> {{ interview.time }}</span>
-            <span><b>지원자:</b> {{ interview.candidate }}</span>
-            <span><b>면접관:</b> {{ interview.interviewers?.join(', ') }}</span>
-            <span><b>면접실:</b> {{ interview.room }}</span>
-            <span><b>상태:</b> {{ interview.status }}</span>
-            <button class="mt-1 text-blue-600 hover:underline text-xs self-end" @click="showInterviewDetail(interview)">상세보기</button>
+
+    <!-- 면접 상세 정보 모달 -->
+    <div v-if="selectedInterview" class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-70 p-4">
+      <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 relative animate-slideUp overflow-hidden">
+        <!-- 상세 모달 헤더 -->
+        <div class="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 text-white">
+          <div class="flex justify-between items-center">
+            <div class="flex items-center gap-3">
+              <div class="w-12 h-12 bg-white bg-opacity-20 rounded-xl flex items-center justify-center">
+                <i class="fas fa-info-circle text-xl"></i>
+              </div>
+              <div>
+                <h3 class="text-xl font-bold">면접 상세 정보</h3>
+                <p class="text-white text-opacity-90">{{ selectedInterview.candidate }}</p>
+              </div>
+            </div>
+            <button @click="closeInterviewDetail" 
+                    class="w-10 h-10 bg-white bg-opacity-20 rounded-xl flex items-center justify-center hover:bg-opacity-30 transition-all duration-200 group">
+              <i class="fas fa-times group-hover:rotate-90 transition-transform duration-200"></i>
+            </button>
           </div>
-        </li>
-      </ul>
-    </div>
-  </div>
-  <div v-if="selectedInterview" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-      <div class="flex justify-between items-center mb-4">
-        <h3 class="text-lg font-semibold">면접 상세 정보</h3>
-        <button @click="closeInterviewDetail" class="text-gray-400 hover:text-gray-600">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-      <div class="space-y-4">
-        <div>
-          <p class="text-sm text-gray-500">날짜 및 시간</p>
-          <p class="font-medium">{{ selectedInterview.date }} {{ selectedInterview.time }}</p>
         </div>
-        <div>
-          <p class="text-sm text-gray-500">면접실</p>
-          <p class="font-medium">{{ selectedInterview.room }}</p>
-        </div>
-        <div>
-          <p class="text-sm text-gray-500">지원자</p>
-          <p class="font-medium">{{ selectedInterview.candidate }}</p>
-        </div>
-        <div>
-          <p class="text-sm text-gray-500">지원 부서</p>
-          <p class="font-medium">{{ selectedInterview.department }}</p>
-        </div>
-        <div>
-          <p class="text-sm text-gray-500">면접관</p>
-          <p class="font-medium">{{ selectedInterview.interviewers?.join(', ') }}</p>
-        </div>
-        <div>
-          <p class="text-sm text-gray-500">상태</p>
-          <span :class="{
-            'px-2 py-1 text-xs font-medium rounded-full': true,
-            'bg-green-100 text-green-800': selectedInterview.status === 'completed',
-            'bg-yellow-100 text-yellow-800': selectedInterview.status === 'pending',
-            'bg-blue-100 text-blue-800': selectedInterview.status === 'in_progress'
-          }">
-            {{ selectedInterview.status }}
-          </span>
+        
+        <!-- 상세 모달 내용 -->
+        <div class="p-6">
+          <div class="space-y-5">
+            <div class="bg-gray-50 rounded-xl p-4">
+              <p class="text-sm text-gray-500 mb-1">날짜 및 시간</p>
+              <p class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <i class="fas fa-clock text-blue-500"></i>
+                {{ selectedInterview.date }} {{ selectedInterview.time }}
+              </p>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+              <div class="bg-blue-50 rounded-xl p-4">
+                <p class="text-sm text-blue-600 mb-1">면접실</p>
+                <p class="font-bold text-gray-900">{{ selectedInterview.room }}</p>
+              </div>
+              <div class="bg-purple-50 rounded-xl p-4">
+                <p class="text-sm text-purple-600 mb-1">지원 부서</p>
+                <p class="font-bold text-gray-900">{{ selectedInterview.department }}</p>
+              </div>
+            </div>
+            
+            <div class="bg-green-50 rounded-xl p-4">
+              <p class="text-sm text-green-600 mb-2">면접관</p>
+              <div class="flex flex-wrap gap-2">
+                <span v-for="interviewer in selectedInterview.interviewers" :key="interviewer"
+                      class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                  {{ interviewer }}
+                </span>
+              </div>
+            </div>
+            
+            <div class="bg-yellow-50 rounded-xl p-4">
+              <p class="text-sm text-yellow-600 mb-2">상태</p>
+              <span class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold"
+                    :class="getStatusClass(selectedInterview.status)">
+                <i :class="getStatusIcon(selectedInterview.status)"></i>
+                {{ getStatusText(selectedInterview.status) }}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </template>
+
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { defineProps, defineEmits } from 'vue';
+
 interface Interview {
   id: number;
   date: string;
@@ -156,60 +277,173 @@ interface Interview {
   status: string;
   score: number | null;
 }
-defineProps<{
-  calendarDays: any[];
+
+interface CalendarDay {
+  date: number;
+  isCurrentMonth: boolean;
+  interviews: Interview[];
+}
+
+const props = defineProps<{
+  calendarDays: CalendarDay[];
   currentMonthYear: string;
 }>();
+
 const emits = defineEmits([
   'close',
   'prevMonth',
   'nextMonth',
   'showInterviewDetail'
 ]);
-const selectedDay = ref<any|null>(null);
-const showDayModal = ref(false);
 
-const selectedInterview = ref<any|null>(null);
-function showInterviewDetail(interview: any) {
+const selectedDay = ref<CalendarDay | null>(null);
+const showDayModal = ref(false);
+const selectedInterview = ref<Interview | null>(null);
+
+function showInterviewDetail(interview: Interview) {
   selectedInterview.value = interview;
 }
+
 function closeInterviewDetail() {
   selectedInterview.value = null;
 }
 
-function openDayModal(day: any) {
+function openDayModal(day: CalendarDay) {
   selectedDay.value = day;
   showDayModal.value = true;
 }
+
 function closeDayModal() {
   showDayModal.value = false;
   selectedDay.value = null;
 }
+
 function getInterviewClass(interview: Interview) {
   switch (interview.status) {
+    case 'completed': return 'bg-green-100 text-green-800 border border-green-200';
+    case 'pending': return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
+    case 'in_progress': return 'bg-blue-100 text-blue-800 border border-blue-200';
+    default: return 'bg-gray-100 text-gray-800 border border-gray-200';
+  }
+}
+
+function getStatusClass(status: string) {
+  switch (status) {
     case 'completed': return 'bg-green-100 text-green-800';
     case 'pending': return 'bg-yellow-100 text-yellow-800';
     case 'in_progress': return 'bg-blue-100 text-blue-800';
     default: return 'bg-gray-100 text-gray-800';
   }
 }
+
+function getStatusText(status: string) {
+  switch (status) {
+    case 'completed': return '완료';
+    case 'pending': return '대기중';
+    case 'in_progress': return '진행중';
+    default: return '미정';
+  }
+}
+
+function getStatusIcon(status: string) {
+  switch (status) {
+    case 'completed': return 'fas fa-check-circle';
+    case 'pending': return 'fas fa-clock';
+    case 'in_progress': return 'fas fa-play-circle';
+    default: return 'fas fa-question-circle';
+  }
+}
+
 function getBadgeColor(count: number) {
-  if (count >= 6) return 'bg-red-600 text-white';
-  if (count >= 3) return 'bg-red-400 text-white';
-  if (count >= 1) return 'bg-red-100 text-red-600';
+  if (count >= 6) return 'bg-red-500 text-white shadow-lg';
+  if (count >= 3) return 'bg-orange-400 text-white shadow-md';
+  if (count >= 1) return 'bg-blue-400 text-white shadow-sm';
   return 'bg-gray-100 text-gray-400';
 }
+
+// calendarDays를 주 단위(7개씩)로 쪼개는 computed
+const weeks = computed(() => {
+  const days = [...props.calendarDays];
+  const result = [];
+  for (let i = 0; i < days.length; i += 7) {
+    result.push(days.slice(i, i + 7));
+  }
+  // 마지막 주가 모두 다음 달이면 제거
+  while (result.length && result[result.length - 1].every(day => !day.isCurrentMonth)) {
+    result.pop();
+  }
+  return result;
+});
+
+const visibleDays = computed(() => weeks.value.flat());
 </script>
+
 <style scoped>
-/* Tailwind JIT purge 방지용: 동적 색상 클래스 강제 포함 */
+/* 애니메이션 */
+@keyframes slideUp {
+  from { 
+    opacity: 0; 
+    transform: translateY(30px) scale(0.95); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0) scale(1); 
+  }
+}
+
+.animate-slideUp {
+  animation: slideUp 0.4s ease-out;
+}
+
+/* 호버 효과 */
+.hover\:scale-\[1\.02\]:hover {
+  transform: scale(1.02);
+}
+
+/* 스크롤바 스타일링 */
+.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #2563eb, #5b21b6);
+}
+
+/* 그라데이션 배경 */
+.bg-gradient-to-r {
+  background-image: linear-gradient(to right, var(--tw-gradient-stops));
+}
+
+.bg-gradient-to-br {
+  background-image: linear-gradient(to bottom right, var(--tw-gradient-stops));
+}
+
+/* z-index 커스텀 */
+.z-60 {
+  z-index: 60;
+}
+
+.z-70 {
+  z-index: 70;
+}
+
+/* Tailwind JIT purge 방지용 */
 .dummy-tailwind-colors {
-  /* bg-red-600 text-white bg-red-400 bg-red-100 text-red-600 bg-gray-100 text-gray-400 */
-  background-color: theme('colors.red.600');
-  background-color: theme('colors.red.400');
-  background-color: theme('colors.red.100');
+  background-color: theme('colors.red.500');
+  background-color: theme('colors.orange.400');
+  background-color: theme('colors.blue.400');
   background-color: theme('colors.gray.100');
   color: theme('colors.white');
-  color: theme('colors.red.600');
   color: theme('colors.gray.400');
 }
-</style> 
+</style>

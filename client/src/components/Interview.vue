@@ -317,7 +317,29 @@ async function pollUntilDone(candidateIds: number[]) {
       console.log('[pollUntilDone] 현재 status 응답:', statuses);
       const allDone = statuses.every((item: { status: string }) => item.status === 'DONE');
       if (allDone) {
-        console.log('[pollUntilDone] 모든 면접자의 status가 DONE입니다. 결과 페이지로 이동합니다.');
+        console.log('[pollUntilDone] 모든 면접자의 status가 DONE입니다.');
+        
+        // ✅ Spring Boot /complete 엔드포인트 호출 추가
+        try {
+          const completeResponse = await fetch('/api/v1/interviews/complete', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              intervieweeIds: candidateIds
+            })
+          });
+          
+          if (completeResponse.ok) {
+            console.log('[pollUntilDone] Spring Boot /complete 호출 성공');
+          } else {
+            console.error('[pollUntilDone] Spring Boot /complete 호출 실패:', completeResponse.status);
+          }
+        } catch (error) {
+          console.error('[pollUntilDone] Spring Boot /complete 호출 중 오류:', error);
+        }
+        
         break;
       }
     } catch (e) {
