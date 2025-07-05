@@ -57,11 +57,16 @@
         </div>
         <div class="flex justify-center space-x-4 mt-8">
           <button
-            class="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium !rounded-button whitespace-nowrap cursor-pointer flex items-center gap-2"
+            class="px-8 py-3 rounded-lg font-medium !rounded-button whitespace-nowrap cursor-pointer flex items-center gap-2 transition-colors"
+            :class="{
+              'bg-green-600 text-white hover:bg-green-700': !isSessionStarted,
+              'bg-gray-400 text-gray-200 cursor-not-allowed': isSessionStarted
+            }"
             @click="startSession"
+            :disabled="isSessionStarted"
           >
             <i class="fas fa-play"></i>
-            면접 시작
+            {{ isSessionStarted ? '면접 진행 중' : '면접 시작' }}
           </button>
           <button
             class="px-8 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium !rounded-button whitespace-nowrap cursor-pointer flex items-center gap-2"
@@ -134,6 +139,7 @@ const emit = defineEmits<Emits>()
 const router = useRouter()
 const route = useRoute()
 const isAnalyzing = ref(false)
+const isSessionStarted = ref(false)
 
 // PoseMiniWidget ref 추가
 const poseMiniWidgetRef = ref<InstanceType<typeof PoseMiniWidget> | null>(null)
@@ -210,6 +216,7 @@ const startSession = async () => {
     
     // 질문 데이터 저장
     questionsPerInterviewee.value = result.questionsPerInterviewee || {}
+    isSessionStarted.value = true  // 면접 시작 상태로 변경
     emit('startSession')  // 면접 시작 이벤트 발생
 
     // === 감지 시작 명령 추가 ===

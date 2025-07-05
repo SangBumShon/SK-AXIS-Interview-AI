@@ -105,9 +105,19 @@
                 <td class="px-4 py-3 text-center border-b">
                   <button
                     @click="selectTimeSlot(schedule)"
-                    class="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
+                    class="px-3 py-2 text-white rounded text-sm transition-colors whitespace-nowrap min-h-[32px] flex items-center justify-center"
+                    :class="{
+                      'bg-green-600 hover:bg-green-700': selectedSchedule && 
+                        selectedSchedule.roomName === schedule.roomName && 
+                        selectedSchedule.timeRange === schedule.timeRange,
+                      'bg-red-600 hover:bg-red-700': !selectedSchedule || 
+                        selectedSchedule.roomName !== schedule.roomName || 
+                        selectedSchedule.timeRange !== schedule.timeRange
+                    }"
                   >
-                    선택
+                    {{ selectedSchedule && 
+                       selectedSchedule.roomName === schedule.roomName && 
+                       selectedSchedule.timeRange === schedule.timeRange ? '선택됨' : '선택' }}
                   </button>
                 </td>
               </tr>
