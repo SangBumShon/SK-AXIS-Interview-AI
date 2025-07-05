@@ -257,7 +257,7 @@ const endSession = async () => {
       )
     };
     console.log('[면접 종료] 전송되는 request body:', requestBody);
-    const response = await fetch('http://3.38.218.18:8000/api/v1/interview/end', {
+    const response = await fetch('http://localhost:8000/api/v1/interview/end', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

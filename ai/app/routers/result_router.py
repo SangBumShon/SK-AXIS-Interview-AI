@@ -142,13 +142,18 @@ async def get_final_results(
             if "summary" in state and isinstance(state["summary"], dict):
                 summary = state["summary"]
                 
-                # 언어적 평가
-                if "language_score" in summary:
-                    language["score"] = summary["language_score"]
-                if "language_reason" in summary:
-                    language["reason"] = summary["language_reason"]
+                # 언어적 평가 (verbal_score, verbal_reason 사용)
+                if "verbal_score" in summary:
+                    language["score"] = summary["verbal_score"]
+                if "verbal_reason" in summary:
+                    reason = summary["verbal_reason"]
+                    # list인 경우 문자열로 변환
+                    if isinstance(reason, list):
+                        language["reason"] = "\n".join(reason)
+                    else:
+                        language["reason"] = reason
                 
-                # 비언어적 평가
+                # 비언어적 평가 (nonverbal_score, nonverbal_reason 사용)
                 if "nonverbal_score" in summary:
                     nonverbal["score"] = summary["nonverbal_score"]
                 if "nonverbal_reason" in summary:
