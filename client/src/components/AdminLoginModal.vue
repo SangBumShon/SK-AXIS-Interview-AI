@@ -53,7 +53,7 @@
   
   const handleLogin = async () => {
   try {
-    fetch('http://sk-axis-springboot:8080/api/v1/auth/login', {
+    fetch('http://3.38.218.18:8080/api/v1/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -65,9 +65,9 @@
     })
     router.push('/admin');
     emit('login');
-  } catch (error) {
-    console.error('로그인 중 오류 발생:', error);
-    error = '로그인에 실패했습니다. 다시 시도해주세요.';
+  } catch (err) {
+    console.error('로그인 중 오류 발생:', err);
+    error.value = '로그인에 실패했습니다. 다시 시도해주세요.';
     return;
   }
 }

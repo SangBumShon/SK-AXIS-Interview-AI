@@ -82,7 +82,7 @@
       <div class="grid grid-cols-4 gap-6">
         <div>
           <label class="block text-sm font-medium text-gray-600 mb-2">면접 기간</label>
-          <select v-model="filters.period" class="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400">
+          <select :value="filters.period" @change="updateFilter('period', ($event.target as HTMLSelectElement).value)" class="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-gray-400">
             <option value="all">전체 기간</option>
             <option value="today">오늘</option>
             <option value="week">이번 주</option>
@@ -91,7 +91,7 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">면접실</label>
-          <select v-model="filters.room" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+          <select :value="filters.room" @change="updateFilter('room', ($event.target as HTMLSelectElement).value)" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
             <option value="all">전체</option>
             <option value="room1">1호실</option>
             <option value="room2">2호실</option>
@@ -101,7 +101,7 @@
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">평가 상태</label>
-          <select v-model="filters.status" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+          <select :value="filters.status" @change="updateFilter('status', ($event.target as HTMLSelectElement).value)" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
             <option value="all">전체</option>
             <option value="completed">평가 완료</option>
             <option value="pending">대기중</option>
@@ -111,7 +111,7 @@
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-2">검색</label>
           <div class="relative">
-            <input type="text" v-model="filters.search" placeholder="이름 또는 부서 검색" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+            <input type="text" :value="filters.search" @input="updateFilter('search', ($event.target as HTMLInputElement).value)" placeholder="이름 또는 부서 검색" class="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
             <i class="fas fa-search absolute right-3 top-2.5 text-gray-400"></i>
           </div>
         </div>
@@ -254,7 +254,8 @@ const emits = defineEmits([
   'handleExcelUpload',
   'downloadExcel',
   'sortBy',
-  'viewDetails'
+  'viewDetails',
+  'updateFilters'
 ]);
 
 // 페이징 관련 상태 (템플릿에서 직접 사용)
@@ -332,6 +333,11 @@ function getStatusText(status: string) {
 
 // 모달 상태 추가
 const showDeleteConfirm = ref(false);
+
+// 필터 업데이트 함수
+function updateFilter(key: string, value: string) {
+  emits('updateFilters', { ...props.filters, [key]: value });
+}
 
 function deleteAllInterviews() {
   fetch('http://3.38.218.18:8080/api/v1/interviews?deleteFiles=true', {

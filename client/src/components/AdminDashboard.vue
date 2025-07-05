@@ -337,6 +337,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import * as echarts from 'echarts';
+import axios from 'axios';
 import DashboardMain from './DashboardMain.vue';
 import CandidateManage from './CandidateManage.vue';
 import InterviewCalendar from './InterviewCalendar.vue';
@@ -552,10 +553,11 @@ const viewDetails = (id: number) => {
   }
 };
 
-// const deleteAllInterviews = () => {
-//   interviews.value = [];
-//   showDeleteConfirm.value = false;
-// };
+// @ts-expect-error - 함수가 사용되지 않지만 필요할 수 있음
+const deleteAllInterviews = () => {
+  interviews.value = [];
+  showDeleteConfirm.value = false;
+};
 
 const handleExcelUpload = () => {
   // 엑셀 업로드 버튼/파일 input/함수 모두 제거
@@ -616,112 +618,115 @@ const deleteCandidate = (candidate: any) => {
   showCandidateDeleteModal.value = true;
 };
 
-// const confirmDeleteCandidate = () => {
-//   if (deletingCandidate.value) {
-//     candidateList.value = candidateList.value.filter(c => c.id !== deletingCandidate.value.id);
-//     deletingCandidate.value = null;
-//     showCandidateDeleteModal.value = false;
-//   }
-// };
+// @ts-expect-error - 함수가 사용되지 않지만 필요할 수 있음
+const confirmDeleteCandidate = () => {
+  if (deletingCandidate.value) {
+    candidateList.value = candidateList.value.filter(c => c.id !== deletingCandidate.value.id);
+    deletingCandidate.value = null;
+    showCandidateDeleteModal.value = false;
+  }
+};
 
-// const closeCandidateModal = () => {
-//   showCandidateModal.value = false;
-//   candidateForm.value = {
-//     id: 0,
-//     name: '',
-//     position: '',
-//     interviewersString: '',
-//     status: '',
-//     interviewDate: '',
-//     score: null,
-//     interviewTime: '',
-//     room: ''
-//   };
-// };
+const closeCandidateModal = () => {
+  showCandidateModal.value = false;
+  candidateForm.value = {
+    id: 0,
+    name: '',
+    position: '',
+    interviewersString: '',
+    status: '',
+    interviewDate: '',
+    score: null,
+    interviewTime: '',
+    room: ''
+  };
+};
 
-// const saveCandidateForm = async () => {
-//   const interviewersArr = candidateForm.value.interviewersString
-//     ? candidateForm.value.interviewersString.split(',').map(s => s.trim()).filter(Boolean)
-//     : [];
-//   if (isEditingCandidate.value) {
-//     // 수정
-//     try {
-//       await axios.put(
-//         `http://3.38.218.18:8080/api/v1/interviewees/${candidateForm.value.id}`,
-//         {
-//           name: candidateForm.value.name,
-//           score: candidateForm.value.score
-//         }
-//       );
-//       // 목록 갱신
-//       const response = await fetch('http://3.38.218.18:8080/api/v1/interviewees/simple');
-//       if (response.ok) {
-//         const result = await response.json();
-//         candidateList.value = result.data.map((item: any) => {
-//           let interviewDate = '';
-//           let interviewTime = '';
-//           if (item.startAt) {
-//             const dateObj = new Date(item.startAt);
-//             interviewDate = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-//             interviewTime = `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
-//           }
-//           return {
-//             id: item.intervieweeId,
-//             name: item.name,
-//             position: '',
-//             interviewers: item.interviewers ? (item.interviewers as string).split(',').map((s: any) => s.trim()) : [],
-//             status: item.status,
-//             interviewDate,
-//             score: item.score,
-//             interviewTime,
-//             room: item.roomNo
-//           }
-//         });
-//       }
-//       closeCandidateModal();
-//       alert('수정 성공!');
-//     } catch (e) {
-//       alert('수정 실패');
-//     }
-//   } else {
-//     // 추가
-//     try {
-//       await axios.post('http://3.38.218.18:8080/api/v1/interviewees', {
-//         name: candidateForm.value.name,
-//         score: candidateForm.value.score
-//       });
-//       // 목록 갱신
-//       const response = await fetch('http://3.38.218.18:8080/api/v1/interviewees/simple');
-//       if (response.ok) {
-//         const result = await response.json();
-//         candidateList.value = result.data.map((item: any) => {
-//           let interviewDate = '';
-//           let interviewTime = '';
-//           if (item.startAt) {
-//             const dateObj = new Date(item.startAt);
-//             interviewDate = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
-//             interviewTime = `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
-//           }
-//           return {
-//             id: item.intervieweeId,
-//             name: item.name,
-//             position: '',
-//             interviewers: item.interviewers ? (item.interviewers as string).split(',').map((s: any) => s.trim()) : [],
-//             status: item.status,
-//             interviewDate,
-//             score: item.score,
-//             interviewTime,
-//             room: item.roomNo
-//           }
-//         });
-//       }
-//       closeCandidateModal();
-//       alert('추가 성공!');
-//     } catch (e) {
-//       alert('추가 실패');
-//     }
-//   }
-// };
+// @ts-expect-error - 함수가 사용되지 않지만 필요할 수 있음
+const saveCandidateForm = async () => {
+  // @ts-expect-error - interviewersArr 변수가 사용되지 않지만 필요할 수 있음
+  const interviewersArr = candidateForm.value.interviewersString
+    ? candidateForm.value.interviewersString.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+  if (isEditingCandidate.value) {
+    // 수정
+    try {
+      await axios.put(
+        `http://3.38.218.18:8080/api/v1/interviewees/${candidateForm.value.id}`,
+        {
+          name: candidateForm.value.name,
+          score: candidateForm.value.score
+        }
+      );
+      // 목록 갱신
+      const response = await fetch('http://3.38.218.18:8080/api/v1/interviewees/simple');
+      if (response.ok) {
+        const result = await response.json();
+        candidateList.value = result.data.map((item: any) => {
+          let interviewDate = '';
+          let interviewTime = '';
+          if (item.startAt) {
+            const dateObj = new Date(item.startAt);
+            interviewDate = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+            interviewTime = `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
+          }
+          return {
+            id: item.intervieweeId,
+            name: item.name,
+            position: '',
+            interviewers: item.interviewers ? (item.interviewers as string).split(',').map((s: any) => s.trim()) : [],
+            status: item.status,
+            interviewDate,
+            score: item.score,
+            interviewTime,
+            room: item.roomNo
+          }
+        });
+      }
+      closeCandidateModal();
+      alert('수정 성공!');
+    } catch (e) {
+      alert('수정 실패');
+    }
+  } else {
+    // 추가
+    try {
+      await axios.post('http://3.38.218.18:8080/api/v1/interviewees', {
+        name: candidateForm.value.name,
+        score: candidateForm.value.score
+      });
+      // 목록 갱신
+      const response = await fetch('http://3.38.218.18:8080/api/v1/interviewees/simple');
+      if (response.ok) {
+        const result = await response.json();
+        candidateList.value = result.data.map((item: any) => {
+          let interviewDate = '';
+          let interviewTime = '';
+          if (item.startAt) {
+            const dateObj = new Date(item.startAt);
+            interviewDate = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+            interviewTime = `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
+          }
+          return {
+            id: item.intervieweeId,
+            name: item.name,
+            position: '',
+            interviewers: item.interviewers ? (item.interviewers as string).split(',').map((s: any) => s.trim()) : [],
+            status: item.status,
+            interviewDate,
+            score: item.score,
+            interviewTime,
+            room: item.roomNo
+          }
+        });
+      }
+      closeCandidateModal();
+      alert('추가 성공!');
+    } catch (e) {
+      alert('추가 실패');
+    }
+  }
+};
 
 // 통계 차트 초기화
 const initCharts = () => {

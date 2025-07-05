@@ -10,7 +10,7 @@
           <h2 class="text-2xl font-bold text-gray-900">면접 통계 분석</h2>
           <div class="flex items-center gap-4">
             <div class="relative">
-              <select v-model="statisticsFilter.period" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
+              <select :value="statisticsFilter.period" @change="updateFilter('period', ($event.target as HTMLSelectElement).value)" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
                 <option value="all">전체 기간</option>
                 <option value="month">이번 달</option>
                 <option value="quarter">이번 분기</option>
@@ -42,7 +42,12 @@ import * as echarts from 'echarts';
 import axios from 'axios';
 
 const props = defineProps<{ statisticsFilter: any }>();
-const emits = defineEmits(['close']);
+const emits = defineEmits(['close', 'updateStatisticsFilter']);
+
+// 필터 업데이트 함수
+function updateFilter(key: string, value: string) {
+  emits('updateStatisticsFilter', { ...props.statisticsFilter, [key]: value });
+}
 
 // 차트 ref
 const scoreDistributionChartRef = ref(null);
@@ -54,7 +59,7 @@ let avgScoreChart = null;
 // 차트 초기화 함수
 const initCharts = async () => {
   // 면접자 점수 데이터 fetch
-  let bins = [0, 0, 0, 0, 0];
+  const bins = [0, 0, 0, 0, 0];
   try {
     const res = await axios.get('http://3.38.218.18:8080/api/v1/interviewees/simple');
     const scores = res.data.data.map((item: any) => item.score ?? 0);

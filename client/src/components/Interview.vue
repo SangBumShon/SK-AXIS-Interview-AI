@@ -224,16 +224,16 @@ const startSession = async () => {
 
 const endSession = async () => {
   try {
-    isAnalyzing.value = true
-    console.log('면접 종료...', { nonverbalData: nonverbalData.value })
+    isAnalyzing.value = true;
+    console.log('면접 종료...', { nonverbalData: nonverbalData.value });
 
     // PoseMiniWidget 감지 중단
     if (poseMiniWidgetRef.value) {
-      poseMiniWidgetRef.value.stopDetection()
+      poseMiniWidgetRef.value.stopDetection();
     }
 
     // FastAPI 서버에 면접 종료 요청
-    const rawNonverbalData = JSON.parse(JSON.stringify(nonverbalData.value))
+    const rawNonverbalData = JSON.parse(JSON.stringify(nonverbalData.value));
     const requestBody = {
       interview_id: interviewId.value,
       data: Object.fromEntries(
@@ -244,48 +244,43 @@ const endSession = async () => {
             gaze: 0,
             gesture: 0,
             timestamp: Date.now()
-          }
-          return [id, data]
+          };
+          return [id, data];
         })
       )
-    }
-    console.log('[면접 종료] 전송되는 request body:', requestBody)
+    };
+    console.log('[면접 종료] 전송되는 request body:', requestBody);
     const response = await fetch('http://3.38.218.18:8000/api/v1/interview/end', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(requestBody)
-    })
+    });
 
     if (!response.ok) {
-      const contentType = response.headers.get('content-type')
-      let errorMessage = '면접 종료 실패'
-      
+      const contentType = response.headers.get('content-type');
+      let errorMessage = '면접 종료 실패';
       try {
         if (contentType && contentType.includes('application/json')) {
-          const errorData = await response.json()
-          errorMessage = errorData.detail || errorMessage
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorMessage;
         } else {
-          const text = await response.text()
-          console.error('서버 응답 (JSON이 아님):', text)
-          errorMessage = `서버 오류 (${response.status}): ${text}`
+          const text = await response.text();
+          console.error('서버 응답 (JSON이 아님):', text);
+          errorMessage = `서버 오류 (${response.status}): ${text}`;
         }
       } catch (e) {
-        console.error('에러 응답 파싱 실패:', e)
-        errorMessage = `서버 오류 (${response.status})`
+        console.error('에러 응답 파싱 실패:', e);
+        errorMessage = `서버 오류 (${response.status})`;
       }
-      
-      throw new Error(errorMessage)
+      throw new Error(errorMessage);
     }
 
-    const result = await response.json()
-    console.log('면접 종료 성공:', result)
-    emit('endSession')  // 면접 종료 이벤트 발생
+    // === 여기서 폴링 시작 ===
+    await pollUntilDone(props.candidateIds);
 
     // 결과 페이지로 이동
-    console.log('[면접 종료] 결과 페이지 이동 candidates:', props.candidates);
-    console.log('[면접 종료] 결과 페이지 이동 candidateIds:', props.candidateIds);
     router.push({
       name: 'result',
       query: {
@@ -293,12 +288,40 @@ const endSession = async () => {
         candidateIds: JSON.stringify(props.candidateIds),
         tab: '0'
       }
-    })
-  } catch (error: unknown) {
-    console.error('면접 종료 중 오류:', error)
-    alert('면접 종료 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : String(error)))
+    });
+  } catch (error) {
+    console.error('면접 종료 중 오류:', error);
+    alert('면접 종료 중 오류가 발생했습니다: ' + (error instanceof Error ? error.message : String(error)));
   } finally {
-    isAnalyzing.value = false
+    isAnalyzing.value = false;
+  }
+};
+
+// 폴링 함수 추가
+async function pollUntilDone(candidateIds: number[]) {
+  const ids = candidateIds.join(',');
+  let attempts = 0;
+  const maxAttempts = 300; // 최대 5분 대기 (300초)
+  
+  while (attempts < maxAttempts) {
+    try {
+      const response = await fetch(`http://3.38.218.18:8000/api/v1/results/statuses?interviewee_ids=${ids}`);
+      const statuses: { status: string }[] = await response.json();
+      console.log('[pollUntilDone] 현재 status 응답:', statuses);
+      const allDone = statuses.every((item: { status: string }) => item.status === 'DONE');
+      if (allDone) {
+        console.log('[pollUntilDone] 모든 면접자의 status가 DONE입니다. 결과 페이지로 이동합니다.');
+        break;
+      }
+    } catch (e) {
+      // 네트워크 오류 등은 무시하고 재시도
+    }
+    await new Promise(res => setTimeout(res, 1000));
+    attempts++;
+  }
+  
+  if (attempts >= maxAttempts) {
+    console.warn('[pollUntilDone] 최대 대기 시간을 초과했습니다.');
   }
 }
 
