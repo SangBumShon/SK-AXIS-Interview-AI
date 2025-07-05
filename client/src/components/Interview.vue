@@ -172,7 +172,7 @@ const startSession = async () => {
       intervieweeIds: props.candidateIds
     };
     
-    const response = await fetch('http://localhost:8080/api/v1/interviews/start', {
+    const response = await fetch('http://3.38.218.18:8080/api/v1/interviews/start', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -257,7 +257,7 @@ const endSession = async () => {
       )
     };
     console.log('[면접 종료] 전송되는 request body:', requestBody);
-    const response = await fetch('http://localhost:8000/api/v1/interview/end', {
+    const response = await fetch('http://3.38.218.18:8000/api/v1/interview/end', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -312,7 +312,7 @@ async function pollUntilDone(candidateIds: number[]) {
   
   while (attempts < maxAttempts) {
     try {
-      const response = await fetch(`http://localhost:8000/api/v1/results/statuses?interviewee_ids=${ids}`);
+      const response = await fetch(`http://3.38.218.18:8000/api/v1/results/statuses?interviewee_ids=${ids}`);
       const statuses: { status: string }[] = await response.json();
       console.log('[pollUntilDone] 현재 status 응답:', statuses);
       const allDone = statuses.every((item: { status: string }) => item.status === 'DONE');

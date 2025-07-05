@@ -37,8 +37,17 @@ async def get_result_statuses(
         
         result_statuses = []
         
+        # 디버깅을 위한 로그 추가
+        print(f"[DEBUG] 요청된 interviewee_ids: {interviewee_ids}")
+        print(f"[DEBUG] 파싱된 id_list: {id_list}")
+        print(f"[DEBUG] INTERVIEW_STATE_STORE 키 목록: {list(INTERVIEW_STATE_STORE.keys())}")
+        print(f"[DEBUG] INTERVIEW_STATE_STORE 크기: {len(INTERVIEW_STATE_STORE)}")
+        
         for interviewee_id in id_list:
-            state = INTERVIEW_STATE_STORE.get(interviewee_id)
+            str_key = str(interviewee_id)
+            state = INTERVIEW_STATE_STORE.get(str_key)
+            
+            print(f"[DEBUG] interviewee_id: {interviewee_id}, str_key: '{str_key}', state found: {state is not None}")
             
             # 기본 응답 구조
             status_response = ResultStatusResponse(
@@ -92,7 +101,7 @@ async def get_final_results(
         results = []
         
         for interviewee_id in id_list:
-            state = INTERVIEW_STATE_STORE.get(interviewee_id)
+            state = INTERVIEW_STATE_STORE.get(str(interviewee_id))
             
             # 상태가 없거나 평가가 완료되지 않은 경우 건너뜀
             if not state or not isinstance(state, dict) or not state.get("report", {}).get("pdf_path"):
