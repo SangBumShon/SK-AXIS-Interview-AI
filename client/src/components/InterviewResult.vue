@@ -412,7 +412,7 @@ onMounted(async () => {
       return;
     }
     const ids = candidateIds.value.join(',');
-    const res = await fetch(`http://3.38.218.18:8000/api/v1/results?interviewee_ids=${ids}`);
+    const res = await fetch(`http://localhost:8000/api/v1/results?interviewee_ids=${ids}`);
     if (!res.ok) throw new Error('API 요청 실패');
     const data = await res.json();
     console.log('[InterviewResult.vue] /api/v1/results 응답:', data);

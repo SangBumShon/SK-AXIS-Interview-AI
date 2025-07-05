@@ -38,7 +38,6 @@ def transcribe_audio_file(file_path: str) -> str:
             response_format="text",
             language="ko",
             # 프롬프트 추가로 맥락 제공
-            prompt="면접 상황에서의 대화입니다. 전문적이고 정중한 언어를 사용합니다."
         )
     
     # 전처리된 임시 파일 삭제
@@ -64,6 +63,9 @@ def is_invalid_transcription(text: str) -> bool:
     
     # 잘못된 변환 패턴들
     invalid_patterns = [
+        "시청해주셔서 감사합니다",
+        "시청 해주셔서 감사합니다",
+        "오늘도 영상 시청 해주셔서 감사합니다",
         "먹방",
         "빠이빠이", 
         "구독",
