@@ -72,6 +72,7 @@ async def end_interview(req: EndInterviewRequest):
                 nv = NonverbalData(**nv)
             print(f"[DEBUG] 변환된 nv 데이터: {nv}")
 
+
             # (1) 마지막 녹음 파일 처리
             audio_path = state.get("audio_path")
             if audio_path:  # ✅ 안전하게 접근
