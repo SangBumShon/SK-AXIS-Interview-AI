@@ -22,13 +22,14 @@ interface ApiResponse {
     interviewId: number;
     intervieweeId: number;
     name: string;
-    scheduledAt: number[]; // [YYYY, MM, DD, HH, mm]
+    startAt: string; // ISO 8601 문자열
+    endAt: string;   // ISO 8601 문자열
     status: string;
     score: number | null;
     interviewers: string;
     roomNo: string;
     comment: string | null;
-    createdAt: number[];
+    createdAt: string; // ISO 8601 문자열
   }>;
   totalCount: number;
 }
@@ -66,7 +67,13 @@ export const getInterviewSchedules = async (date: string): Promise<ScheduleRespo
     const scheduleMap = new Map<string, InterviewSchedule>();
 
     apiResponse.data.forEach(item => {
-      const [year, month, day, hour, minute] = item.scheduledAt;
+      // startAt, endAt 파싱
+      const startDate = new Date(item.startAt);
+      const year = startDate.getFullYear();
+      const month = startDate.getMonth() + 1;
+      const day = startDate.getDate();
+      const hour = startDate.getHours();
+      const minute = startDate.getMinutes();
 
       // 날짜가 선택한 날짜와 다르면 스킵
       if (year !== selectedDate[0] || month !== selectedDate[1] || day !== selectedDate[2]) return;
@@ -74,6 +81,11 @@ export const getInterviewSchedules = async (date: string): Promise<ScheduleRespo
       // 시간대 계산
       const startHour = hour.toString().padStart(2, '0');
       const startMinute = minute.toString().padStart(2, '0');
+      // endAt도 필요하면 아래처럼 사용 가능
+      // const endDate = new Date(item.endAt);
+      // const endHour = endDate.getHours().toString().padStart(2, '0');
+      // const endMinute = endDate.getMinutes().toString().padStart(2, '0');
+      // const timeRange = `${startHour}:${startMinute} - ${endHour}:${endMinute}`;
       const endHour = (hour + 1).toString().padStart(2, '0'); // 기본적으로 1시간 단위로 가정
       const timeRange = `${startHour}:${startMinute} - ${endHour}:${startMinute}`;
 

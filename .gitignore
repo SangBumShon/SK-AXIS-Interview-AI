@@ -64,6 +64,14 @@ ai/output/*
 *.wav
 *.pdf
 *.xlsx
+
+# Security and credentials
+*.pem
+*.key
+*.p12
+*.pfx
+Ai-Interviewer.pem
+
 # JSON files except specific configuration files
 *.json
 !package.json

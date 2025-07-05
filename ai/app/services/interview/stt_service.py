@@ -83,58 +83,6 @@ def is_invalid_transcription(text: str) -> bool:
         
     return False
 
-async def process_audio_file(interviewee_id: int, audio_file: UploadFile) -> Optional[str]:
-    """
-    업로드된 오디오 파일을 처리하고 STT 결과를 반환합니다.
-    
-    Args:
-        interviewee_id: 면접자 ID
-        audio_file: 업로드된 WebM 오디오 파일
-        
-    Returns:
-        str: STT 처리 결과 텍스트
-    """
-    try:
-        # 임시 파일로 저장
-        temp_path = f"temp_{interviewee_id}_{audio_file.filename}"
-        with open(temp_path, "wb") as buffer:
-            content = await audio_file.read()
-            buffer.write(content)
-        
-        # 오디오 전처리 적용
-        processed_path = preprocess_audio(temp_path)
-        
-        # Whisper로 STT 처리 - 더 많은 옵션 추가
-        result = model.transcribe(
-            processed_path, 
-            language="ko",
-            # 더 정확한 변환을 위한 옵션들
-            initial_prompt="면접 상황에서의 대화입니다. 전문적이고 정중한 언어를 사용합니다.",
-            temperature=0.0,  # 더 일관된 결과를 위해 temperature 낮춤
-            condition_on_previous_text=False,  # 이전 텍스트에 의존하지 않음
-            no_speech_threshold=0.6,  # 음성이 없는 구간 감지 임계값
-            logprob_threshold=-1.0,  # 낮은 확률 결과 필터링
-        )
-        
-        # 임시 파일들 삭제
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-        if processed_path != temp_path and os.path.exists(processed_path):
-            os.remove(processed_path)
-        
-        text_result = result["text"]
-        
-        # 후처리
-        if is_invalid_transcription(text_result):
-            print(f"[STT 후처리] 잘못된 변환 감지: {text_result}")
-            return "음성을 명확하게 인식할 수 없습니다."
-        
-        return text_result
-        
-    except Exception as e:
-        print(f"STT 처리 중 오류 발생: {str(e)}")
-        return None
-
 async def save_audio_file(interviewee_id: int, audio_file: UploadFile) -> Optional[str]:
     """
     업로드된 오디오 파일을 uploads 디렉토리에 저장합니다.

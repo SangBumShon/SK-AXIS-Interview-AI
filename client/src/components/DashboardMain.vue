@@ -20,6 +20,7 @@
     </div>
     <!-- 통계 카드 -->
     <div class="grid grid-cols-4 gap-6 mb-8">
+      <!-- 전체 지원자 -->
       <div class="bg-white rounded-lg p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
         <div class="flex items-center gap-4 mb-4">
           <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -34,6 +35,7 @@
           전월 대비 <span class="text-blue-600 font-medium flex items-center"><i class="fas fa-caret-up text-xs"></i>15%</span>
         </p>
       </div>
+      <!-- 오늘의 면접 -->
       <div class="bg-white rounded-lg p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
         <div class="flex items-center gap-4 mb-4">
           <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -48,6 +50,7 @@
           전일 대비 <span class="text-green-600 font-medium flex items-center"><i class="fas fa-caret-up text-xs"></i>2</span>
         </p>
       </div>
+      <!-- 완료된 면접 -->
       <div class="bg-white rounded-lg p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
         <div class="flex items-center gap-4 mb-4">
           <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
@@ -60,6 +63,7 @@
         </div>
         <p class="text-sm text-gray-500">전체 면접 대비 58%</p>
       </div>
+      <!-- 대기중 -->
       <div class="bg-white rounded-lg p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
         <div class="flex items-center gap-4 mb-4">
           <div class="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
@@ -118,7 +122,7 @@
       <div class="p-4 border-b border-gray-100 flex justify-between items-center">
         <h2 class="text-lg font-medium text-gray-700">면접자 목록</h2>
         <div class="flex items-center gap-3">
-          <button @click="$emit('showDeleteConfirm')" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors whitespace-nowrap cursor-pointer flex items-center gap-2">
+          <button @click="showDeleteConfirm = true" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors whitespace-nowrap cursor-pointer flex items-center gap-2">
             <i class="fas fa-trash-alt"></i> 전체 삭제
           </button>
           <label class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors whitespace-nowrap cursor-pointer flex items-center gap-2">
@@ -143,27 +147,31 @@
           </thead>
           <tbody class="bg-white divide-y divide-gray-200">
             <tr v-for="interview in pagedInterviews" :key="interview.id" class="hover:bg-gray-50">
-              <td class="px-6 py-4 whitespace-nowrap">{{ interview.date }}</td>
-              <td class="px-6 py-4 whitespace-nowrap">{{ interview.time }}</td>
-              <td class="px-6 py-4 whitespace-nowrap">{{ interview.room }}</td>
-              <td class="px-6 py-4 whitespace-nowrap">{{ interview.candidate }}</td>
-              <td class="px-6 py-4 whitespace-nowrap">{{ interview.position }}</td>
-              <td class="px-6 py-4 whitespace-nowrap">{{ interview.interviewers.join(', ') }}</td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <span :class="{
-                  'px-2 py-1 text-xs font-medium rounded-full': true,
-                  'bg-green-100 text-green-800': interview.status === 'completed',
-                  'bg-yellow-100 text-yellow-800': interview.status === 'pending',
-                  'bg-blue-100 text-blue-800': interview.status === 'in_progress'
-                }">
-                  {{ getStatusText(interview.status) }}
-                </span>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">{{ interview.score || '-' }}</td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <button @click="$emit('viewDetails', interview.id)" class="text-red-600 hover:text-red-800">
-                  <i class="fas fa-eye"></i>
-                </button>
+              <td v-for="column in visibleTableColumns" :key="column.key" class="px-6 py-4 whitespace-nowrap">
+                <template v-if="column.key === 'interviewers'">
+                  {{ interview.interviewers.join(', ') }}
+                </template>
+                <template v-else-if="column.key === 'status'">
+                  <span :class="{
+                    'px-2 py-1 text-xs font-medium rounded-full': true,
+                    'bg-green-100 text-green-800': interview.status === 'completed',
+                    'bg-yellow-100 text-yellow-800': interview.status === 'pending',
+                    'bg-blue-100 text-blue-800': interview.status === 'in_progress'
+                  }">
+                    {{ getStatusText(interview.status) }}
+                  </span>
+                </template>
+                <template v-else-if="column.key === 'score'">
+                  {{ interview.score || '-' }}
+                </template>
+                <template v-else-if="column.key === 'actions'">
+                  <button @click="$emit('viewDetails', interview.id)" class="text-red-600 hover:text-red-800">
+                    <i class="fas fa-eye"></i>
+                  </button>
+                </template>
+                <template v-else>
+                  {{ (interview as any)[column.key] }}
+                </template>
               </td>
             </tr>
           </tbody>
@@ -197,6 +205,21 @@
         <button @click="goToPage(totalPages)" :disabled="currentPage === totalPages || totalPages === 0" class="px-3 py-1 rounded-full border shadow-sm transition-colors duration-150" :class="currentPage === totalPages || totalPages === 0 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-blue-100'">
           <i class="fas fa-angle-double-right"></i>
         </button>
+      </div>
+    </div>
+    <!-- 전체 삭제 확인 모달 추가 (파일 하단에 위치) -->
+    <div v-if="showDeleteConfirm" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <h3 class="text-xl font-bold text-gray-900 mb-4">전체 삭제 확인</h3>
+        <p class="text-gray-600 mb-6">모든 면접자 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
+        <div class="flex justify-end gap-3">
+          <button @click="showDeleteConfirm = false" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+            취소
+          </button>
+          <button @click="deleteAllInterviews" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+            삭제
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -305,6 +328,29 @@ function getStatusText(status: string) {
     case 'in_progress': return '진행중';
     default: return status;
   }
+}
+
+// 모달 상태 추가
+const showDeleteConfirm = ref(false);
+
+function deleteAllInterviews() {
+  fetch('http://3.38.218.18:8080/api/v1/interviews?deleteFiles=true', {
+    method: 'DELETE',
+    headers: { 'Accept': '*/*' }
+  })
+    .then(response => {
+      if (!response.ok) {
+        alert('전체 삭제 실패: ' + response.statusText);
+        return;
+      }
+      alert('전체 삭제가 완료되었습니다.');
+      showDeleteConfirm.value = false;
+      // 필요하다면 데이터 새로고침 emit 등 추가
+    })
+    .catch(error => {
+      alert('전체 삭제 중 오류 발생: ' + (error as Error).message);
+      showDeleteConfirm.value = false;
+    });
 }
 </script>
 <style scoped>

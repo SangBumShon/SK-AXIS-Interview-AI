@@ -100,7 +100,7 @@
     </div>
 
     <!-- Delete Confirmation Modal -->
-    <div v-if="showDeleteConfirm" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <!-- <div v-if="showDeleteConfirm" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
         <h3 class="text-xl font-bold text-gray-900 mb-4">전체 삭제 확인</h3>
         <p class="text-gray-600 mb-6">모든 면접자 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.</p>
@@ -113,10 +113,10 @@
           </button>
         </div>
       </div>
-    </div>
+    </div> -->
 
     <!-- 지원자 삭제 확인 모달 -->
-    <div v-if="showCandidateDeleteModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <!-- <div v-if="showCandidateDeleteModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white rounded-lg p-6 max-w-sm w-full mx-4 relative animate-fadeIn">
         <h3 class="text-xl font-bold text-gray-900 mb-4">지원자 삭제</h3>
         <p class="text-gray-700 mb-6">정말로 {{ deletingCandidate?.name }} 지원자를 삭제하시겠습니까?</p>
@@ -135,9 +135,9 @@
           </button>
         </div>
       </div>
-    </div>
+    </div> -->
 
-    <!-- 지원자 추가/수정 모달 -->
+    <!-- 지원자 추가/수정 모달
     <div v-if="showCandidateModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white rounded-lg p-6 max-w-lg w-full mx-4 relative animate-fadeIn">
         <h3 class="text-xl font-bold text-gray-900 mb-6">
@@ -187,7 +187,7 @@
             <label class="block text-sm font-medium text-gray-700 mb-1">면접실</label>
             <input type="text" v-model="candidateForm.room" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
           </div>
-          <div v-if="isEditingCandidate">
+          <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">점수</label>
             <input type="number" v-model="candidateForm.score" min="0" max="100" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500">
           </div>
@@ -207,9 +207,9 @@
           </button>
         </div>
       </div>
-    </div>
+    </div> -->
 
-    <!-- 캘린더 모달 -->
+    캘린더 모달
     <div v-if="showCalendarView" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div class="bg-white rounded-lg p-8 max-w-4xl w-full mx-4 relative">
         <button @click="showCalendarView = false" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
@@ -329,46 +329,7 @@
     </div>
 
     <!-- 통계 분석 모달 -->
-    <div v-if="showStatisticsView" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div class="bg-white rounded-lg p-8 max-w-6xl w-full mx-4 relative animate-fadeIn overflow-auto max-h-[90vh]">
-        <button @click="showStatisticsView = false" class="absolute top-4 right-4 text-gray-400 hover:text-gray-600">
-          <i class="fas fa-times"></i>
-        </button>
-        <div class="mb-8">
-          <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold text-gray-900">면접 통계 분석</h2>
-            <div class="flex items-center gap-4">
-              <div class="relative">
-                <select v-model="statisticsFilter.period" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-red-500">
-                  <option value="all">전체 기간</option>
-                  <option value="month">이번 달</option>
-                  <option value="quarter">이번 분기</option>
-                  <option value="year">올해</option>
-                </select>
-              </div>
-            </div>
-          </div>
-          <!-- Statistics Dashboard -->
-          <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- 직무별 면접 현황 -->
-            <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-              <h3 class="text-lg font-semibold mb-4 text-gray-800">직무별 면접 현황</h3>
-              <div class="h-80" ref="jobChartRef"></div>
-            </div>
-            <!-- 면접자 점수 분포 -->
-            <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-              <h3 class="text-lg font-semibold mb-4 text-gray-800">면접자 점수 분포</h3>
-              <div class="h-80" ref="scoreDistributionChartRef"></div>
-            </div>
-            <!-- 역량별 평균 면접 점수 -->
-            <div class="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-              <h3 class="text-lg font-semibold mb-4 text-gray-800">역량별 평균 면접 점수</h3>
-              <div class="h-80" ref="avgScoreChartRef"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- (StatisticsModal.vue로 대체, 이 부분은 삭제) -->
   </div>
 </template>
 
@@ -414,7 +375,6 @@ const tableColumns = [
   { key: 'time', label: '시간' },
   { key: 'room', label: '면접실' },
   { key: 'candidate', label: '지원자' },
-  { key: 'position', label: '지원 직무' },
   { key: 'department', label: '지원 부서' },
   { key: 'interviewers', label: '면접관' },
   { key: 'status', label: '상태' },
@@ -592,10 +552,10 @@ const viewDetails = (id: number) => {
   }
 };
 
-const deleteAllInterviews = () => {
-  interviews.value = [];
-  showDeleteConfirm.value = false;
-};
+// const deleteAllInterviews = () => {
+//   interviews.value = [];
+//   showDeleteConfirm.value = false;
+// };
 
 const handleExcelUpload = () => {
   // 엑셀 업로드 버튼/파일 input/함수 모두 제거
@@ -656,53 +616,112 @@ const deleteCandidate = (candidate: any) => {
   showCandidateDeleteModal.value = true;
 };
 
-const confirmDeleteCandidate = () => {
-  if (deletingCandidate.value) {
-    candidateList.value = candidateList.value.filter(c => c.id !== deletingCandidate.value.id);
-    deletingCandidate.value = null;
-    showCandidateDeleteModal.value = false;
-  }
-};
+// const confirmDeleteCandidate = () => {
+//   if (deletingCandidate.value) {
+//     candidateList.value = candidateList.value.filter(c => c.id !== deletingCandidate.value.id);
+//     deletingCandidate.value = null;
+//     showCandidateDeleteModal.value = false;
+//   }
+// };
 
-const closeCandidateModal = () => {
-  showCandidateModal.value = false;
-  candidateForm.value = {
-    id: 0,
-    name: '',
-    position: '',
-    interviewersString: '',
-    status: '',
-    interviewDate: '',
-    score: null,
-    interviewTime: '',
-    room: ''
-  };
-};
+// const closeCandidateModal = () => {
+//   showCandidateModal.value = false;
+//   candidateForm.value = {
+//     id: 0,
+//     name: '',
+//     position: '',
+//     interviewersString: '',
+//     status: '',
+//     interviewDate: '',
+//     score: null,
+//     interviewTime: '',
+//     room: ''
+//   };
+// };
 
-const saveCandidateForm = () => {
-  const interviewersArr = candidateForm.value.interviewersString
-    ? candidateForm.value.interviewersString.split(',').map(s => s.trim()).filter(Boolean)
-    : [];
-  if (isEditingCandidate.value) {
-    // 수정
-    const index = candidateList.value.findIndex(c => c.id === candidateForm.value.id);
-    if (index !== -1) {
-      candidateList.value[index] = {
-        ...candidateForm.value,
-        interviewers: interviewersArr
-      };
-    }
-  } else {
-    // 추가
-    const newId = Math.max(...candidateList.value.map(c => c.id)) + 1;
-    candidateList.value.push({
-      ...candidateForm.value,
-      id: newId,
-      interviewers: interviewersArr
-    });
-  }
-  closeCandidateModal();
-};
+// const saveCandidateForm = async () => {
+//   const interviewersArr = candidateForm.value.interviewersString
+//     ? candidateForm.value.interviewersString.split(',').map(s => s.trim()).filter(Boolean)
+//     : [];
+//   if (isEditingCandidate.value) {
+//     // 수정
+//     try {
+//       await axios.put(
+//         `http://3.38.218.18:8080/api/v1/interviewees/${candidateForm.value.id}`,
+//         {
+//           name: candidateForm.value.name,
+//           score: candidateForm.value.score
+//         }
+//       );
+//       // 목록 갱신
+//       const response = await fetch('http://3.38.218.18:8080/api/v1/interviewees/simple');
+//       if (response.ok) {
+//         const result = await response.json();
+//         candidateList.value = result.data.map((item: any) => {
+//           let interviewDate = '';
+//           let interviewTime = '';
+//           if (item.startAt) {
+//             const dateObj = new Date(item.startAt);
+//             interviewDate = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+//             interviewTime = `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
+//           }
+//           return {
+//             id: item.intervieweeId,
+//             name: item.name,
+//             position: '',
+//             interviewers: item.interviewers ? (item.interviewers as string).split(',').map((s: any) => s.trim()) : [],
+//             status: item.status,
+//             interviewDate,
+//             score: item.score,
+//             interviewTime,
+//             room: item.roomNo
+//           }
+//         });
+//       }
+//       closeCandidateModal();
+//       alert('수정 성공!');
+//     } catch (e) {
+//       alert('수정 실패');
+//     }
+//   } else {
+//     // 추가
+//     try {
+//       await axios.post('http://3.38.218.18:8080/api/v1/interviewees', {
+//         name: candidateForm.value.name,
+//         score: candidateForm.value.score
+//       });
+//       // 목록 갱신
+//       const response = await fetch('http://3.38.218.18:8080/api/v1/interviewees/simple');
+//       if (response.ok) {
+//         const result = await response.json();
+//         candidateList.value = result.data.map((item: any) => {
+//           let interviewDate = '';
+//           let interviewTime = '';
+//           if (item.startAt) {
+//             const dateObj = new Date(item.startAt);
+//             interviewDate = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+//             interviewTime = `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
+//           }
+//           return {
+//             id: item.intervieweeId,
+//             name: item.name,
+//             position: '',
+//             interviewers: item.interviewers ? (item.interviewers as string).split(',').map((s: any) => s.trim()) : [],
+//             status: item.status,
+//             interviewDate,
+//             score: item.score,
+//             interviewTime,
+//             room: item.roomNo
+//           }
+//         });
+//       }
+//       closeCandidateModal();
+//       alert('추가 성공!');
+//     } catch (e) {
+//       alert('추가 실패');
+//     }
+//   }
+// };
 
 // 통계 차트 초기화
 const initCharts = () => {
@@ -828,18 +847,21 @@ onMounted(async () => {
   initCharts();
   // 면접자 목록 불러오기
   try {
-    const response = await fetch('http://3.38.218.18:8080/api/v1/interviews/simple');
+    const response = await fetch('http://3.38.218.18:8080/api/v1/interviewees/simple');
     if (!response.ok) throw new Error('서버 오류');
     const result = await response.json();
     interviews.value = result.data.map((item: any) => {
       let date = '';
       let time = '';
-      if (Array.isArray(item.scheduledAt) && item.scheduledAt.length >= 5) {
-        date = `${item.scheduledAt[0]}-${String(item.scheduledAt[1]).padStart(2, '0')}-${String(item.scheduledAt[2]).padStart(2, '0')}`;
-        time = `${String(item.scheduledAt[3]).padStart(2, '0')}:${String(item.scheduledAt[4]).padStart(2, '0')}`;
+      if (item.startAt) {
+        // Z(UTC) 제거 후 파싱
+        const startAtStr = item.startAt.replace(/Z$/, '');
+        const dateObj = new Date(startAtStr);
+        date = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+        time = `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
       }
       return {
-        id: item.interviewId,
+        id: item.intervieweeId,
         date,
         time,
         room: item.roomNo,
@@ -855,21 +877,23 @@ onMounted(async () => {
     candidateList.value = result.data.map((item: any) => {
       let interviewDate = '';
       let interviewTime = '';
-      if (Array.isArray(item.scheduledAt) && item.scheduledAt.length >= 5) {
-        interviewDate = `${item.scheduledAt[0]}-${String(item.scheduledAt[1]).padStart(2, '0')}-${String(item.scheduledAt[2]).padStart(2, '0')}`;
-        interviewTime = `${String(item.scheduledAt[3]).padStart(2, '0')}:${String(item.scheduledAt[4]).padStart(2, '0')}`;
+      if (item.startAt) {
+        // Z(UTC) 제거 후 파싱
+        const startAtStr = item.startAt.replace(/Z$/, '');
+        const dateObj = new Date(startAtStr);
+        interviewDate = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`;
+        interviewTime = `${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`;
       }
       return {
         id: item.intervieweeId,
         name: item.name,
-        position: '',
         interviewers: item.interviewers ? (item.interviewers as string).split(',').map((s: any) => s.trim()) : [],
         status: item.status,
         interviewDate,
         score: item.score,
         interviewTime,
         room: item.roomNo
-      }
+      };
     });
   } catch (e) {
     alert('면접자 목록을 불러오지 못했습니다.');
