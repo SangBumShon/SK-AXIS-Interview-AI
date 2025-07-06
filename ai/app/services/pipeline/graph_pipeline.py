@@ -755,12 +755,12 @@ async def score_summary_agent(state):
         total = 0
         if isinstance(criteria, list):
             for crit in criteria:
-            if isinstance(crit, dict):
+                if isinstance(crit, dict):
                     score = crit.get("score", 0)
                     total += score
                     print(f"[DEBUG]     - dict score: {score}")
-            elif isinstance(crit, int):
-                total += crit
+                elif isinstance(crit, int):
+                    total += crit
                     print(f"[DEBUG]     - int score: {crit}")
         elif isinstance(criteria, dict):
             total = criteria.get("score", 0)

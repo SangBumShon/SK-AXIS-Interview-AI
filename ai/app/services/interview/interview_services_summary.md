@@ -9,18 +9,12 @@
 ## evaluation_service.py
 - 정제된 답변을 바탕으로 키워드 기반 평가를 수행 (SUPEX/VWBE/4P/기술역량 등)
 
-## report_service.py
-- Radar 차트 및 PDF 리포트 생성, 평가 결과 시각화 및 저장
-
-## internal_client.py
-- 내부 API 클라이언트 역할 – 지원자 ID 기반 질문 로딩
-
 ## graph_pipeline_sample.py
 - LangGraph 기반 파이프라인 정의 (STT→리라이팅→평가→리포트 생성까지 전체 흐름 정의)
 
 ## interview.py
 - 상태 기반 인터뷰 흐름 정의 또는 엔트리 포인트 (예: test_runner 등에서 활용됨)
 
-## nonverbal_evaluation_service.py
-- 비언어적 요소 처리 모듈 (예: 표정, 자세 등 MediaPipe 기반 감지)
+## nonverbal_service.py
+- 비언어적 요소 처리 모듈 (예: 표정, 자세 등 평가)
 
