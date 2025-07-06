@@ -36,7 +36,9 @@ async def get_result_statuses(
             score = None
             if status == "DONE":
                 summary = state.get("summary", {}) if isinstance(state.get("summary"), dict) else {}
-                score = summary.get("total_score")
+                total_score = summary.get("total_score")
+                # float를 int로 반올림 처리
+                score = round(total_score) if total_score is not None else None
 
             result_statuses.append(
                 ResultStatusResponse(
