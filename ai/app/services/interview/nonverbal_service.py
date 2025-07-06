@@ -1,5 +1,4 @@
 # app/services/nonverbal_service.py
-
 """
 비언어적 요소 AI 평가 서비스
 - 자세(posture) 평가
@@ -12,7 +11,7 @@ import json
 from typing import Dict, Tuple, List
 from dotenv import load_dotenv
 from langchain.prompts import PromptTemplate
-from langchain.chat_models import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
 
 from app.schemas.nonverbal import Posture, FacialExpression, NonverbalData, NonverbalScore
 

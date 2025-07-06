@@ -91,6 +91,12 @@ async def end_interview(req: EndInterviewRequest):
             print(f"[DEBUG] final_flow_executor 실행 전 - done: {state.get('done')}")
             state = await final_flow_executor.ainvoke(state, config={"recursion_limit": 10})
             print(f"[DEBUG] final_flow_executor 실행 후 - done: {state.get('done')}")
+            
+            # 🔧 done 플래그가 손실되었다면 수동으로 설정
+            if state.get("done") is None and state.get("summary"):
+                state["done"] = True
+                print(f"[DEBUG] done 플래그 수동 설정 - summary 존재로 인해 완료 처리")
+            
             INTERVIEW_STATE_STORE[interviewee_id] = state  # ⚠️ 상태 갱신
             print(f"[DEBUG] INTERVIEW_STATE_STORE 저장 완료 - interviewee_id: {interviewee_id}, done: {state.get('done')}")
 
