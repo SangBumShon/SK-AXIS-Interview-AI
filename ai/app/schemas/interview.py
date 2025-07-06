@@ -25,6 +25,25 @@ from pydantic import BaseModel
 from typing import List, Dict, Literal
 from app.schemas.nonverbal import Posture, FacialExpression
 
+# ──────────────── 📝 질문 관련 ────────────────
+
+class Question(BaseModel):
+    """
+    면접 질문 모델
+    
+    Attributes:
+        question_id (int): 질문 고유 ID
+        type (str): 질문 유형 (예: "기술", "인성")
+        content (str): 질문 내용
+        
+    Note:
+        - SpringBoot에서 전달받는 질문 구조
+        - 면접자별로 다른 질문 세트 가능
+    """
+    question_id: int
+    type: str
+    content: str
+
 # ──────────────── 🚀 면접 시작 관련 ────────────────
 
 class StartInterviewRequest(BaseModel):
@@ -54,25 +73,6 @@ class StartInterviewResponse(BaseModel):
         - 값: 해당 면접자의 질문 목록
     """
     questions_per_interviewee: Dict[str, List[Question]]
-
-# ──────────────── 📝 질문 관련 ────────────────
-
-class Question(BaseModel):
-    """
-    면접 질문 모델
-    
-    Attributes:
-        question_id (int): 질문 고유 ID
-        type (str): 질문 유형 (예: "기술", "인성")
-        content (str): 질문 내용
-        
-    Note:
-        - SpringBoot에서 전달받는 질문 구조
-        - 면접자별로 다른 질문 세트 가능
-    """
-    question_id: int
-    type: str
-    content: str
 
 class QuestionsResponse(BaseModel):
     """
