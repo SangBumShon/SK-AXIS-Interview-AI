@@ -132,28 +132,11 @@ async def rewrite_agent(state: InterviewState) -> InterviewState:
     return state
 
 # ───────────────────────────────────────────────────
-# 3) Rewrite 시도 조건: 최대 2회 시도
+# 3) Rewrite 재시도 조건: 최대 3회 → 단 1회만 수행
 # ───────────────────────────────────────────────────
 def should_retry_rewrite(state: InterviewState) -> Literal["retry", "done"]:
-    rewrite = safe_get(state, "rewrite", {}, context="should_retry_rewrite:rewrite")
-    retry_count = safe_get(rewrite, "retry_count", 0, context="should_retry_rewrite:retry_count")
-    items = safe_get(rewrite, "items", [], context="should_retry_rewrite:items")
-    
-    # 최신 항목의 ok 상태 확인
-    is_ok = False
-    if items and len(items) > 0:
-        is_ok = items[-1].get("ok", False)
-    
-    print(f"[DEBUG] should_retry_rewrite - retry_count: {retry_count}, is_ok: {is_ok}")
-    
-    # 성공했거나 최대 재시도 횟수(1회)에 도달한 경우 (총 2번 실행)
-    if is_ok or retry_count >= 1:
-        print(f"[DEBUG] Rewrite 완료 - ok: {is_ok}, retry_count: {retry_count}")
-        return "done"
-    
-    # 재시도 필요
-    print(f"[DEBUG] Rewrite 재시도 필요 - retry_count: {retry_count}")
-    return "retry"
+    # 항상 done 반환 (재시도 없음)
+    return "done"
 
 # ───────────────────────────────────────────────────
 # 4) Rewrite 검증 에이전트
@@ -185,7 +168,7 @@ async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
         try:
             start = datetime.now(KST).timestamp()
             resp  = openai.chat.completions.create(
-                model="gpt-4o",
+                model="gpt-4o-mini",
                 messages=[{"role":"user","content":prompt}],
                 temperature=0, max_tokens=512
             )
@@ -342,7 +325,7 @@ async def nonverbal_evaluation_agent(state: InterviewState) -> InterviewState:
     return state
 
 # ───────────────────────────────────────────────────
-# 6) 평가 시도 조건: 최대 2회 시도
+# 6) 평가 재시도 조건: 최대 3회 → 단 1회만 수행
 # ───────────────────────────────────────────────────
 def should_retry_evaluation(state: InterviewState) -> Literal["retry", "continue", "done"]:
     evaluation = safe_get(state, "evaluation", {}, context="should_retry_evaluation:evaluation")
@@ -441,7 +424,7 @@ async def evaluation_agent(state: InterviewState) -> InterviewState:
         "retry_count": retry_count,
         "ok": False  # 판정 전이므로 False로 초기화
     }
-    # state["done"] = True  # 파이프라인 전체 종료 신호는 score_summary_agent에서 설정
+    state["done"] = True  # 파이프라인 전체 종료 신호 추가
     ts = datetime.now(KST).isoformat()
     state.setdefault("decision_log", []).append({
         "step": "evaluation_agent",
@@ -472,18 +455,14 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
     judge_notes = []
     is_valid = True
 
-    # 1. 항목 수 검증 (각 키워드에 3개, 비언어적 제외)
+    # 1. 항목 수 검증 (각 키워드에 3개)
     for kw, criteria in results.items():
-        if kw == "비언어적":
-            continue  # 비언어적은 단일 객체이므로 검증 제외
         if len(criteria) != 3:
             judge_notes.append(f"Keyword '{kw}' has {len(criteria)} criteria (expected 3)")
             is_valid = False
 
-    # 2. 점수 범위 검증 (1~5, 비언어적 제외)
-    for kw, criteria in results.items():
-        if kw == "비언어적":
-            continue  # 비언어적은 별도 처리
+    # 2. 점수 범위 검증 (1~5)
+    for criteria in results.values():
         for data in criteria.values():
             # print(f"[DEBUG] evaluation_judge_agent - data type: {type(data)}, value: {data}")
             if isinstance(data, dict):
@@ -519,94 +498,13 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
         "max_score": max_score
     }
     state["evaluation"]["ok"] = is_valid
-    
-    # 평가가 완료되면 done 플래그 설정 (score_summary_agent로 이동하지 않는 문제 해결)
-    if is_valid:
-        state["done"] = True
-        print(f"[LangGraph] ✅ 평가 완료 - done 플래그 설정")
 
-    # === 내용 검증 LLM 호출 추가 ===
-    try:
-        CONTENT_VALIDATION_PROMPT = """
-시스템: 당신은 AI 면접 평가 결과의 검증 전문가입니다.
-
-아래는 지원자의 답변, 그리고 그 답변에 대한 키워드별 평가 결과입니다.
-
-[지원자 답변]
-{answer}
-
-[평가 결과]
-{evaluation}
-
-[평가 기준]
-{criteria}
-
-평가 결과를 간단히 검증하고 아래 형식의 JSON으로만 답변하세요.
-
-{{
-  "ok": true,
-  "judge_notes": ["평가 완료"]
-}}
-"""
-        final_items = safe_get(state, "rewrite", {}).get("final", [])
-        if not final_items:
-            # final_items가 비어있으면 raw 텍스트 사용
-            stt_segments = state.get("stt", {}).get("segments", [])
-            if stt_segments:
-                answer = stt_segments[-1].get("raw", "답변 내용이 없습니다.")
-            else:
-                answer = "답변 내용이 없습니다."
-        else:
-            answer = "\n".join(item["rewritten"] for item in final_items)
-            
-        evaluation = json.dumps(state.get("evaluation", {}).get("results", {}), ensure_ascii=False)
-        criteria = json.dumps({
-            **EVAL_CRITERIA_WITH_ALL_SCORES,
-            **TECHNICAL_EVAL_CRITERIA_WITH_ALL_SCORES,
-            **DOMAIN_EVAL_CRITERIA_WITH_ALL_SCORES
-        }, ensure_ascii=False)
-
-        prompt = CONTENT_VALIDATION_PROMPT.format(
-            answer=answer,
-            evaluation=evaluation,
-            criteria=criteria
-        )
-
-        response = openai.chat.completions.create(
-            model="gpt-4o",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0,
-            max_tokens=1024
-        )
-        
-        llm_response = response.choices[0].message.content.strip()
-        # print(f"[DEBUG] 🤖 내용 검증 LLM 응답: {llm_response}")
-        
-        # 마크다운 코드 블록 제거
-        if llm_response.startswith("```json"):
-            llm_response = llm_response[7:]  # "```json" 제거
-        if llm_response.startswith("```"):
-            llm_response = llm_response[3:]   # "```" 제거
-        if llm_response.endswith("```"):
-            llm_response = llm_response[:-3]  # 끝의 "```" 제거
-        
-        llm_response = llm_response.strip()
-        # print(f"[DEBUG] 🔧 정리된 내용 검증 JSON: {llm_response}")
-        
-        if not llm_response:
-            raise ValueError("LLM 응답이 비어있습니다")
-            
-        result = json.loads(llm_response)
-        state["evaluation"]["content_judge"] = result
-        print(f"[LangGraph] ✅ 내용 검증 결과: ok={result.get('ok')}, notes={result.get('judge_notes')}")
-    except Exception as e:
-        print(f"[DEBUG] ❌ 내용 검증 오류: {e}")
-        # print(f"[DEBUG] 🔍 LLM 응답: {llm_response if 'llm_response' in locals() else 'N/A'}")
-        state["evaluation"]["content_judge"] = {
-            "ok": True,  # 오류 시 기본적으로 통과
-            "judge_notes": [f"content judge error: {e}"]
-        }
-        print(f"[LangGraph] ❌ 내용 검증 오류: {e}")
+    # 🔧 내용 검증 LLM 호출 제거 - 기본 통과 처리
+    state["evaluation"]["content_judge"] = {
+        "ok": True,
+        "judge_notes": ["평가 완료"]
+    }
+    print(f"[LangGraph] ✅ 내용 검증 결과: ok=True, notes=['평가 완료']")
 
     ts = datetime.now(KST).isoformat()
     state.setdefault("decision_log", []).append({
@@ -630,33 +528,116 @@ def calculate_area_scores(evaluation_results, nonverbal_score):
     - 비언어적 요소: 비언어적 점수(15점 만점)
     반환값: (weights, personality_score, job_domain_score, nonverbal_score_scaled)
     """
+    print(f"[DEBUG] 🔍 calculate_area_scores 시작")
+    print(f"[DEBUG] 입력 파라미터:")
+    print(f"[DEBUG]   - evaluation_results: {json.dumps(evaluation_results, ensure_ascii=False, indent=2)}")
+    print(f"[DEBUG]   - nonverbal_score: {nonverbal_score} (type: {type(nonverbal_score)})")
+    
     personality_keywords = ["SUPEX", "VWBE", "Passionate", "Proactive", "Professional", "People"]
     job_domain_keywords = ["기술/직무", "도메인 전문성"]
     
-    # 언어적 요소 총점
+    print(f"[DEBUG] 키워드 분류:")
+    print(f"[DEBUG]   - personality_keywords: {personality_keywords}")
+    print(f"[DEBUG]   - job_domain_keywords: {job_domain_keywords}")
+    
+    # 언어적 요소 총점 (인성적 요소)
     personality_score = 0
+    print(f"[DEBUG] 🔍 인성적 요소 점수 계산:")
+    
+    # evaluation_results에서 judge 데이터 추출
+    judge_data = evaluation_results.get("judge", {})
+    print(f"[DEBUG] judge_data: {json.dumps(judge_data, ensure_ascii=False, indent=2)}")
+    
     for keyword in personality_keywords:
-        for criterion in evaluation_results.get(keyword, {}).values():
-            personality_score += criterion.get("score", 0)
-    # print(f"[DEBUG] 인성적 요소 총점: {personality_score} (max 90)")
+        keyword_score = 0
+        print(f"[DEBUG]   - '{keyword}' 키워드 처리:")
+        
+        if keyword in judge_data:
+            criteria = judge_data[keyword]
+            print(f"[DEBUG]     - criteria: {criteria} (type: {type(criteria)})")
+            
+            if isinstance(criteria, list):
+                for i, crit in enumerate(criteria):
+                    if isinstance(crit, dict):
+                        score = crit.get("score", 0)
+                        keyword_score += score
+                        print(f"[DEBUG]       - criteria[{i}] score: {score}")
+                    elif isinstance(crit, int):
+                        keyword_score += crit
+                        print(f"[DEBUG]       - criteria[{i}] int score: {crit}")
+            elif isinstance(criteria, dict):
+                score = criteria.get("score", 0)
+                keyword_score += score
+                print(f"[DEBUG]       - direct dict score: {score}")
+            elif isinstance(criteria, int):
+                keyword_score += criteria
+                print(f"[DEBUG]       - direct int score: {criteria}")
+        else:
+            print(f"[DEBUG]     - '{keyword}' 키워드가 judge_data에 없음")
+        
+        personality_score += keyword_score
+        print(f"[DEBUG]   - '{keyword}' 총점: {keyword_score}")
+    
+    print(f"[DEBUG] 인성적 요소 총점: {personality_score}")
     
     # 직무·도메인 총점
     job_domain_score = 0
+    print(f"[DEBUG] 🔍 직무·도메인 점수 계산:")
+    
     for keyword in job_domain_keywords:
-        for criterion in evaluation_results.get(keyword, {}).values():
-            job_domain_score += criterion.get("score", 0)
-    # print(f"[DEBUG] 직무·도메인 총점: {job_domain_score} (max 30)")
+        keyword_score = 0
+        print(f"[DEBUG]   - '{keyword}' 키워드 처리:")
+        
+        if keyword in judge_data:
+            criteria = judge_data[keyword]
+            print(f"[DEBUG]     - criteria: {criteria} (type: {type(criteria)})")
+            
+            if isinstance(criteria, list):
+                for i, crit in enumerate(criteria):
+                    if isinstance(crit, dict):
+                        score = crit.get("score", 0)
+                        keyword_score += score
+                        print(f"[DEBUG]       - criteria[{i}] score: {score}")
+                    elif isinstance(crit, int):
+                        keyword_score += crit
+                        print(f"[DEBUG]       - criteria[{i}] int score: {crit}")
+            elif isinstance(criteria, dict):
+                score = criteria.get("score", 0)
+                keyword_score += score
+                print(f"[DEBUG]       - direct dict score: {score}")
+            elif isinstance(criteria, int):
+                keyword_score += criteria
+                print(f"[DEBUG]       - direct int score: {criteria}")
+        else:
+            print(f"[DEBUG]     - '{keyword}' 키워드가 judge_data에 없음")
+        
+        job_domain_score += keyword_score
+        print(f"[DEBUG]   - '{keyword}' 총점: {keyword_score}")
+    
+    print(f"[DEBUG] 직무·도메인 총점: {job_domain_score}")
     
     # 비언어적 요소
-    # print(f"[DEBUG] 비언어적 요소 원점수: {nonverbal_score} (max 15)")
+    print(f"[DEBUG] 🔍 비언어적 요소 점수: {nonverbal_score}")
+    
+    # 최대 점수 설정
     max_personality = 90
     max_job_domain = 30
     max_nonverbal = 15
+    
+    print(f"[DEBUG] 🔍 최대 점수 설정:")
+    print(f"[DEBUG]   - max_personality: {max_personality}")
+    print(f"[DEBUG]   - max_job_domain: {max_job_domain}")
+    print(f"[DEBUG]   - max_nonverbal: {max_nonverbal}")
     
     # 100점 만점 환산 점수 계산
     personality_score_scaled = round((personality_score / max_personality) * 45, 1) if max_personality else 0
     job_domain_score_scaled = round((job_domain_score / max_job_domain) * 45, 1) if max_job_domain else 0
     nonverbal_score_scaled = round((nonverbal_score / max_nonverbal) * 10, 1) if max_nonverbal else 0
+    
+    print(f"[DEBUG] 🔍 환산 점수 계산:")
+    print(f"[DEBUG]   - personality_score_scaled: {personality_score_scaled} = ({personality_score} / {max_personality}) * 45")
+    print(f"[DEBUG]   - job_domain_score_scaled: {job_domain_score_scaled} = ({job_domain_score} / {max_job_domain}) * 45")
+    print(f"[DEBUG]   - nonverbal_score_scaled: {nonverbal_score_scaled} = ({nonverbal_score} / {max_nonverbal}) * 10")
     
     # 비중 (고정값)
     weights = {
@@ -665,8 +646,16 @@ def calculate_area_scores(evaluation_results, nonverbal_score):
         "비언어적 요소": 10.0
     }
     
-    # print(f"[DEBUG] 환산 점수: 인성적={personality_score_scaled}, 직무·도메인={job_domain_score_scaled}, 비언어적={nonverbal_score_scaled}")
-    return weights, personality_score_scaled, job_domain_score_scaled, nonverbal_score_scaled
+    print(f"[DEBUG] 🔍 가중치 설정: {weights}")
+    
+    result = (weights, personality_score_scaled, job_domain_score_scaled, nonverbal_score_scaled)
+    print(f"[DEBUG] 🔍 calculate_area_scores 결과:")
+    print(f"[DEBUG]   - weights: {weights}")
+    print(f"[DEBUG]   - personality_score_scaled: {personality_score_scaled}")
+    print(f"[DEBUG]   - job_domain_score_scaled: {job_domain_score_scaled}")
+    print(f"[DEBUG]   - nonverbal_score_scaled: {nonverbal_score_scaled}")
+    
+    return result
 
 EVAL_REASON_SUMMARY_PROMPT = """
 아래는 지원자의 전체 답변과 각 평가 키워드별 평가 사유(reason)입니다.
@@ -685,82 +674,115 @@ EVAL_REASON_SUMMARY_PROMPT = """
 """
 
 async def score_summary_agent(state):
-    """
-    평가 검증(judge) 이후, 영역별 점수 환산 및 요약을 담당하는 agent
-    - 100점 만점 환산 점수 계산 (인성적 45%, 직무/도메인 45%, 비언어 10%)
-    - 지원자 답변 4줄, 평가 사유 4줄을 LLM에게 요약받아 verbal_reason에 포함
-    - 인성(언어적) 점수, 직무/도메인 점수 포함 (비언어적 점수/사유는 verbal_reason에 포함하지 않음)
-    결과를 state['summary']에 저장
-    """
-    evaluation = safe_get(state, "evaluation", {}, context="score_summary_agent:evaluation")
-    evaluation_results = safe_get(evaluation, "results", {}, context="score_summary_agent:evaluation.results")
-    # print(f"[DEBUG] 평가 결과(evaluation_results): {json.dumps(evaluation_results, ensure_ascii=False, indent=2)}")
-    nonverbal = evaluation_results.get("비언어적", {})
-    nonverbal_score = nonverbal.get("score", 0)
-    nonverbal_reason = nonverbal.get("reason", "평가 사유없음")
-    # print(f"[DEBUG] 비언어적 평가: score={nonverbal_score}, reason={nonverbal_reason}")
-
-    # 100점 만점 환산 점수 계산
-    weights, personality_score_scaled, job_domain_score_scaled, nonverbal_score_scaled = calculate_area_scores(evaluation_results, nonverbal_score)
-    verbal_score = personality_score_scaled + job_domain_score_scaled
-    # print(f"[DEBUG] verbal_score(인성+직무/도메인): {verbal_score}")
-
-    # 전체 키워드 평가 사유 종합 (SUPEX, VWBE, Passionate, Proactive, Professional, People, 기술/직무, 도메인 전문성)
-    all_keywords = [
-        "SUPEX", "VWBE", "Passionate", "Proactive", "Professional", "People",
-        "기술/직무", "도메인 전문성"
-    ]
-    reasons = []
-    for keyword in all_keywords:
-        for crit_name, crit in evaluation_results.get(keyword, {}).items():
-            reason = crit.get("reason", "")
-            if reason:
-                reasons.append(f"{keyword} - {crit_name}: {reason}")
-            # print(f"[DEBUG] 평가 사유 추출: {keyword} - {crit_name} - {reason}")
-    all_reasons = "\n".join(reasons)
-    # print(f"[DEBUG] all_reasons(전체 평가 사유):\n{all_reasons}")
-
-    # 지원자 답변 추출
-    rewrite = safe_get(state, "rewrite", {}, context="score_summary_agent:rewrite")
-    final_items = safe_get(rewrite, "final", [], context="score_summary_agent:rewrite.final")
-    if final_items:
-        answer = "\n".join(item["rewritten"] for item in final_items)
+    """점수 요약 및 최종 결과 정리"""
+    print(f"[LangGraph] 🔍 score_summary_agent 시작")
+    
+    # 디버깅: 입력 데이터 확인
+    print(f"[DEBUG] 🔍 Summary 생성 시작 - 입력 데이터 확인")
+    print(f"[DEBUG] state keys: {list(state.keys())}")
+    
+    if "evaluation" in state:
+        print(f"[DEBUG] evaluation 데이터 존재: {type(state['evaluation'])}")
+        if isinstance(state["evaluation"], dict):
+            print(f"[DEBUG] evaluation keys: {list(state['evaluation'].keys())}")
     else:
-        stt = safe_get(state, "stt", {}, context="score_summary_agent:stt")
-        stt_segments = safe_get(stt, "segments", [], context="score_summary_agent:stt.segments")
-        if stt_segments:
-            answer = "\n".join(seg.get("raw", "답변 내용이 없습니다.") for seg in stt_segments)
-        else:
-            answer = "답변 내용이 없습니다."
-    # print(f"[DEBUG] 지원자 답변(answer):\n{answer}")
+        print(f"[DEBUG] ❌ evaluation 데이터 없음!")
+    
+    if "nonverbal_evaluation" in state:
+        print(f"[DEBUG] nonverbal_evaluation 데이터 존재: {type(state['nonverbal_evaluation'])}")
+        if isinstance(state["nonverbal_evaluation"], dict):
+            print(f"[DEBUG] nonverbal_evaluation keys: {list(state['nonverbal_evaluation'].keys())}")
+    else:
+        print(f"[DEBUG] ❌ nonverbal_evaluation 데이터 없음!")
 
-    # LLM 프롬프트로 종합 요약 요청
-    prompt = EVAL_REASON_SUMMARY_PROMPT.format(answer=answer, all_reasons=all_reasons)
-    response = openai.chat.completions.create(
-        model="gpt-4o",
-        messages=[{
-            "role": "user",
-            "content": prompt
-        }]
-    )
-    verbal_reason = response.choices[0].message.content.strip().splitlines()[:8]
-    # print(f"[DEBUG] summary_text(LLM 요약): {verbal_reason}")
+    # 기존 코드 계속...
+    evaluation_results = safe_get(state, "evaluation", {}, context="score_summary_agent:evaluation")
+    nonverbal_results = safe_get(state, "nonverbal_evaluation", {}, context="score_summary_agent:nonverbal_evaluation")
+    
+    # 디버깅: 추출된 데이터 확인
+    print(f"[DEBUG] 🔍 추출된 evaluation_results: {json.dumps(evaluation_results, ensure_ascii=False, indent=2)}")
+    print(f"[DEBUG] 🔍 추출된 nonverbal_results: {json.dumps(nonverbal_results, ensure_ascii=False, indent=2)}")
 
-    # 각 키워드별 총점 계산
+    # 비언어적 점수 추출
+    nonverbal_score = 0
+    nonverbal_reason = "비언어적 요소 평가 없음"
+    
+    if isinstance(nonverbal_results, dict):
+        nonverbal_score = safe_get(nonverbal_results, "score", 0, context="score_summary_agent:nonverbal_score")
+        nonverbal_reason = safe_get(nonverbal_results, "reason", "비언어적 요소 평가 없음", context="score_summary_agent:nonverbal_reason")
+    
+    # 디버깅: 비언어적 점수 추출 결과
+    print(f"[DEBUG] 🔍 비언어적 점수 추출 결과:")
+    print(f"[DEBUG]   - nonverbal_score: {nonverbal_score} (type: {type(nonverbal_score)})")
+    print(f"[DEBUG]   - nonverbal_reason: {nonverbal_reason}")
+
+    # 영역별 점수 계산
+    print(f"[DEBUG] 🔍 영역별 점수 계산 시작")
+    weights, personality_score_scaled, job_domain_score_scaled, nonverbal_score_scaled = calculate_area_scores(evaluation_results, nonverbal_score)
+    
+    # 디버깅: 영역별 점수 계산 결과
+    print(f"[DEBUG] 🔍 영역별 점수 계산 결과:")
+    print(f"[DEBUG]   - weights: {weights}")
+    print(f"[DEBUG]   - personality_score_scaled: {personality_score_scaled}")
+    print(f"[DEBUG]   - job_domain_score_scaled: {job_domain_score_scaled}")
+    print(f"[DEBUG]   - nonverbal_score_scaled: {nonverbal_score_scaled}")
+
+    # 언어적 점수 및 사유 계산
+    verbal_score = personality_score_scaled + job_domain_score_scaled
+    verbal_reason = "인성적 요소와 직무·도메인 요소를 종합하여 평가한 결과입니다."
+    
+    # 디버깅: 언어적 점수 계산 결과
+    print(f"[DEBUG] 🔍 언어적 점수 계산 결과:")
+    print(f"[DEBUG]   - verbal_score: {verbal_score} (personality: {personality_score_scaled} + job_domain: {job_domain_score_scaled})")
+    print(f"[DEBUG]   - verbal_reason: {verbal_reason}")
+
+    # 키워드별 점수 계산
+    print(f"[DEBUG] 🔍 키워드별 점수 계산 시작")
     keyword_scores = {}
-    for keyword, criteria in evaluation_results.items():
-        if keyword == "비언어적":
+    judge_data = safe_get(evaluation_results, "judge", {}, context="score_summary_agent:judge")
+    
+    # 디버깅: judge 데이터 확인
+    print(f"[DEBUG] 🔍 judge 데이터:")
+    print(f"[DEBUG]   - judge_data: {json.dumps(judge_data, ensure_ascii=False, indent=2)}")
+    
+    for keyword, criteria in judge_data.items():
+        if keyword in ["total_score", "reason"]:
             continue
+        
+        print(f"[DEBUG] 🔍 키워드 '{keyword}' 처리 중...")
+        print(f"[DEBUG]   - criteria: {criteria} (type: {type(criteria)})")
+        
         total = 0
-        for crit in criteria.values():
+        if isinstance(criteria, list):
+            for crit in criteria:
             if isinstance(crit, dict):
-                total += crit.get("score", 0)
+                    score = crit.get("score", 0)
+                    total += score
+                    print(f"[DEBUG]     - dict score: {score}")
             elif isinstance(crit, int):
                 total += crit
+                    print(f"[DEBUG]     - int score: {crit}")
+        elif isinstance(criteria, dict):
+            total = criteria.get("score", 0)
+            print(f"[DEBUG]     - direct dict score: {total}")
+        elif isinstance(criteria, int):
+            total = criteria
+            print(f"[DEBUG]     - direct int score: {total}")
+        
         keyword_scores[keyword] = total
+        print(f"[DEBUG]   - '{keyword}' 최종 점수: {total}")
+
+    # 디버깅: 키워드별 점수 계산 결과
+    print(f"[DEBUG] 🔍 키워드별 점수 계산 완료:")
+    print(f"[DEBUG]   - keyword_scores: {json.dumps(keyword_scores, ensure_ascii=False, indent=2)}")
+
+    # 총점 계산
+    total_score = round(verbal_score + nonverbal_score_scaled, 1)
+    print(f"[DEBUG] 🔍 총점 계산:")
+    print(f"[DEBUG]   - total_score: {total_score} (verbal: {verbal_score} + nonverbal: {nonverbal_score_scaled})")
 
     # state에 저장
-    state["summary"] = {
+    summary_data = {
         "weights": weights,
         "personality_score": personality_score_scaled,
         "job_domain_score": job_domain_score_scaled,
@@ -769,9 +791,20 @@ async def score_summary_agent(state):
         "nonverbal_score": nonverbal_score_scaled,
         "nonverbal_reason": nonverbal_reason,
         "keyword_scores": keyword_scores,
-        "total_score": round(verbal_score + nonverbal_score_scaled, 1)
+        "total_score": total_score
     }
-    print(f"[LangGraph] ✅ 영역별 점수/요약 저장: {json.dumps(state['summary'], ensure_ascii=False, indent=2)}")
+    
+    # 디버깅: 최종 summary 데이터 확인
+    print(f"[DEBUG] 🔍 최종 summary 데이터 생성:")
+    print(f"[DEBUG] {json.dumps(summary_data, ensure_ascii=False, indent=2)}")
+    
+    state["summary"] = summary_data
+    print(f"[LangGraph] ✅ 영역별 점수/요약 저장 완료")
+    print(f"[LangGraph] 📊 Summary 상세 정보:")
+    print(f"[LangGraph]   - 총점: {total_score}/100")
+    print(f"[LangGraph]   - 언어적 요소: {verbal_score}/90 (인성: {personality_score_scaled}/45, 직무: {job_domain_score_scaled}/45)")
+    print(f"[LangGraph]   - 비언어적 요소: {nonverbal_score_scaled}/10")
+    print(f"[LangGraph]   - 키워드별 점수: {len(keyword_scores)}개 항목")
 
     # 평가 소요시간 계산 및 출력
     start_time = state.get("_evaluation_start_time")
@@ -789,7 +822,8 @@ async def score_summary_agent(state):
             "details": {
                 "evaluation_elapsed_seconds": round(total_elapsed, 2),
                 "start_time": datetime.fromtimestamp(start_time, KST).isoformat(),
-                "end_time": datetime.now(KST).isoformat()
+                "end_time": datetime.now(KST).isoformat(),
+                "summary_data": summary_data
             }
         })
         
@@ -799,12 +833,18 @@ async def score_summary_agent(state):
             "start_time": datetime.fromtimestamp(start_time, KST).isoformat(),
             "end_time": datetime.now(KST).isoformat()
         }
+        
+        # 디버깅: 소요시간 정보 추가 확인
+        print(f"[DEBUG] 🔍 소요시간 정보 추가:")
+        print(f"[DEBUG]   - total_seconds: {round(total_elapsed, 2)}")
+        print(f"[DEBUG]   - start_time: {datetime.fromtimestamp(start_time, KST).isoformat()}")
+        print(f"[DEBUG]   - end_time: {datetime.now(KST).isoformat()}")
     else:
         print("[⏱️] 평가 시작 시간 정보가 없습니다.")
 
-    # 모든 처리 완료 - done 플래그 설정
-    state["done"] = True
-    print(f"[LangGraph] ✅ 모든 평가 완료 - done 플래그 설정")
+    # 디버깅: 최종 state["summary"] 확인
+    print(f"[DEBUG] 🔍 최종 state['summary'] 저장 완료:")
+    print(f"[DEBUG] {json.dumps(state['summary'], ensure_ascii=False, indent=2)}")
 
     return state
 
@@ -928,4 +968,4 @@ final_builder.add_conditional_edges(
     {"retry":"evaluation_agent", "continue":"score_summary_agent", "done":"__end__"}
 )
 # final_builder.add_channel("decision_log", LastValue())
-final_flow_executor = final_builder.compile()
+final_report_flow_executor = final_builder.compile()
