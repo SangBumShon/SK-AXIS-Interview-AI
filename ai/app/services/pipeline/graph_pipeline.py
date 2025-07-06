@@ -519,6 +519,11 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
         "max_score": max_score
     }
     state["evaluation"]["ok"] = is_valid
+    
+    # 평가가 완료되면 done 플래그 설정 (score_summary_agent로 이동하지 않는 문제 해결)
+    if is_valid:
+        state["done"] = True
+        print(f"[LangGraph] ✅ 평가 완료 - done 플래그 설정")
 
     # === 내용 검증 LLM 호출 추가 ===
     try:
@@ -923,4 +928,4 @@ final_builder.add_conditional_edges(
     {"retry":"evaluation_agent", "continue":"score_summary_agent", "done":"__end__"}
 )
 # final_builder.add_channel("decision_log", LastValue())
-final_report_flow_executor = final_builder.compile()
+final_flow_executor = final_builder.compile()

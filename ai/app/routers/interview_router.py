@@ -13,7 +13,7 @@ from app.schemas.interview import (
     NonverbalData
 )
 
-from app.services.pipeline.graph_pipeline import final_report_flow_executor, interview_flow_executor
+from app.services.pipeline.graph_pipeline import final_flow_executor, interview_flow_executor
 from app.schemas.state import InterviewState
 from app.state.store import INTERVIEW_STATE_STORE  # 전역 메모리 스토어
 from app.services.interview.nonverbal_service import evaluate
@@ -88,8 +88,11 @@ async def end_interview(req: EndInterviewRequest):
             print(f"[DEBUG] state['nonverbal_counts']: {state['nonverbal_counts']}")
 
             # (3) 최종 리포트 생성
-            state = await final_report_flow_executor.ainvoke(state, config={"recursion_limit": 10})
+            print(f"[DEBUG] final_flow_executor 실행 전 - done: {state.get('done')}")
+            state = await final_flow_executor.ainvoke(state, config={"recursion_limit": 10})
+            print(f"[DEBUG] final_flow_executor 실행 후 - done: {state.get('done')}")
             INTERVIEW_STATE_STORE[interviewee_id] = state  # ⚠️ 상태 갱신
+            print(f"[DEBUG] INTERVIEW_STATE_STORE 저장 완료 - interviewee_id: {interviewee_id}, done: {state.get('done')}")
 
             processed_count += 1
 

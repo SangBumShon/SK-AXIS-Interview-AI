@@ -8,7 +8,7 @@ from datetime import datetime
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # 2. 파이프라인 로딩
-from ai.app.services.pipeline.graph_pipeline import final_report_flow_executor
+from ai.app.services.pipeline.graph_pipeline import final_flow_executor
 
 # 3. JSON 로딩 함수 (rewrite.items 구조 지원)
 def load_rewrite_items(file_name: str) -> list:
@@ -60,7 +60,7 @@ def build_state_from_rewrite_items(items: list) -> dict:
 async def run_test():
     items = load_rewrite_items("rewrite_items_full.json")
     state = build_state_from_rewrite_items(items)
-    result = await final_report_flow_executor.ainvoke(state)
+    result = await final_flow_executor.ainvoke(state)
     
     print("✅ PDF 생성 결과:", result.get("report", {}).get("pdf"))
     print("\n=== decision_log ===")

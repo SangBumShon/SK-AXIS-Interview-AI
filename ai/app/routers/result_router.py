@@ -29,6 +29,9 @@ async def get_result_statuses(
         result_statuses: list[ResultStatusResponse] = []
         for interviewee_id in id_list:
             state = INTERVIEW_STATE_STORE.get(interviewee_id)
+            print(f"[DEBUG] /statuses - interviewee_id={interviewee_id}, state_exists={state is not None}")
+            if state:
+                print(f"[DEBUG] /statuses - state_type={type(state)}, done_flag={state.get('done') if isinstance(state, dict) else 'N/A'}")
             status = "DONE" if state and isinstance(state, dict) and state.get("done", False) else "PENDING"
             score = None
             if status == "DONE":
