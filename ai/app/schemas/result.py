@@ -1,4 +1,3 @@
-# app/schemas/result.py
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional
 
@@ -7,7 +6,6 @@ class ResultStatusResponse(BaseModel):
     interviewee_id: int
     status: str = Field(..., description="평가 상태 (PENDING 또는 DONE)")
     score: Optional[int] = Field(None, description="총점 (100점 만점)")
-    pdf_path: Optional[str] = Field(None, description="PDF 보고서 경로")
 
 # ResultStatusListResponse는 ResultStatusResponse의 리스트
 ResultStatusListResponse = List[ResultStatusResponse]
@@ -28,7 +26,6 @@ class FinalResultResponse(BaseModel):
     competencies: Dict[str, int] = Field(..., description="역량별 점수")
     language: LanguageEvaluation
     nonverbal: NonverbalEvaluation
-    pdf_path: str = Field(..., description="PDF 보고서 경로")
 
 class FinalResultListResponse(BaseModel):
     """다수 면접자의 최종 평가 결과 응답 모델"""
