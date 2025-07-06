@@ -472,14 +472,18 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
     judge_notes = []
     is_valid = True
 
-    # 1. 항목 수 검증 (각 키워드에 3개)
+    # 1. 항목 수 검증 (각 키워드에 3개, 비언어적 제외)
     for kw, criteria in results.items():
+        if kw == "비언어적":
+            continue  # 비언어적은 단일 객체이므로 검증 제외
         if len(criteria) != 3:
             judge_notes.append(f"Keyword '{kw}' has {len(criteria)} criteria (expected 3)")
             is_valid = False
 
-    # 2. 점수 범위 검증 (1~5)
-    for criteria in results.values():
+    # 2. 점수 범위 검증 (1~5, 비언어적 제외)
+    for kw, criteria in results.items():
+        if kw == "비언어적":
+            continue  # 비언어적은 별도 처리
         for data in criteria.values():
             # print(f"[DEBUG] evaluation_judge_agent - data type: {type(data)}, value: {data}")
             if isinstance(data, dict):
@@ -727,10 +731,13 @@ async def score_summary_agent(state):
 
     # LLM 프롬프트로 종합 요약 요청
     prompt = EVAL_REASON_SUMMARY_PROMPT.format(answer=answer, all_reasons=all_reasons)
-    response = openai.chat.completions.append({
-        "role": "user",
-        "content": prompt
-    })
+    response = openai.chat.completions.create(
+        model="gpt-4o",
+        messages=[{
+            "role": "user",
+            "content": prompt
+        }]
+    )
     verbal_reason = response.choices[0].message.content.strip().splitlines()[:8]
     # print(f"[DEBUG] summary_text(LLM 요약): {verbal_reason}")
 

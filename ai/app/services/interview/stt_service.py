@@ -28,10 +28,10 @@ def transcribe_audio_file(file_path: str) -> str:
     """
     Whisper API를 사용하여 주어진 오디오 파일을 텍스트로 전사함
     """
-    # 오디오 전처리 적용
-    processed_path = preprocess_audio(file_path)
+    # 오디오 전처리 비활성화 (원본 파일 직접 사용)
+    # processed_path = preprocess_audio(file_path)
     
-    with open(processed_path, "rb") as f:
+    with open(file_path, "rb") as f:
         transcript = client.audio.transcriptions.create(
             model="whisper-1",
             file=f,
@@ -40,9 +40,9 @@ def transcribe_audio_file(file_path: str) -> str:
             # 프롬프트 추가로 맥락 제공
         )
     
-    # 전처리된 임시 파일 삭제
-    if processed_path != file_path and os.path.exists(processed_path):
-        os.remove(processed_path)
+    # 전처리된 임시 파일 삭제 (전처리 비활성화로 주석 처리)
+    # if processed_path != file_path and os.path.exists(processed_path):
+    #     os.remove(processed_path)
     
     # response_format="text" 를 사용하면 문자열이 반환됩니다.
     result = transcript.strip()
@@ -117,42 +117,3 @@ async def save_audio_file(interviewee_id: int, audio_file: UploadFile) -> Option
         print(f"파일 저장 중 오류 발생: {str(e)}")
         return None
 
-def preprocess_audio(file_path: str) -> str:
-    """
-    오디오 파일을 전처리하여 STT 정확도를 개선합니다.
-    """
-    try:
-        # pydub으로 오디오 로드
-        audio = AudioSegment.from_file(file_path)
-        
-        # 1. 샘플링 레이트 정규화 (16kHz가 Whisper에 최적)
-        if audio.frame_rate != 16000:
-            audio = audio.set_frame_rate(16000)
-            print(f"[오디오 전처리] 샘플링 레이트 변경: {audio.frame_rate} -> 16000Hz")
-        
-        # 2. 모노 채널로 변환
-        if audio.channels > 1:
-            audio = audio.set_channels(1)
-            print(f"[오디오 전처리] 스테레오 -> 모노 변환")
-        
-        # 3. 음량 정규화 (너무 작거나 큰 소리 조절)
-        if audio.dBFS < -30:  # 너무 작은 소리
-            audio = audio + (abs(audio.dBFS) - 20)
-            print(f"[오디오 전처리] 음량 증폭: {audio.dBFS}dB")
-        elif audio.dBFS > -10:  # 너무 큰 소리
-            audio = audio - (audio.dBFS + 10)
-            print(f"[오디오 전처리] 음량 감소: {audio.dBFS}dB")
-        
-        # 4. 무음 구간 제거 (앞뒤 0.5초 이상 무음 제거)
-        audio = audio.strip_silence(silence_len=500, silence_thresh=-40)
-        
-        # 5. 전처리된 파일 저장
-        processed_path = file_path.replace(".webm", "_processed.wav")
-        audio.export(processed_path, format="wav")
-        
-        print(f"[오디오 전처리] 완료: {processed_path}")
-        return processed_path
-        
-    except Exception as e:
-        print(f"[오디오 전처리] 오류 발생: {e}")
-        return file_path  # 전처리 실패 시 원본 파일 반환
