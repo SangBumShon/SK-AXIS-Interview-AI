@@ -441,7 +441,7 @@ async def evaluation_agent(state: InterviewState) -> InterviewState:
         "retry_count": retry_count,
         "ok": False  # 판정 전이므로 False로 초기화
     }
-    state["done"] = True  # 파이프라인 전체 종료 신호 추가
+    # state["done"] = True  # 파이프라인 전체 종료 신호는 score_summary_agent에서 설정
     ts = datetime.now(KST).isoformat()
     state.setdefault("decision_log", []).append({
         "step": "evaluation_agent",
@@ -796,6 +796,10 @@ async def score_summary_agent(state):
         }
     else:
         print("[⏱️] 평가 시작 시간 정보가 없습니다.")
+
+    # 모든 처리 완료 - done 플래그 설정
+    state["done"] = True
+    print(f"[LangGraph] ✅ 모든 평가 완료 - done 플래그 설정")
 
     return state
 
