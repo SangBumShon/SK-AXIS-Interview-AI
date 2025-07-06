@@ -1072,7 +1072,10 @@ final_builder.add_node("score_summary_agent", score_summary_agent)
 final_builder.set_entry_point("nonverbal_eval")
 final_builder.add_edge("nonverbal_eval", "evaluation_agent")
 final_builder.add_edge("evaluation_agent", "evaluation_judge_agent")
-final_builder.add_edge("evaluation_judge_agent", "score_summary_agent")
+final_builder.add_conditional_edges(
+    "evaluation_judge_agent", should_retry_evaluation,
+    {"retry":"evaluation_agent", "continue":"score_summary_agent"}
+)
 # final_builder.add_edge("score_summary_agent", "excel_node")  # Excel 노드 연결 주석처리
 final_builder.add_edge("score_summary_agent", "__end__")  # 직접 종료로 변경
 final_flow_executor = final_builder.compile()
