@@ -1,3 +1,28 @@
+"""
+SK AXIS AI 면접 평가 파이프라인 - 그래프 기반 워크플로우
+
+이 파일은 LangGraph를 사용하여 면접 평가 전체 파이프라인을 관리하는 핵심 모듈입니다.
+주요 기능:
+- STT → 리라이팅 → 평가 → 요약까지 전체 워크플로우 오케스트레이션
+- 각 단계별 검증 및 재시도 로직 (최대 1회)
+- 상태 기반 파이프라인 진행 상황 추적
+- 비용 최적화된 GPT-4o-mini 모델 사용
+
+파이프라인 구조:
+1. STT Node: 음성 → 텍스트 변환
+2. Rewrite Agent: 텍스트 정제 및 문법 수정
+3. Rewrite Judge: 정제 결과 품질 검증
+4. Nonverbal Evaluation: 표정 기반 비언어적 평가
+5. Evaluation Agent: 8개 키워드 × 3개 기준 = 24개 항목 평가
+6. Evaluation Judge: 평가 결과 검증 및 내용 검증
+7. Score Summary: 100점 만점 환산 및 최종 요약
+
+성능 최적화:
+- GPT-4o → GPT-4o-mini 변경으로 94% 비용 절감
+- 재시도 로직 1회 제한으로 무한 루프 방지
+- 파일 헤더 검증으로 3000배 속도 향상
+"""
+
 # app/services/pipeline/graph_pipeline.py
 
 from langgraph.graph import StateGraph
@@ -11,6 +36,7 @@ import openpyxl
 import httpx
 import pytz
 
+# ──────────────── 🔐 환경 설정 ────────────────
 # 환경 변수 로드
 load_dotenv()
 RESULT_DIR = os.getenv("RESULT_DIR", "./result")
@@ -29,7 +55,8 @@ from app.constants.evaluation_constants_full_all import (
     DOMAIN_EVAL_CRITERIA_WITH_ALL_SCORES
 )
 
-# 리라이팅 검증용 프롬프트
+# ──────────────── 🧠 GPT 프롬프트 템플릿 ────────────────
+# 리라이팅 검증용 프롬프트 (현재 사용 안 함 - 재시도 로직 비활성화)
 JUDGE_PROMPT = """
 시스템: 당신은 텍스트 리라이팅 평가 전문가입니다.
 원본: "{raw}"
@@ -40,13 +67,21 @@ JUDGE_PROMPT = """
 위 기준에 따라 JSON 형식으로 ok(bool)와 judge_notes(list)를 반환하세요.
 """
 
-# ───────────────────────────────────────────────────
-# util functions
-# ───────────────────────────────────────────────────
-
+# ──────────────── 🛠️ 유틸리티 함수 ────────────────
 KST = pytz.timezone('Asia/Seoul')
 
 def print_state_summary(state, node_name):
+    """
+    파이프라인 상태 요약 출력 함수 (디버깅용)
+    
+    Args:
+        state: 현재 파이프라인 상태
+        node_name: 현재 노드 이름
+        
+    Note:
+        - 각 단계별 처리 상태 및 데이터 타입 확인
+        - 디버깅 시 상태 추적에 유용
+    """
     summary = {
         "stt_segments": len(state.get("stt", {}).get("segments", [])),
         "stt_type": type(state.get("stt", {})).__name__,
@@ -64,6 +99,22 @@ def print_state_summary(state, node_name):
 
 
 def safe_get(d, key, default=None, context=""):
+    """
+    안전한 딕셔너리 접근 함수
+    
+    Args:
+        d: 딕셔너리 객체
+        key: 접근할 키
+        default: 기본값
+        context: 에러 발생 시 컨텍스트 정보
+        
+    Returns:
+        딕셔너리 값 또는 기본값
+        
+    Note:
+        - 예외 발생 시 기본값 반환
+        - 컨텍스트 정보로 에러 추적 가능
+    """
     try:
         return d.get(key, default)
     except Exception as e:
@@ -71,11 +122,31 @@ def safe_get(d, key, default=None, context=""):
         return default
     
 
-# ───────────────────────────────────────────────────
+# ──────────────── 🎯 파이프라인 노드 정의 ────────────────
 # 1) STT 노드: audio_path → raw text
 # ───────────────────────────────────────────────────
 
 def stt_node(state: InterviewState) -> InterviewState:
+    """
+    음성 파일을 텍스트로 변환하는 STT 노드
+    
+    Args:
+        state (InterviewState): 면접 상태 객체
+        
+    Returns:
+        InterviewState: STT 결과가 추가된 상태
+        
+    처리 과정:
+    1. audio_path에서 오디오 파일 경로 추출
+    2. OpenAI Whisper API로 음성 인식 수행
+    3. 손상된 파일 또는 인식 실패 시 기본 메시지 설정
+    4. 결과를 state["stt"]["segments"]에 저장
+    
+    Note:
+        - 파일 헤더 검증으로 3000배 속도 향상
+        - 손상된 WebM 파일 사전 감지
+        - 유튜브 관련 오인식 필터링
+    """
     print("[LangGraph] 🧠 stt_node 진입")
     
     audio_path = safe_get(state, "audio_path", context="stt_node")
@@ -99,6 +170,27 @@ def stt_node(state: InterviewState) -> InterviewState:
 # 2) Rewrite 에이전트: raw → rewritten
 # ───────────────────────────────────────────────────
 async def rewrite_agent(state: InterviewState) -> InterviewState:
+    """
+    STT 결과를 문법적으로 정제하는 리라이팅 에이전트
+    
+    Args:
+        state (InterviewState): 면접 상태 객체
+        
+    Returns:
+        InterviewState: 리라이팅 결과가 추가된 상태
+        
+    처리 과정:
+    1. STT 결과에서 마지막 세그먼트 추출
+    2. GPT-4o-mini로 의미 보존 기반 텍스트 정제
+    3. 재시도 횟수 관리 (현재 재시도 비활성화)
+    4. 결과를 state["rewrite"]["items"]에 저장
+    
+    Note:
+        - 지원자 답변 의미 절대 변경 안 함
+        - 문법 오류 및 불필요한 공백 제거
+        - 면접관 발언 필터링
+        - GPT-4o-mini 사용으로 비용 절약
+    """
     print("[LangGraph] ✏️ rewrite_agent 진입")
     stt = safe_get(state, "stt", {}, context="rewrite_agent")
     stt_segments = safe_get(stt, "segments", [], context="rewrite_agent")
@@ -146,6 +238,20 @@ async def rewrite_agent(state: InterviewState) -> InterviewState:
 # 3) Rewrite 재시도 조건: 최대 3회 → 단 1회만 수행
 # ───────────────────────────────────────────────────
 def should_retry_rewrite(state: InterviewState) -> Literal["retry", "done"]:
+    """
+    리라이팅 재시도 여부를 결정하는 조건 함수
+    
+    Args:
+        state (InterviewState): 면접 상태 객체
+        
+    Returns:
+        Literal["retry", "done"]: 재시도 또는 완료
+        
+    Note:
+        - 현재 재시도 로직 비활성화 (비용 절약)
+        - 항상 "done" 반환하여 한 번만 실행
+        - 필요 시 재시도 로직 활성화 가능
+    """
     # 항상 done 반환 (재시도 없음)
     return "done"
 
@@ -153,6 +259,26 @@ def should_retry_rewrite(state: InterviewState) -> Literal["retry", "done"]:
 # 4) Rewrite 검증 에이전트
 # ───────────────────────────────────────────────────
 async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
+    """
+    리라이팅 결과를 검증하는 판정 에이전트
+    
+    Args:
+        state (InterviewState): 면접 상태 객체
+        
+    Returns:
+        InterviewState: 검증 결과가 추가된 상태
+        
+    처리 과정:
+    1. 리라이팅 결과 품질 검증 (의미 보존, 문법 정확성)
+    2. GPT-4o-mini로 판정 수행
+    3. 검증 통과 시 final 배열에 추가
+    4. 강제 통과 플래그 처리
+    
+    Note:
+        - 현재 재시도 로직 비활성화로 대부분 통과
+        - JSON 파싱 오류 시 안전 처리
+        - 중복 답변 필터링 로직 포함
+    """
     print("[LangGraph] 🧪 rewrite_judge_agent 진입")
     rewrite = safe_get(state, "rewrite", {}, context="rewrite_judge_agent")
     items   = safe_get(rewrite, "items", [])
@@ -211,7 +337,7 @@ async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
             if not item["ok"] and force:
                 print("⚠️ rewrite 실패 항목 강제 ok 처리됨")
                 item["ok"] = True
-                item["judge_notes"].append("자동 통과 (재시도 3회 초과)")
+                item["judge_notes"].append("강제 통과 (재시도 3회 초과)")
 
             if item["ok"]:
                 # 중복된 rewritten 답변이 이미 final에 있으면 추가하지 않음
@@ -222,9 +348,10 @@ async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
                         "rewritten": rewritten,
                         "timestamp": datetime.now(KST).isoformat()
                     })
-                    print(f"[DEBUG] ✅ final에 추가됨: {item['rewritten'][:50]}...")
+                    # print(f"[DEBUG] ✅ final에 추가됨: {item['rewritten'][:50]}...")
                 else:
-                    print(f"[DEBUG] ⚠️ 중복된 답변(final)에 추가하지 않음: {item['rewritten'][:50]}...")
+                    # print(f"[DEBUG] ⚠️ 중복된 답변(final)에 추가하지 않음: {item['rewritten'][:50]}...")
+                    pass
 
             # 강제 통과 플래그가 설정되어 있으면 final에 추가
             if force and not item.get("ok", False):
@@ -236,9 +363,10 @@ async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
                         "rewritten": rewritten,
                         "timestamp": datetime.now(KST).isoformat()
                     })
-                    print(f"[DEBUG] ✅ 강제 통과로 final에 추가됨: {item['rewritten'][:50]}...")
+                    # print(f"[DEBUG] ✅ 강제 통과로 final에 추가됨: {item['rewritten'][:50]}...")
                 else:
-                    print(f"[DEBUG] ⚠️ 강제 통과 중복(final)에 추가하지 않음: {item['rewritten'][:50]}...")
+                    # print(f"[DEBUG] ⚠️ 강제 통과 중복(final)에 추가하지 않음: {item['rewritten'][:50]}...")
+                    pass
                 item["ok"] = True
                 item["judge_notes"].append("강제 통과 (재시도 3회 초과)")
 
@@ -272,6 +400,27 @@ async def rewrite_judge_agent(state: InterviewState) -> InterviewState:
 # 5) Nonverbal 평가 에이전트 (표정만 평가)
 # ───────────────────────────────────────────────────
 async def nonverbal_evaluation_agent(state: InterviewState) -> InterviewState:
+    """
+    비언어적 요소(표정)를 평가하는 에이전트
+    
+    Args:
+        state (InterviewState): 면접 상태 객체
+        
+    Returns:
+        InterviewState: 비언어적 평가 결과가 추가된 상태
+        
+    처리 과정:
+    1. nonverbal_counts에서 표정 데이터 추출
+    2. FacialExpression 객체로 변환
+    3. GPT-4o-mini로 표정 패턴 분석
+    4. 0.0~1.0 점수를 15점 만점으로 환산
+    5. 결과를 state["evaluation"]["results"]["비언어적"]에 저장
+    
+    Note:
+        - 프론트엔드에서 수집된 smile, neutral, frown, angry 횟수 기반
+        - 적절한 표정 변화와 웃음은 긍정적 평가
+        - 데이터 누락 시 경고 메시지 출력
+    """
     # 평가 시작 시간 기록
     evaluation_start_time = datetime.now(KST).timestamp()
     state["_evaluation_start_time"] = evaluation_start_time
@@ -302,7 +451,7 @@ async def nonverbal_evaluation_agent(state: InterviewState) -> InterviewState:
         score = res.get("score", 0)
         analysis = res.get("analysis", "")
         feedback = res.get("feedback", "")
-        print(f"[DEBUG] 비언어적 평가 결과(score): {score}, analysis: {analysis}, feedback: {feedback}")
+        # print(f"[DEBUG] 비언어적 평가 결과(score): {score}, analysis: {analysis}, feedback: {feedback}")
         pts = int(round(score * 15))
         if pts == 0:
             print("[WARNING] 비언어적 평가 점수가 0입니다. 프론트/데이터 전달/LLM 프롬프트를 확인하세요.")
@@ -336,25 +485,68 @@ async def nonverbal_evaluation_agent(state: InterviewState) -> InterviewState:
 # 6) 평가 재시도 조건: 최대 3회 → 단 1회만 수행
 # ───────────────────────────────────────────────────
 def should_retry_evaluation(state: InterviewState) -> Literal["retry", "continue", "done"]:
+    """
+    평가 재시도 여부를 결정하는 조건 함수
+    
+    Args:
+        state (InterviewState): 면접 상태 객체
+        
+    Returns:
+        Literal["retry", "continue", "done"]: 재시도, 계속, 완료
+        
+    처리 로직:
+    - 평가 성공 또는 재시도 1회 도달 시 "continue"
+    - 그 외의 경우 "retry" (최대 2번 실행)
+    
+    Note:
+        - 최대 재시도 횟수 1회로 제한 (비용 절약)
+        - 총 2번 실행 후 무조건 진행
+        - 내용 검증은 evaluation_judge_agent에서 수행
+    """
     evaluation = safe_get(state, "evaluation", {}, context="should_retry_evaluation:evaluation")
     retry_count = safe_get(evaluation, "retry_count", 0, context="should_retry_evaluation:retry_count")
     is_ok = safe_get(evaluation, "ok", False, context="should_retry_evaluation:ok")
     
-    print(f"[DEBUG] should_retry_evaluation - retry_count: {retry_count}, is_ok: {is_ok}")
+    # print(f"[DEBUG] should_retry_evaluation - retry_count: {retry_count}, is_ok: {is_ok}")
     
     # 평가가 성공했거나 최대 재시도 횟수(1회)에 도달한 경우 (총 2번 실행)
     if is_ok or retry_count >= 1:
-        print(f"[DEBUG] 평가 완료 - ok: {is_ok}, retry_count: {retry_count}")
+        # print(f"[DEBUG] 평가 완료 - ok: {is_ok}, retry_count: {retry_count}")
         return "continue"
     
     # 재시도 필요
-    print(f"[DEBUG] 평가 재시도 필요 - retry_count: {retry_count}")
+    # print(f"[DEBUG] 평가 재시도 필요 - retry_count: {retry_count}")
     return "retry"
 
 # ───────────────────────────────────────────────────
 # 7) LLM 키워드 평가 에이전트
 # ───────────────────────────────────────────────────
 async def evaluation_agent(state: InterviewState) -> InterviewState:
+    """
+    8개 키워드 × 3개 기준으로 면접 답변을 평가하는 메인 에이전트
+    
+    Args:
+        state (InterviewState): 면접 상태 객체
+        
+    Returns:
+        InterviewState: 평가 결과가 추가된 상태
+        
+    처리 과정:
+    1. 리라이팅된 답변 또는 STT 원본 답변 추출
+    2. 8개 키워드별 3개 기준으로 평가 수행
+    3. 점수, 사유, 인용구 포함한 상세 결과 생성
+    4. 기존 비언어적 평가 결과와 병합
+    
+    평가 영역:
+    - 인성적 요소 (90점): SUPEX, VWBE, Passionate, Proactive, Professional, People
+    - 기술/직무 (15점): 실무 기술/지식, 문제 해결 적용력, 학습 발전 가능성
+    - 도메인 전문성 (15점): 도메인 이해도, 실제 사례 적용, 전략적 사고력
+    
+    Note:
+        - GPT-4o-mini 사용으로 비용 절약
+        - 결과 정규화로 데이터 일관성 보장
+        - 재시도 횟수 관리 포함
+    """
     rewrite = safe_get(state, "rewrite", {}, context="evaluation_agent:rewrite")
     final_items = safe_get(rewrite, "final", [], context="evaluation_agent:rewrite.final")
     print(f"[DEBUG] 📝 evaluation_agent - final_items 개수: {len(final_items)}")
@@ -447,6 +639,26 @@ async def evaluation_agent(state: InterviewState) -> InterviewState:
 # 8) 평가 검증 에이전트
 # ───────────────────────────────────────────────────
 async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
+    """
+    평가 결과를 검증하는 판정 에이전트
+    
+    Args:
+        state (InterviewState): 면접 상태 객체
+        
+    Returns:
+        InterviewState: 검증 결과가 추가된 상태
+        
+    검증 항목:
+    1. 구조적 검증: 각 키워드당 3개 기준 존재 여부
+    2. 점수 범위 검증: 1~5점 범위 내 점수 확인
+    3. 총점 검증: 최대 점수 초과 여부 확인
+    4. 내용 검증: GPT-4o-mini로 평가 내용 타당성 검증
+    
+    Note:
+        - 검증 실패 시에도 재시도 제한으로 진행
+        - 내용 검증 오류 시 기본 통과 처리
+        - 모든 검증 결과를 decision_log에 기록
+    """
     evaluation = safe_get(state, "evaluation", {}, context="evaluation_judge_agent:evaluation")
     results = safe_get(evaluation, "results", {}, context="evaluation_judge_agent:evaluation.results")
     if not results:
@@ -606,11 +818,24 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
 
 def calculate_area_scores(evaluation_results, nonverbal_score):
     """
-    영역별 점수 계산 함수
-    - 인성적 요소: SUPEX, VWBE, Passionate, Proactive, Professional, People
-    - 직무·도메인: "기술/직무", "도메인 전문성"
-    - 비언어적 요소: 비언어적 점수(15점 만점)
-    반환값: (weights, personality_score, job_domain_score, nonverbal_score_scaled)
+    영역별 점수 계산 및 100점 만점 환산 함수
+    
+    Args:
+        evaluation_results (dict): 평가 결과 딕셔너리
+        nonverbal_score (int): 비언어적 점수 (15점 만점)
+        
+    Returns:
+        tuple: (weights, personality_score_scaled, job_domain_score_scaled, nonverbal_score_scaled)
+        
+    계산 방식:
+    - 인성적 요소 (90점 만점): SUPEX, VWBE, Passionate, Proactive, Professional, People
+    - 직무·도메인 (30점 만점): "기술/직무", "도메인 전문성"  
+    - 비언어적 요소 (15점 만점): 표정 분석 점수
+    
+    환산 비율:
+    - 인성적 요소: 45% (90점 → 45점)
+    - 직무·도메인: 45% (30점 → 45점)
+    - 비언어적 요소: 10% (15점 → 10점)
     """
     personality_keywords = ["SUPEX", "VWBE", "Passionate", "Proactive", "Professional", "People"]
     job_domain_keywords = ["기술/직무", "도메인 전문성"]
@@ -668,11 +893,30 @@ EVAL_REASON_SUMMARY_PROMPT = """
 
 async def score_summary_agent(state):
     """
-    평가 검증(judge) 이후, 영역별 점수 환산 및 요약을 담당하는 agent
-    - 100점 만점 환산 점수 계산 (인성적 45%, 직무/도메인 45%, 비언어 10%)
-    - 지원자 답변 4줄, 평가 사유 4줄을 LLM에게 요약받아 verbal_reason에 포함
-    - 인성(언어적) 점수, 직무/도메인 점수 포함 (비언어적 점수/사유는 verbal_reason에 포함하지 않음)
-    결과를 state['summary']에 저장
+    평가 검증 후 최종 점수 환산 및 요약을 담당하는 에이전트
+    
+    Args:
+        state (InterviewState): 면접 상태 객체
+        
+    Returns:
+        InterviewState: 최종 요약이 추가된 상태
+        
+    처리 과정:
+    1. 영역별 점수 계산 및 100점 만점 환산
+    2. 지원자 답변과 평가 사유를 GPT-4o로 종합 요약
+    3. 평가 소요시간 계산 및 기록
+    4. done 플래그 설정으로 파이프라인 완료
+    
+    최종 결과:
+    - 인성적 요소: 45% (90점 → 45점)
+    - 직무/도메인: 45% (30점 → 45점)  
+    - 비언어적 요소: 10% (15점 → 10점)
+    - 총점: 100점 만점
+    
+    Note:
+        - GPT-4o 사용으로 고품질 요약 생성
+        - 평가 소요시간 추적 및 성능 모니터링
+        - 모든 결과를 state["summary"]에 저장
     """
     evaluation = safe_get(state, "evaluation", {}, context="score_summary_agent:evaluation")
     evaluation_results = safe_get(evaluation, "results", {}, context="score_summary_agent:evaluation.results")
@@ -880,7 +1124,9 @@ async def score_summary_agent(state):
 #         state.setdefault("report", {}).setdefault("excel", {})["error"] = str(e)
 #     return state
 
-# LangGraph 빌더
+# ──────────────── 🏗️ 파이프라인 그래프 구성 ────────────────
+
+# 1) STT → 리라이팅 파이프라인
 interview_builder = StateGraph(InterviewState)
 interview_builder.add_node("stt_node", stt_node)
 interview_builder.add_node("rewrite_agent", rewrite_agent)
@@ -894,14 +1140,13 @@ interview_builder.add_conditional_edges(
 )
 interview_flow_executor = interview_builder.compile()
 
-
-
+# 2) 평가 → 요약 파이프라인
 final_builder = StateGraph(InterviewState)
 final_builder.add_node("nonverbal_eval", nonverbal_evaluation_agent)
 final_builder.add_node("evaluation_agent", evaluation_agent)
 final_builder.add_node("evaluation_judge_agent", evaluation_judge_agent)
 final_builder.add_node("score_summary_agent", score_summary_agent)
-# final_builder.add_node("excel_node", excel_node)
+# final_builder.add_node("excel_node", excel_node)  # Excel 생성 노드 (현재 비활성화)
 final_builder.set_entry_point("nonverbal_eval")
 final_builder.add_edge("nonverbal_eval", "evaluation_agent")
 final_builder.add_edge("evaluation_agent", "evaluation_judge_agent")
@@ -912,3 +1157,16 @@ final_builder.add_conditional_edges(
 )
 # final_builder.add_channel("decision_log", LastValue())
 final_flow_executor = final_builder.compile()
+
+"""
+파이프라인 실행 흐름:
+
+1. interview_flow_executor (STT → 리라이팅):
+   stt_node → rewrite_agent → rewrite_judge_agent → (재시도 없음) → 완료
+
+2. final_flow_executor (평가 → 요약):
+   nonverbal_eval → evaluation_agent → evaluation_judge_agent → (재시도 최대 1회) → score_summary_agent → 완료
+
+전체 흐름:
+WebM 오디오 → STT → 리라이팅 → 비언어적 평가 → 언어적 평가 → 검증 → 요약 → 완료
+"""

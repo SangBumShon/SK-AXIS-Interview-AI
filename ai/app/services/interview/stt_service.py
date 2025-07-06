@@ -1,3 +1,19 @@
+"""
+SK AXIS AI 면접 음성 인식 (STT) 서비스
+
+이 파일은 면접 중 녹음된 음성을 텍스트로 변환하는 STT 서비스입니다.
+주요 기능:
+- WebM 오디오 파일 처리 및 검증
+- OpenAI Whisper API를 통한 한국어 음성 인식
+- 파일 손상 검사 및 오류 처리
+- STT 결과 후처리 및 필터링
+
+성능 최적화:
+- 파일 헤더만 읽어서 빠른 검증 (전체 파일을 로드하지 않고 헤더만 읽어서 빠른 검증)
+- 손상된 WebM 파일 사전 감지
+- 잘못된 STT 결과 필터링 (유튜브 관련 오인식 제거)
+"""
+
 from pydub import AudioSegment
 from openai import OpenAI
 import os
