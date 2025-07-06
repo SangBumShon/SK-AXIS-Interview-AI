@@ -3,19 +3,18 @@ SK AXIS AI 면접 비언어적 요소 분석 스키마
 
 이 파일은 면접 중 수집되는 비언어적 데이터의 구조를 정의하는 Pydantic 스키마입니다.
 주요 기능:
-- 자세(Posture) 분석 데이터 모델
+- 자세(Posture) 분석 데이터 모델  (추후 사용 가능 - 현재 미사용)
 - 표정(FacialExpression) 분석 데이터 모델
 - 비언어적 종합 데이터 모델
 - 평가 결과 점수 모델
 
 데이터 수집 방식:
 - 프론트엔드에서 실시간 수집
-- 웹캠 기반 얼굴/자세 인식
+- 웹캠 기반 얼굴 인식
 - 면접 종료 시 AI 평가 시스템으로 전달
 
 평가 활용:
 - 표정 데이터 → GPT-4o-mini 분석 → 15점 만점 환산
-- 자세, 시선, 제스처 데이터 → 종합 평가
 - 최종 점수의 10% 비중 (비언어적 요소)
 """
 
@@ -103,7 +102,6 @@ class NonverbalScore(BaseModel):
         overall_score (float): 종합 비언어적 점수 (0.0~1.0)
         feedback (Dict[str, str]): 영역별 피드백 메시지
         detailed_analysis (str): 상세 분석 내용
-        posture_raw_llm_response (str): 자세 분석 원본 LLM 응답
         facial_raw_llm_response (str): 표정 분석 원본 LLM 응답
         overall_raw_llm_response (str): 종합 분석 원본 LLM 응답
         
@@ -119,6 +117,5 @@ class NonverbalScore(BaseModel):
     overall_score: float
     feedback: Dict[str, str]
     detailed_analysis: str
-    posture_raw_llm_response: str
     facial_raw_llm_response: str
     overall_raw_llm_response: str
