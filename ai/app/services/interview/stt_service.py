@@ -23,27 +23,87 @@ client = OpenAI(api_key=openai_key)
 # Whisper 모델 초기화
 model = whisper.load_model("base")
 
+def is_valid_audio_file(file_path: str) -> bool:
+    """
+    오디오 파일이 손상되었는지 빠르게 검사합니다.
+    성능 최적화: 헤더만 읽어서 빠른 검증
+    """
+    try:
+        # 파일 존재 확인
+        if not os.path.exists(file_path):
+            print(f"[파일 검사] 파일이 존재하지 않음: {file_path}")
+            return False
+        
+        # 파일 크기 확인 (0바이트 파일 감지)
+        file_size = os.path.getsize(file_path)
+        if file_size == 0:
+            print(f"[파일 검사] 빈 파일 감지: {file_path}")
+            return False
+        
+        # 최소 크기 확인 (1KB 미만은 의심스러움)
+        if file_size < 1024:
+            print(f"[파일 검사] 파일이 너무 작음: {file_path} ({file_size} bytes)")
+            return False
+        
+        # 🚀 성능 최적화: 파일 헤더만 읽어서 빠른 검증
+        try:
+            with open(file_path, 'rb') as f:
+                # 처음 1KB만 읽어서 헤더 확인
+                header = f.read(1024)
+                
+                # WebM 파일 시그니처 확인
+                if file_path.lower().endswith('.webm'):
+                    # WebM은 EBML 헤더로 시작 (0x1A, 0x45, 0xDF, 0xA3)
+                    if len(header) < 4 or header[:4] != b'\x1A\x45\xDF\xA3':
+                        print(f"[파일 검사] 잘못된 WebM 헤더: {file_path}")
+                        return False
+                
+                # 기본적인 파일 무결성 확인 (전체 파일 읽지 않음)
+                # 파일 끝부분도 확인 (마지막 100바이트)
+                if file_size > 100:
+                    f.seek(-100, 2)  # 파일 끝에서 100바이트 전으로 이동
+                    tail = f.read(100)
+                    if len(tail) == 0:
+                        print(f"[파일 검사] 파일 끝 부분 읽기 실패: {file_path}")
+                        return False
+            
+            print(f"[파일 검사] ✅ 유효한 오디오 파일: {file_path} ({file_size} bytes)")
+            return True
+            
+        except Exception as e:
+            print(f"[파일 검사] 파일 헤더 읽기 실패: {file_path} - {e}")
+            return False
+            
+    except Exception as e:
+        print(f"[파일 검사] 파일 검사 중 오류: {file_path} - {e}")
+        return False
+
 #🧠 OpenAI Whisper API를 통한 STT 수행
 def transcribe_audio_file(file_path: str) -> str:
     """
     Whisper API를 사용하여 주어진 오디오 파일을 텍스트로 전사함
     """
-    # 오디오 전처리 비활성화 (원본 파일 직접 사용)
-    # processed_path = preprocess_audio(file_path)
+    # 🔍 파일 유효성 검사 먼저 수행
+    if not is_valid_audio_file(file_path):
+        print(f"[STT] ❌ 손상된 오디오 파일 감지: {file_path}")
+        return "음성 파일이 손상되어 인식할 수 없습니다."
     
-    with open(file_path, "rb") as f:
-        transcript = client.audio.transcriptions.create(
-            model="whisper-1",
-            file=f,
-            response_format="text",
-            language="ko",
-            # 프롬프트 추가로 맥락 제공
-        )
-    
-    # 전처리된 임시 파일 삭제 (전처리 비활성화로 주석 처리)
-    # if processed_path != file_path and os.path.exists(processed_path):
-    #     os.remove(processed_path)
-    
+    try:
+        print(f"[STT] 📄 STT 처리 시작: {file_path}")
+        
+        with open(file_path, "rb") as f:
+            transcript = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=f,
+                response_format="text",
+                language="ko",
+                # 프롬프트 추가로 맥락 제공
+            )
+            
+    except Exception as e:
+        print(f"[STT] ❌ OpenAI API 오류: {e}")
+        # OpenAI API 오류 시 기본 텍스트 반환
+        return "음성을 명확하게 인식할 수 없습니다."
     # response_format="text" 를 사용하면 문자열이 반환됩니다.
     result = transcript.strip()
     

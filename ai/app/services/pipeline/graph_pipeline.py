@@ -80,13 +80,19 @@ def stt_node(state: InterviewState) -> InterviewState:
     
     audio_path = safe_get(state, "audio_path", context="stt_node")
     raw = transcribe_audio_file(audio_path)
+    
+    # 손상된 파일 또는 STT 실패 처리
     if not raw or not str(raw).strip():
-        raw = "없음"
+        raw = "음성을 인식할 수 없습니다."
+    elif "손상되어 인식할 수 없습니다" in raw:
+        print(f"[LangGraph] ⚠️ 손상된 오디오 파일 처리: {audio_path}")
+        # 손상된 파일에 대한 기본 답변 설정
+        raw = "기술적 문제로 음성을 인식할 수 없어 답변을 제공할 수 없습니다."
     
     state.setdefault("stt", {"done": False, "segments": []})
     state["stt"]["segments"].append({"raw": raw, "timestamp": datetime.now(KST).isoformat()})
     
-    print(f"[LangGraph] ✅ STT 완료: {raw[:30]}...")
+    print(f"[LangGraph] ✅ STT 완료: {raw[:50]}...")
     return state
 
 # ───────────────────────────────────────────────────
