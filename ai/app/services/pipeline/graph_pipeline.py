@@ -555,7 +555,7 @@ async def evaluation_judge_agent(state: InterviewState) -> InterviewState:
         )
 
         response = openai.chat.completions.create(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
             max_tokens=1024
