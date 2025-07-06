@@ -97,6 +97,25 @@ async def get_final_results(
             verbal_reason = summary.get("verbal_reason", "평가 정보가 없습니다.")
             nonverbal_score = summary.get("nonverbal_score", 0)
             nonverbal_reason = summary.get("nonverbal_reason", "평가 정보가 없습니다.")
+            
+            # 🔧 타입 변환 처리
+            # verbal_score를 int로 변환
+            verbal_score = round(verbal_score) if isinstance(verbal_score, (int, float)) else 0
+            
+            # verbal_reason이 list인 경우 string으로 변환
+            if isinstance(verbal_reason, list):
+                verbal_reason = " ".join(verbal_reason)
+            elif not isinstance(verbal_reason, str):
+                verbal_reason = "평가 정보가 없습니다."
+                
+            # nonverbal_score를 int로 변환
+            nonverbal_score = round(nonverbal_score) if isinstance(nonverbal_score, (int, float)) else 0
+            
+            # nonverbal_reason이 list인 경우 string으로 변환
+            if isinstance(nonverbal_reason, list):
+                nonverbal_reason = " ".join(nonverbal_reason)
+            elif not isinstance(nonverbal_reason, str):
+                nonverbal_reason = "평가 정보가 없습니다."
 
             results.append(
                 FinalResultResponse(
