@@ -1034,171 +1034,6 @@ async def score_summary_agent(state):
 
     return state
 
-# ───────────────────────────────────────────────────
-# Excel Node: 지원자 ID로 이름 조회 후 엑셀 생성
-# ───────────────────────────────────────────────────
-async def excel_node(state: InterviewState) -> InterviewState:
-    """
-    Excel 리포트 생성 노드
-    
-    Args:
-        state (InterviewState): 면접 상태 객체
-        
-    Returns:
-        InterviewState: Excel 파일 경로가 추가된 상태
-        
-    처리 과정:
-    1. SpringBoot API에서 지원자 정보 조회 (/api/v1/interviewees/simple)
-    2. 면접 결과 데이터 수집 (답변, 점수, 평가 사유)
-    3. Excel 파일 생성 및 저장
-    4. 파일 경로를 state에 저장
-    
-    Note:
-        - OpenAPI 스펙에 맞는 /interviewees/simple 엔드포인트 사용
-        - IntervieweeResponseDto 구조에 맞게 데이터 파싱
-        - 테스트 단계 기능으로 에러 발생 시 graceful handling
-    """
-    import os
-    import openpyxl
-    from datetime import datetime
-
-    try:
-        applicant_id = safe_get(state, "interviewee_id", context="excel_node:applicant_id")
-        rewrite = safe_get(state, "rewrite", {}, context="excel_node:rewrite")
-        rewrite_final = safe_get(rewrite, "final", [], context="excel_node:rewrite.final")
-        summary = safe_get(state, "summary", {}, context="excel_node:summary")
-        total_score = safe_get(summary, "total_score", 0, context="excel_node:summary.total_score")
-
-        # 1. 지원자 정보 조회 - 올바른 API 엔드포인트 사용
-        SPRINGBOOT_BASE_URL = os.getenv("SPRING_API_URL", "http://localhost:8080")
-        applicant_name = None
-        interviewers = None
-        room_no = None
-        scheduled_at = None
-        
-        async with httpx.AsyncClient() as client:
-            # OpenAPI 스펙에 맞는 엔드포인트 사용
-            resp = await client.get(f"{SPRINGBOOT_BASE_URL}/api/v1/interviewees/simple")
-            print(f"[DEBUG] /interviewees/simple status: {resp.status_code}")
-            
-            # 응답 상태 확인
-            if resp.status_code != 200:
-                print(f"[ERROR] /interviewees/simple API 호출 실패: {resp.status_code} - {resp.text}")
-                raise ValueError(f"API 호출 실패: {resp.status_code}")
-            
-            try:
-                response_data = resp.json()
-                interviewees = safe_get(response_data, "data", [], context="excel_node:response.data")
-            except Exception as e:
-                print(f"[ERROR] /interviewees/simple JSON 파싱 실패: {e}")
-                print(f"[ERROR] 응답 내용: {resp.text}")
-                raise ValueError(f"JSON 파싱 실패: {e}")
-        
-        if not isinstance(interviewees, list):
-            print(f"[ERROR] interviewees가 list가 아님! 실제 타입: {type(interviewees)}, 값: {interviewees}")
-            raise ValueError("잘못된 응답 형식")
-
-        # 2. 지원자 ID로 정보 찾기
-        for interviewee in interviewees:
-            if not isinstance(interviewee, dict):
-                print(f"[ERROR] interviewee가 dict가 아님! 실제 타입: {type(interviewee)}, 값: {interviewee}")
-                continue
-                
-            if safe_get(interviewee, "intervieweeId", context="excel_node:interviewee.intervieweeId") == applicant_id:
-                applicant_name = interviewee.get("name", "이름 없음")
-                interviewers = interviewee.get("interviewers", "면접관 정보 없음")
-                room_no = interviewee.get("roomNo", "면접실 정보 없음")
-                start_at = interviewee.get("startAt", "")
-                if start_at:
-                    # ISO 형식을 읽기 쉬운 형식으로 변환
-                    try:
-                        from datetime import datetime
-                        dt = datetime.fromisoformat(start_at.replace('Z', '+00:00'))
-                        scheduled_at = dt.strftime("%Y-%m-%d %H:%M")
-                    except:
-                        scheduled_at = start_at
-                else:
-                    scheduled_at = "면접 일시 정보 없음"
-                break
-
-        if applicant_name is None:
-            print(f"[WARNING] 지원자 정보를 찾을 수 없습니다. applicant_id={applicant_id}")
-            # 기본값으로 설정하여 Excel 생성은 계속 진행
-            applicant_name = f"지원자_{applicant_id}"
-            interviewers = "정보 없음"
-            room_no = "정보 없음"
-            scheduled_at = "정보 없음"
-
-        # 3. 답변 데이터 수집
-        if rewrite_final:
-            all_answers = "\n".join([item.get("rewritten", "") for item in rewrite_final])
-        else:
-            all_answers = "답변 데이터 없음"
-
-        # 4. 평가 사유 수집
-        verbal_reason = safe_get(summary, "verbal_reason", [], context="excel_node:summary.verbal_reason")
-        if isinstance(verbal_reason, list):
-            evaluation_summary = "\n".join(verbal_reason)
-        else:
-            evaluation_summary = str(verbal_reason) if verbal_reason else "평가 사유 없음"
-
-        # 5. Excel 파일 생성
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "면접 결과"
-        
-        # 헤더 설정
-        headers = ["지원자ID", "이름", "면접관", "면접실", "면접일시", "답변(전체)", "총점", "평가 사유"]
-        ws.append(headers)
-        
-        # 데이터 추가
-        ws.append([
-            applicant_id,
-            applicant_name,
-            interviewers,
-            room_no,
-            scheduled_at,
-            all_answers,
-            total_score,
-            evaluation_summary
-        ])
-
-        # 6. 파일 저장
-        out_dir = os.getenv("RESULT_DIR", "./result")
-        os.makedirs(out_dir, exist_ok=True)
-        ts = datetime.now(KST).strftime("%Y%m%d_%H%M%S")
-        excel_path = f"{out_dir}/interview_result_{applicant_id}_{ts}.xlsx"
-        wb.save(excel_path)
-        print(f"[LangGraph] ✅ Excel 생성 완료: {excel_path}")
-
-        # 7. state에 결과 저장
-        state.setdefault("report", {}).setdefault("excel", {})["path"] = excel_path
-        state.setdefault("decision_log", []).append({
-            "step": "excel_node",
-            "result": "generated",
-            "time": datetime.now(KST).isoformat(),
-            "details": {
-                "path": excel_path,
-                "applicant_name": applicant_name,
-                "total_score": total_score
-            }
-        })
-        
-        print(f"[LangGraph] ✅ Excel 리포트 생성 완료: {applicant_name} ({total_score}점)")
-        
-    except Exception as e:
-        print(f"[LangGraph] ❌ Excel 생성 실패: {e}")
-        # 에러 발생 시에도 state에 오류 정보 저장
-        state.setdefault("report", {}).setdefault("excel", {})["error"] = str(e)
-        state.setdefault("decision_log", []).append({
-            "step": "excel_node",
-            "result": "failed",
-            "time": datetime.now(KST).isoformat(),
-            "details": {"error": str(e)}
-        })
-    
-    return state
-
 # ──────────────── 🏗️ 파이프라인 그래프 구성 ────────────────
 
 """
@@ -1233,10 +1068,11 @@ final_builder.add_node("nonverbal_eval", nonverbal_evaluation_agent)
 final_builder.add_node("evaluation_agent", evaluation_agent)
 final_builder.add_node("evaluation_judge_agent", evaluation_judge_agent)
 final_builder.add_node("score_summary_agent", score_summary_agent)
-final_builder.add_node("excel_node", excel_node)  # Excel 생성 노드
+# final_builder.add_node("excel_node", excel_node)  # Excel 생성 노드 (주석처리)
 final_builder.set_entry_point("nonverbal_eval")
 final_builder.add_edge("nonverbal_eval", "evaluation_agent")
 final_builder.add_edge("evaluation_agent", "evaluation_judge_agent")
 final_builder.add_edge("evaluation_judge_agent", "score_summary_agent")
-final_builder.add_edge("score_summary_agent", "excel_node")
+# final_builder.add_edge("score_summary_agent", "excel_node")  # Excel 노드 연결 주석처리
+final_builder.add_edge("score_summary_agent", "__end__")  # 직접 종료로 변경
 final_flow_executor = final_builder.compile()
