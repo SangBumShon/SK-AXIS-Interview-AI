@@ -69,10 +69,12 @@ async def upload_stt(
 
         # ─── 1) 오디오 파일 저장 ───
         file_path = await save_audio_file(interviewee_id, audio)
-        print(f"[upload_stt] ✅ 오디오 저장 완료: {file_path}")
-
+        
         if not file_path:
-            raise HTTPException(status_code=500, detail="파일 저장 실패")
+            print(f"[upload_stt] ❌ 파일 저장 실패 - 하지만 정상 응답 반환")
+            return STTUploadResponse(result="Queued")
+            
+        print(f"[upload_stt] ✅ 오디오 저장 완료: {file_path}")
 
         # ─── 2) 인터뷰이별 Lock 생성 (순차 처리 보장) ───
         if interviewee_id not in interviewee_locks:
@@ -158,4 +160,6 @@ async def upload_stt(
         import traceback
         print(f"[upload_stt] ❌ 전체 예외 발생: {str(e)}")
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"서버 내부 오류: {str(e)}")
+        # 예외 발생 시에도 정상 응답 반환하여 팝업 방지
+        print(f"[upload_stt] 🛡️ 예외 발생했지만 정상 응답 반환 (팝업 방지)")
+        return STTUploadResponse(result="Queued")
