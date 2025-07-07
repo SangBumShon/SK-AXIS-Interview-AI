@@ -94,26 +94,16 @@ def is_valid_audio_file(file_path: str) -> bool:
         print(f"[파일 검사] 파일 검사 중 오류: {file_path} - {e}")
         return False
 
-#🧠 OpenAI Whisper API를 통한 STT 수행
+# 🧠 OpenAI Whisper API를 통한 STT 수행
 def transcribe_audio_file(file_path: str) -> str:
-def transcribe_audio_file(file_path: str) -> dict:
     """
     Whisper API를 사용하여 주어진 오디오 파일을 텍스트로 전사함
-    
-    Returns:
-        dict: {
-            "status": "success" | "skipped",
-            "text": str | None,
-            "reason": str | None,
-            "file_path": str
-        }
     """
     # 🔍 파일 유효성 검사 먼저 수행
     if not is_valid_audio_file(file_path):
         print(f"[STT] ❌ 손상된 오디오 파일 감지: {file_path}")
         return "음성 파일이 손상되어 인식할 수 없습니다."
-
-
+    
     try:
         print(f"[STT] 📄 STT 처리 시작: {file_path}")
 
@@ -130,8 +120,6 @@ def transcribe_audio_file(file_path: str) -> dict:
         print(f"[STT] ❌ OpenAI API 오류: {e}")
         # OpenAI API 오류 시 기본 텍스트 반환
         return "음성을 명확하게 인식할 수 없습니다."
-        # OpenAI API 오류 시 스킵 처리
-
     
     # response_format="text" 를 사용하면 문자열이 반환됩니다.
     result = transcript.strip()
