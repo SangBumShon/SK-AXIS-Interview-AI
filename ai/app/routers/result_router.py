@@ -139,18 +139,18 @@ async def get_final_results(
 
             # ─── 역량별 점수 추출 ───
             competencies: dict[str, int] = {}
-            eval_results = state.get("evaluation", {}).get("results", {})
+            keyword_scores = summary.get("keyword_scores", {})
             
             # SK 핵심 가치 영역
             sk_keys = ["SUPEX", "VWBE", "Passionate", "Proactive", "Professional", "People"]
             for key in sk_keys:
-                competencies[key] = eval_results.get(key, {}).get("score", 0)
+                competencies[key] = keyword_scores.get(key, 0)
 
             # 기술/도메인 영역 (키에 "/"가 포함되어 있어 "."로 변환)
             domain_keys = ["기술/직무", "도메인 전문성"]
             for key in domain_keys:
                 safe_key = key.replace("/", ".")  # API 스키마 호환성을 위한 변환
-                competencies[safe_key] = eval_results.get(key, {}).get("score", 0)
+                competencies[safe_key] = keyword_scores.get(key, 0)
 
             # ─── 언어적/비언어적 평가 결과 추출 ───
             # 요약 정보에서 언어적/비언어적 점수와 이유 추출
