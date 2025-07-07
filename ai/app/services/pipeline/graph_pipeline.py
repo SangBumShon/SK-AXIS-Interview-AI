@@ -152,8 +152,11 @@ def stt_node(state: InterviewState) -> InterviewState:
     audio_path = safe_get(state, "audio_path", context="stt_node")
     stt_result = transcribe_audio_file(audio_path)
     
-    # STT 상태 초기화
-    state.setdefault("stt", {"done": False, "segments": [], "skipped_files": []})
+    # STT 상태 초기화 - 각 키를 개별적으로 초기화
+    state.setdefault("stt", {})
+    state["stt"].setdefault("done", False)
+    state["stt"].setdefault("segments", [])
+    state["stt"].setdefault("skipped_files", [])
     
     # 스킵된 파일 처리
     if stt_result["status"] == "skipped":
