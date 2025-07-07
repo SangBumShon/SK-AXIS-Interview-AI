@@ -44,6 +44,7 @@ RESULT_DIR = os.getenv("RESULT_DIR", "./result")
 from app.services.interview.stt_service import transcribe_audio_file
 from app.services.interview.rewrite_service import rewrite_answer
 from app.services.interview.evaluation_service import evaluate_keywords_from_full_answer
+from app.services.interview.report_service import generate_pdf
 from app.schemas.nonverbal import Posture, FacialExpression, NonverbalData
 from app.services.interview.nonverbal_service import evaluate
 from app.schemas.state import InterviewState
@@ -138,48 +139,31 @@ def stt_node(state: InterviewState) -> InterviewState:
     처리 과정:
     1. audio_path에서 오디오 파일 경로 추출
     2. OpenAI Whisper API로 음성 인식 수행
-    3. 손상된 파일은 스킵하고 segments에 추가하지 않음
-    4. 성공한 결과만 state["stt"]["segments"]에 저장
+    3. 손상된 파일 또는 인식 실패 시 기본 메시지 설정
+    4. 결과를 state["stt"]["segments"]에 저장
     
     Note:
         - 파일 헤더 검증으로 3000배 속도 향상
         - 손상된 WebM 파일 사전 감지
         - 유튜브 관련 오인식 필터링
-        - 스킵된 파일은 별도 기록 (skipped_files)
     """
     print("[LangGraph] 🧠 stt_node 진입")
     
     audio_path = safe_get(state, "audio_path", context="stt_node")
-    stt_result = transcribe_audio_file(audio_path)
+    raw = transcribe_audio_file(audio_path)
     
-    # STT 상태 초기화 - 각 키를 개별적으로 초기화
-    state.setdefault("stt", {})
-    state["stt"].setdefault("done", False)
-    state["stt"].setdefault("segments", [])
-    state["stt"].setdefault("skipped_files", [])
+    # 손상된 파일 또는 STT 실패 처리
+    if not raw or not str(raw).strip():
+        raw = "음성을 인식할 수 없습니다."
+    elif "손상되어 인식할 수 없습니다" in raw:
+        print(f"[LangGraph] ⚠️ 손상된 오디오 파일 처리: {audio_path}")
+        # 손상된 파일에 대한 기본 답변 설정
+        raw = "기술적 문제로 음성을 인식할 수 없어 답변을 제공할 수 없습니다."
     
-    # 스킵된 파일 처리
-    if stt_result["status"] == "skipped":
-        print(f"[LangGraph] ⚠️ 오디오 파일 스킵: {audio_path} (이유: {stt_result['reason']})")
-        state["stt"]["skipped_files"].append({
-            "file_path": audio_path,
-            "reason": stt_result["reason"],
-            "timestamp": datetime.now(KST).isoformat()
-        })
-        print(f"[LangGraph] 🚫 스킵된 파일로 인해 segments에 추가하지 않음")
-        return state
+    state.setdefault("stt", {"done": False, "segments": []})
+    state["stt"]["segments"].append({"raw": raw, "timestamp": datetime.now(KST).isoformat()})
     
-    # 성공한 경우만 segments에 추가
-    raw_text = stt_result["text"]
-    if not raw_text or not str(raw_text).strip():
-        raw_text = "음성을 인식할 수 없습니다."
-    
-    state["stt"]["segments"].append({
-        "raw": raw_text, 
-        "timestamp": datetime.now(KST).isoformat()
-    })
-    
-    print(f"[LangGraph] ✅ STT 완료: {raw_text[:50]}...")
+    print(f"[LangGraph] ✅ STT 완료: {raw[:50]}...")
     return state
 
 # ───────────────────────────────────────────────────
@@ -210,23 +194,6 @@ async def rewrite_agent(state: InterviewState) -> InterviewState:
     print("[LangGraph] ✏️ rewrite_agent 진입")
     stt = safe_get(state, "stt", {}, context="rewrite_agent")
     stt_segments = safe_get(stt, "segments", [], context="rewrite_agent")
-    skipped_files = safe_get(stt, "skipped_files", [], context="rewrite_agent")
-    
-    # 스킵된 파일만 있고 유효한 segments가 없는 경우
-    if not stt_segments and skipped_files:
-        print(f"[LangGraph] ⚠️ 모든 오디오 파일이 스킵됨 ({len(skipped_files)}개)")
-        print(f"[LangGraph] 🚫 rewrite_agent 건너뛰기 - 처리할 세그먼트 없음")
-        # 빈 rewrite 상태 생성하여 다음 단계로 진행
-        state["rewrite"] = {
-            "items": [],
-            "retry_count": 0,
-            "force_ok": False,
-            "final": [],
-            "done": True,
-            "skipped_reason": "all_files_skipped"
-        }
-        return state
-    
     raw = stt_segments[-1]["raw"] if stt_segments else "없음"
     if not raw or not str(raw).strip():
         raw = "없음"
@@ -582,13 +549,8 @@ async def evaluation_agent(state: InterviewState) -> InterviewState:
     """
     rewrite = safe_get(state, "rewrite", {}, context="evaluation_agent:rewrite")
     final_items = safe_get(rewrite, "final", [], context="evaluation_agent:rewrite.final")
-    
-    # 모든 파일이 스킵된 경우 처리
-    if rewrite.get("skipped_reason") == "all_files_skipped":
-        print("[LangGraph] ⚠️ 모든 오디오 파일이 스킵되어 평가할 내용이 없음")
-        full_answer = "기술적 문제로 음성을 인식할 수 없어 답변을 제공할 수 없습니다."
-    elif final_items:
-        print(f"[DEBUG] 📝 evaluation_agent - final_items 개수: {len(final_items)}")
+    print(f"[DEBUG] 📝 evaluation_agent - final_items 개수: {len(final_items)}")
+    if final_items:
         for idx, item in enumerate(final_items):
             print(f"[DEBUG] 📝 final[{idx}]: {item.get('rewritten', '')[:100]}")
         full_answer = "\n".join(item["rewritten"] for item in final_items)
@@ -598,13 +560,7 @@ async def evaluation_agent(state: InterviewState) -> InterviewState:
         if stt_segments:
             full_answer = "\n".join(seg.get("raw", "답변 내용이 없습니다.") for seg in stt_segments)
         else:
-            print("[DEBUG] ⚠️ STT segments도 비어있음. 스킵된 파일 확인")
-            skipped_files = state.get("stt", {}).get("skipped_files", [])
-            if skipped_files:
-                print(f"[DEBUG] 📁 스킵된 파일 {len(skipped_files)}개 발견")
-                full_answer = "기술적 문제로 음성을 인식할 수 없어 답변을 제공할 수 없습니다."
-            else:
-                full_answer = "답변 내용이 없습니다."
+            full_answer = "답변 내용이 없습니다."
     
     print(f"[DEBUG] 📄 평가할 답변: {full_answer[:100]}...")
     
