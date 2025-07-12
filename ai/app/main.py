@@ -57,3 +57,32 @@ app.mount(
     StaticFiles(directory=os.path.join(os.path.dirname(__file__), "static"), html=True),
     name="static"
 )
+
+# ─── 서버 시작 이벤트 ───
+@app.on_event("startup")
+async def startup_event():
+    """
+    FastAPI 서버 시작 시 실행되는 이벤트
+    STT 필터링 기능 테스트 실행
+    """
+    print("\n🚀 SK AXIS AI 면접 시스템 시작")
+    print("=" * 50)
+    
+    # STT 필터링 테스트 실행
+    from app.services.interview.stt_service import test_stt_filtering
+    test_stt_filtering()
+    
+    print("=" * 50)
+    print("✅ 시스템 초기화 완료")
+
+# ─── 기본 상태 확인 엔드포인트 ───
+@app.get("/")
+async def root():
+    """
+    API 서버 상태 확인용 루트 엔드포인트
+    """
+    return {
+        "message": "SK AXIS AI Interview System",
+        "version": "1.0.0",
+        "status": "running"
+    }
